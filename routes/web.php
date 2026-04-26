@@ -26,36 +26,40 @@ Route::post('/logout', function () {
     Auth::logout();
     request()->session()->invalidate();
     request()->session()->regenerateToken();
-
     return redirect()->route('login');
 })->name('logout');
 
 Route::middleware('auth')->group(function () {
+    // Dashboard & Settings
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/dashboard/time-entries', [DashboardController::class, 'storeTimeEntry'])->name('dashboard.time-entries.store');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('password.update');
 
+    // Clients - Using {id} for Firebase Key
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
     Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
-    Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+    Route::delete('/clients/{id}', [ClientController::class, 'destroy'])->name('clients.destroy');
 
+    // Cases - Using {id} for Firebase Key
     Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
-    Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show');
-    Route::delete('/cases/{case}', [CaseController::class, 'destroy'])->name('cases.destroy');
+    Route::get('/cases/{id}', [CaseController::class, 'show'])->name('cases.show');
+    Route::delete('/cases/{id}', [CaseController::class, 'destroy'])->name('cases.destroy');
 
+    // Schedule
     Route::get('/schedule', [ScheduleController::class, 'index'])->name('schedule');
     Route::post('/schedule/events', [ScheduleController::class, 'storeEvent'])->name('schedule.events.store');
-    Route::delete('/schedule/events/{hearing}', [ScheduleController::class, 'destroyEvent'])->name('schedule.events.destroy');
+    Route::delete('/schedule/events/{id}', [ScheduleController::class, 'destroyEvent'])->name('schedule.events.destroy');
     Route::post('/schedule/time-entries', [ScheduleController::class, 'storeTimeEntry'])->name('schedule.time-entries.store');
-    Route::delete('/schedule/time-entries/{timeEntry}', [ScheduleController::class, 'destroyTimeEntry'])->name('schedule.time-entries.destroy');
+    Route::delete('/schedule/time-entries/{id}', [ScheduleController::class, 'destroyTimeEntry'])->name('schedule.time-entries.destroy');
 
+    // Documents
     Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
     Route::get('/documents/create', [DocumentController::class, 'create'])->name('documents.create');
     Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
-    Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
-    Route::get('/documents/{document}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
-    Route::put('/documents/{document}', [DocumentController::class, 'update'])->name('documents.update');
-    Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+    Route::get('/documents/{id}', [DocumentController::class, 'show'])->name('documents.show');
+    Route::get('/documents/{id}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
+    Route::put('/documents/{id}', [DocumentController::class, 'update'])->name('documents.update');
+    Route::delete('/documents/{id}', [DocumentController::class, 'destroy'])->name('documents.destroy');
 });

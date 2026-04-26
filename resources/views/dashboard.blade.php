@@ -4,6 +4,7 @@
 
 @section('content')
 <div>
+    {{-- Success Alerts --}}
     @if (session('success'))
         <div class="module-alert module-alert-success mb-4">
             <span>{{ session('success') }}</span>
@@ -43,6 +44,7 @@
 
     <div class="row">
         <div class="col-xl-8 col-lg-7">
+            {{-- Summary Stats --}}
             <div class="row mb-4">
                 <div class="col-md-6 mb-3 mb-md-0">
                     <div class="summary-card h-100">
@@ -61,31 +63,21 @@
                 </div>
             </div>
 
+            {{-- Active Work Session Card --}}
             <div class="schedule-timer-card mb-4">
                 <div class="schedule-timer-copy">
-                    <div class="schedule-timer-icon">
-                        <i class="bi bi-stopwatch-fill"></i>
-                    </div>
+                    <div class="schedule-timer-icon"><i class="bi bi-stopwatch-fill"></i></div>
                     <div>
                         <span class="schedule-timer-kicker">Active Work Session</span>
                         <h4 class="font-weight-bold mb-1">Keep today’s legal work in view</h4>
-                        <p class="mb-0">Use the topbar timer for live tracking, while this overview card keeps the current workload visible from the dashboard.</p>
+                        <p class="mb-0 small">Use the topbar timer for live tracking.</p>
                     </div>
                 </div>
                 <div class="schedule-timer-actions">
                     <div class="schedule-session-summary">
-                        <div class="schedule-session-stat">
-                            <span>Month Focus</span>
-                            <strong>{{ now()->format('F') }}</strong>
-                        </div>
-                        <div class="schedule-session-stat">
-                            <span>Hearings</span>
-                            <strong>{{ $hearings->count() }}</strong>
-                        </div>
-                        <div class="schedule-session-stat">
-                            <span>Documents</span>
-                            <strong>{{ $documentsCount }}</strong>
-                        </div>
+                        <div class="schedule-session-stat"><span>Month</span><strong>{{ now()->format('F') }}</strong></div>
+                        <div class="schedule-session-stat"><span>Hearings</span><strong>{{ count($hearings) }}</strong></div>
+                        <div class="schedule-session-stat"><span>Documents</span><strong>{{ $documentsCount }}</strong></div>
                     </div>
                     <div class="schedule-timer-buttons">
                         <a href="{{ route('schedule') }}" class="btn btn-light btn-sm">Open Calendar</a>
@@ -94,6 +86,7 @@
                 </div>
             </div>
 
+            {{-- Upcoming Hearings --}}
             <div class="glass-card mb-4">
                 <div class="p-4 border-bottom d-flex justify-content-between">
                     <h6 class="font-weight-bold mb-0">Upcoming Court Hearings</h6>
@@ -109,23 +102,20 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($hearings as $hearing)
+                            @forelse($hearings as $id => $hearing)
                                 <tr>
-                                    <td class="px-4 font-weight-bold">{{ $hearing->hearing_time->format('h:i A') }}</td>
-                                    <td>{{ $hearing->case_name }}</td>
+                                    <td class="px-4 font-weight-bold">
+                                        {{ isset($hearing['hearing_time']) ? \Carbon\Carbon::parse($hearing['hearing_time'])->format('h:i A') : 'N/A' }}
+                                    </td>
+                                    <td>{{ $hearing['case_name'] ?? 'Untitled Case' }}</td>
                                     <td class="text-right px-4">
-                                        <span class="badge-status-{{ $hearing->status == 'Confirmed' ? 'green' : 'orange' }}">
-                                            {{ $hearing->status }}
+                                        <span class="badge-status-{{ ($hearing['status'] ?? '') == 'Confirmed' ? 'green' : 'orange' }}">
+                                            {{ $hearing['status'] ?? 'Scheduled' }}
                                         </span>
                                     </td>
                                 </tr>
                             @empty
-                                <tr>
-                                    <td colspan="3" class="text-center py-5 text-muted">
-                                        <div style="font-size: 2rem; opacity: 0.3;"><i class="bi bi-folder2-open"></i></div>
-                                        <p class="mb-0">No upcoming hearings scheduled.</p>
-                                    </td>
-                                </tr>
+                                <tr><td colspan="3" class="text-center py-5 text-muted">No upcoming hearings.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -134,572 +124,163 @@
         </div>
 
         <div class="col-xl-4 col-lg-5">
+            {{-- Documents --}}
             <div class="glass-card p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h6 class="font-weight-bold mb-0">Recent Documents</h6>
                     <a href="{{ route('documents.index') }}" class="btn btn-sm btn-link font-weight-bold p-0">Open</a>
                 </div>
                 <div class="doc-list">
-                    @forelse($recentDocuments as $document)
+                    @forelse($recentDocuments as $id => $document)
                         @php
-                            $extension = strtolower(pathinfo($document->original_name, PATHINFO_EXTENSION));
-                            $docStyles = match ($extension) {
-                                'pdf' => ['bg-primary', 'bi bi-file-earmark-pdf-fill'],
-                                'doc', 'docx' => ['bg-info', 'bi bi-file-earmark-word-fill'],
-                                'txt' => ['bg-secondary', 'bi bi-file-earmark-text-fill'],
-                                default => ['bg-warning', 'bi bi-paperclip'],
-                            };
+                            $ext = strtolower(pathinfo($document['original_name'] ?? '', PATHINFO_EXTENSION));
                         @endphp
                         <div class="doc-item d-flex align-items-center mb-3 p-3 rounded border">
-                            <div class="icon-circle {{ $docStyles[0] }} text-white mr-3"><i class="{{ $docStyles[1] }}"></i></div>
+                            <div class="icon-circle bg-primary text-white mr-3"><i class="bi bi-file-earmark"></i></div>
                             <div class="flex-grow-1">
-                                <div class="small font-weight-bold">{{ $document->name }}</div>
-                                <div class="text-muted tiny">{{ strtoupper($extension ?: 'FILE') }} • {{ $document->created_at->format('d M Y') }}</div>
+                                <div class="small font-weight-bold">{{ $document['name'] ?? 'Untitled' }}</div>
+                                <div class="text-muted tiny">{{ strtoupper($ext ?: 'FILE') }}</div>
                             </div>
                         </div>
                     @empty
-                        <div class="time-log-empty">
-                            <i class="bi bi-folder2-open"></i>
-                            <strong>No documents uploaded yet</strong>
-                            <p>Use the quick create document button to start storing legal files in the system.</p>
-                        </div>
+                        <p class="text-muted small">No documents found.</p>
                     @endforelse
                 </div>
             </div>
 
+            {{-- Recent Time Records --}}
             <div class="glass-card p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h6 class="font-weight-bold mb-0">Recent Time Records</h6>
-                    <span class="tiny text-muted uppercase" id="timeFilterCount">6 entries</span>
+                    <span class="tiny text-muted uppercase" id="timeFilterCount">0 entries</span>
                 </div>
                 <div class="mb-3">
-                    <select id="timeLogFilter" class="form-control form-control-pill" style="max-width: 220px;">
+                    <select id="timeLogFilter" class="form-control form-control-pill">
                         <option value="all">All Activities</option>
-                        <option value="Document Review">Document Review</option>
-                        <option value="Client Interview">Client Interview</option>
-                        <option value="Case Preparation">Case Preparation</option>
-                        <option value="Legal Research">Legal Research</option>
-                        <option value="Court Preparation">Court Preparation</option>
-                        <option value="Admin Work">Admin Work</option>
+                        <option>Document Review</option>
+                        <option>Client Interview</option>
+                        <option>Case Preparation</option>
                     </select>
                 </div>
                 <div class="time-log-list" id="timeLogList"></div>
             </div>
-            <div class="glass-card p-4 mt-3">
-                <h6 class="font-weight-bold mb-3">System Snapshot</h6>
-                <div class="row">
-                    <div class="col-6">
-                        <div class="text-center py-3">
-                            <div class="h4 font-weight-bold text-primary mb-1">{{ $clientsCount }}</div>
-                            <small class="text-muted">Total Clients</small>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-center py-3">
-                            <div class="h5 font-weight-bold mb-1">{{ $documentsCount }}</div>
-                            <small class="text-muted">Documents Stored</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
+</div>
 
-    <div class="time-entry-panel" id="timeEntryPanel">
-        <div class="time-entry-card">
-            <div class="d-flex justify-content-between align-items-start mb-3">
-                <div>
-                    <span class="time-entry-kicker">Timer Stopped</span>
-                    <h5 class="font-weight-bold mb-1">Save Time Record</h5>
-                    <p class="text-muted small mb-0">Capture what the lawyer was working on before resetting the timer.</p>
-                </div>
-                <button type="button" class="time-entry-close" onclick="closeTimeEntryPanel()">
-                    <i class="bi bi-x-lg"></i>
-                </button>
+{{-- MODALS --}}
+@include('layouts.modals.logout')
+
+{{-- Time Entry Panel --}}
+<div class="time-entry-panel" id="timeEntryPanel">
+    <div class="time-entry-card p-4">
+        <form id="timeEntryForm">
+            <div class="form-group">
+                <label>Related Case</label>
+                <select id="timeEntryCase" class="form-control" required>
+                    <option value="">Select case</option>
+                    @foreach ($caseOptions as $id => $opt)
+                        <option value="{{ $id }}">{{ $opt['case_name'] ?? 'Unknown' }}</option>
+                    @endforeach
+                </select>
             </div>
-
-            <form id="timeEntryForm">
-                <div class="time-entry-grid">
-                    <div class="time-entry-field">
-                        <label>Recorded Duration</label>
-                        <input type="text" id="timeEntryDuration" readonly>
-                    </div>
-                    <div class="time-entry-field">
-                        <label>Activity Type <span class="text-danger">*</span></label>
-                        <select id="timeEntryActivity" required>
-                            <option value="">Select activity</option>
-                            <option>Document Review</option>
-                            <option>Client Interview</option>
-                            <option>Case Preparation</option>
-                            <option>Legal Research</option>
-                            <option>Court Preparation</option>
-                            <option>Admin Work</option>
-                        </select>
-                    </div>
-                    <div class="time-entry-field">
-                        <label>Related Case</label>
-                        <select id="timeEntryCase" required>
-                            <option value="">Select case</option>
-                            @foreach ($caseOptions as $caseOption)
-                                <option value="{{ $caseOption->id }}">{{ $caseOption->case_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="time-entry-field">
-                        <label>Billable?</label>
-                        <div class="time-entry-billable-toggle" role="radiogroup" aria-label="Billable status">
-                            <input class="time-entry-toggle-input" type="radio" name="billable" id="billableYes" value="yes" checked>
-                            <label class="time-entry-toggle-option" for="billableYes">Billable</label>
-
-                            <input class="time-entry-toggle-input" type="radio" name="billable" id="billableNo" value="no">
-                            <label class="time-entry-toggle-option" for="billableNo">Non-Billable</label>
-                        </div>
-                    </div>
-                    <div class="time-entry-field full">
-                        <label>Session Notes <span class="text-danger">*</span></label>
-                        <textarea id="timeEntryNotes" required placeholder="Brief description of work (e.g., 'Reviewed Smith v. Jones pleadings, drafted response outline')" rows="4"></textarea>
-                        <small class="text-muted">Required for records</small>
-                    </div>
-                </div>
-
-                <div class="time-entry-actions">
-                    <button type="button" class="btn btn-light px-4" onclick="discardTimeEntry()">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4" id="saveTimeBtn">
-                        <span class="spinner-border spinner-border-sm d-none mr-2" role="status" aria-hidden="true"></span>
-                        Save Entry
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="dashboardClientModal" class="module-modal-backdrop" aria-hidden="true">
-        <div class="module-modal-card">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="font-weight-bold mb-0">Add New Client</h4>
-                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardClientModal')">&times;</button>
+            <div class="form-group">
+                <label>Activity</label>
+                <select id="timeEntryActivity" class="form-control" required>
+                    <option>Document Review</option>
+                    <option>Client Interview</option>
+                    <option>Case Preparation</option>
+                </select>
             </div>
-
-            <form action="{{ route('clients.store') }}" method="POST">
-                @csrf
-                <input type="hidden" name="redirect_to" value="{{ route('dashboard') }}">
-
-                <div class="form-group">
-                    <label class="font-weight-bold small">Full Name</label>
-                    <input type="text" name="name" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Email Address</label>
-                    <input type="email" name="email" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Phone Number</label>
-                    <input type="text" name="phone" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Status</label>
-                    <select name="status" class="form-control module-input">
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                    </select>
-                </div>
-
-                <div class="module-modal-actions">
-                    <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardClientModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4">Add Client</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="dashboardCaseModal" class="module-modal-backdrop" aria-hidden="true">
-        <div class="module-modal-card">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="font-weight-bold mb-0">Open New Case</h4>
-                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardCaseModal')">&times;</button>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="timeEntryNotes" class="form-control" rows="3" required></textarea>
             </div>
-
-            <form action="{{ route('cases.store') }}" method="POST">
-                @csrf
-                <input type="hidden" name="redirect_to" value="{{ route('dashboard') }}">
-
-                <div class="form-group">
-                    <label class="font-weight-bold small">Assign Client</label>
-                    <select name="client_id" class="form-control module-input" required>
-                        <option value="">Select existing client</option>
-                        @foreach ($clients ?? [] as $client)
-                            <option value="{{ $client->id }}">{{ $client->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Case Title</label>
-                    <input type="text" name="case_name" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Detailed Description</label>
-                    <textarea name="description" rows="3" class="form-control module-input"></textarea>
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label class="font-weight-bold small">Status</label>
-                        <select name="status" class="form-control module-input">
-                            <option value="Active">Active</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Closed">Closed</option>
-                        </select>
-                    </div>
-                    <div class="form-group col-md-6">
-                        <label class="font-weight-bold small">Priority</label>
-                        <select name="priority" class="form-control module-input">
-                            <option value="High">High</option>
-                            <option value="Medium" selected>Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Initial Progress (%)</label>
-                    <input type="number" name="progress" min="0" max="100" class="form-control module-input" value="0">
-                </div>
-
-                <div class="module-modal-actions">
-                    <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardCaseModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4">Create Case</button>
-                </div>
-            </form>
-        </div>
+            <input type="hidden" id="timeEntryDuration">
+            <button type="submit" id="saveTimeBtn" class="btn btn-primary w-100">Save Record</button>
+        </form>
     </div>
+</div>
 
-    <div id="dashboardDocumentModal" class="module-modal-backdrop" aria-hidden="true">
-        <div class="module-modal-card">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="font-weight-bold mb-0">Upload Document</h4>
-                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardDocumentModal')">&times;</button>
+{{-- Case Creation Modal --}}
+<div id="dashboardCaseModal" class="module-modal-backdrop">
+    <div class="module-modal-card">
+        <h4 class="font-weight-bold">New Case</h4>
+        <form action="{{ route('cases.store') }}" method="POST">
+            @csrf
+            <div class="form-group">
+                <label>Client</label>
+                <select name="client_id" class="form-control" required>
+                    @foreach ($clients ?? [] as $cid => $client)
+                        <option value="{{ $cid }}">{{ $client['name'] ?? 'N/A' }}</option>
+                    @endforeach
+                </select>
             </div>
-
-            <form action="{{ route('documents.store') }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <input type="hidden" name="redirect_to" value="{{ route('dashboard') }}">
-
-                <div class="form-group mb-4">
-                    <label class="font-weight-bold small">Select Files</label>
-                    <input type="file" name="documents[]" class="form-control module-input py-2" accept=".pdf,.doc,.docx,.txt" multiple required>
-                    <small class="text-muted d-block mt-2">Allowed: PDF, DOC, DOCX, TXT. Maximum 10MB each.</small>
-                </div>
-
-                <div class="module-modal-actions">
-                    <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardDocumentModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4">Upload Documents</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="dashboardEventModal" class="module-modal-backdrop" aria-hidden="true">
-        <div class="module-modal-card">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="font-weight-bold mb-0">Add Calendar Task</h4>
-                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardEventModal')">&times;</button>
+            <div class="form-group">
+                <label>Case Name</label>
+                <input type="text" name="case_name" class="form-control" required>
             </div>
-
-            <form action="{{ route('schedule.events.store') }}" method="POST">
-                @csrf
-                <input type="hidden" name="redirect_to" value="{{ route('dashboard') }}">
-
-                <div class="form-group">
-                    <label class="font-weight-bold small">Task Title</label>
-                    <input type="text" name="title" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Related Case</label>
-                    <select name="case_name" class="form-control module-input" required>
-                        <option value="">Select case</option>
-                        @foreach ($caseOptions as $caseOption)
-                            <option value="{{ $caseOption->case_name }}">{{ $caseOption->case_name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Date & Time</label>
-                    <input type="datetime-local" name="hearing_time" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Status</label>
-                    <select name="status" class="form-control module-input">
-                        <option value="Scheduled">Scheduled</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Pending">Pending</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Notes</label>
-                    <textarea name="notes" rows="3" class="form-control module-input"></textarea>
-                </div>
-
-                <div class="module-modal-actions">
-                    <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardEventModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4">Save Task</button>
-                </div>
-            </form>
-        </div>
+            <button type="submit" class="btn btn-primary">Create</button>
+            <button type="button" class="btn btn-light" onclick="closeDashboardModal('dashboardCaseModal')">Cancel</button>
+        </form>
     </div>
-@endsection
-
-@section('modals')
-    @include('layouts.modals.logout')
+</div>
 @endsection
 
 @section('scripts')
 <script>
-document.querySelector('.topbar-center')?.setAttribute('id', 'timerWorkspace');
+    // Logic for Firebase Data Rendering
+    const recentTimeEntries = @json($recentTimeEntryData ?? []);
+    const dashboardTimeEntryUrl = @json(route('dashboard.time-entries.store'));
+    const csrfToken = @json(csrf_token());
+    let dashboardTimeEntries = Array.isArray(recentTimeEntries) ? recentTimeEntries.slice() : [];
 
-function openDashboardModal(modalId) {
-    document.getElementById(modalId)?.classList.add('show');
-}
-
-function closeDashboardModal(modalId) {
-    document.getElementById(modalId)?.classList.remove('show');
-}
-
-const actions = @json($actions ?? []);
-const chartLabels = @json($chartLabels ?? []);
-const chartData = @json($chartData ?? []);
-const recentTimeEntries = @json($recentTimeEntryData ?? []);
-
-function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('collapsed');
-}
-
-$('.dropdown').on('show.bs.dropdown', function () {
-    $('#content-area, #sidebar').css({
-        'filter': 'blur(10px)',
-        'pointer-events': 'none',
-        'transition': 'all 0.3s ease'
-    });
-});
-
-$('.dropdown').on('hidden.bs.dropdown', function () {
-    $('#content-area, #sidebar').css({
-        'filter': 'none',
-        'pointer-events': 'auto'
-    });
-});
-
-const ctx = document.getElementById('activityChart').getContext('2d');
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: chartLabels,
-        datasets: [{
-            data: chartData,
-            borderColor: '#0891b2',
-            tension: 0.4,
-            fill: true,
-            backgroundColor: 'rgba(8, 145, 178, 0.05)'
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } }
-    }
-});
-
-// Timer logic (same as original)
-const timeLogList = document.getElementById('timeLogList');
-const timeLogFilter = document.getElementById('timeLogFilter');
-const timeFilterCount = document.getElementById('timeFilterCount');
-const timeEntryPanel = document.getElementById('timeEntryPanel');
-const timeEntryForm = document.getElementById('timeEntryForm');
-const timeEntryDuration = document.getElementById('timeEntryDuration');
-const timeEntryActivity = document.getElementById('timeEntryActivity');
-const timeEntryCase = document.getElementById('timeEntryCase');
-const timeEntryNotes = document.getElementById('timeEntryNotes');
-const saveTimeBtn = document.getElementById('saveTimeBtn');
-const dashboardTimeEntryUrl = @json(route('dashboard.time-entries.store'));
-const csrfToken = @json(csrf_token());
-let dashboardTimeEntries = Array.isArray(recentTimeEntries) ? recentTimeEntries.slice() : [];
-let pendingTimeEntry = null;
-
-function formatDuration(milliseconds) {
-    const totalSeconds = Math.max(1, Math.floor(milliseconds / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    if (hours) {
-        return hours + 'h ' + minutes + 'm ' + seconds + 's';
-    }
-
-    if (minutes) {
-        return minutes + 'm ' + seconds + 's';
-    }
-
-    return seconds + 's';
-}
-
-function formatDateTime(timestamp) {
-    return new Date(timestamp).toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit'
-    });
-}
-
-function escapeHtml(value) {
-    return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function renderTimeLogs() {
-    const selectedFilter = timeLogFilter ? timeLogFilter.value : 'all';
-    const filteredLogs = dashboardTimeEntries.filter(function (log) {
-        return selectedFilter === 'all' || log.activity === selectedFilter;
-    });
-
-    if (timeFilterCount) {
-        timeFilterCount.textContent = filteredLogs.length + ' ' + (filteredLogs.length === 1 ? 'entry' : 'entries');
-    }
-
-    if (!filteredLogs.length) {
-        timeLogList.innerHTML = `
-            <div class="time-log-empty">
-                <i class="bi bi-stopwatch"></i>
-                <strong>No time records yet</strong>
-                <p>Stop the timer and save an entry to build your recent activity list.</p>
+    function renderTimeLogs() {
+        const list = document.getElementById('timeLogList');
+        if (!list) return;
+        
+        list.innerHTML = dashboardTimeEntries.map(log => `
+            <div class="time-log-item mb-2 p-2 border-bottom">
+                <strong>${log.activity || 'Activity'}</strong><br>
+                <small>${log.durationLabel || ''} - ${log.caseName || 'No Case'}</small>
             </div>
-        `;
-        return;
+        `).join('') || '<p class="text-muted">No logs.</p>';
     }
 
-    timeLogList.innerHTML = filteredLogs.slice().reverse().map(function (log) {
-        return `
-            <div class="time-log-item">
-                <div class="time-log-duration">${escapeHtml(log.durationLabel)}</div>
-                <div class="time-log-copy">
-                    <strong>${escapeHtml(log.activity)}</strong>
-                    <span>${escapeHtml(log.caseName || 'No case')} | ${log.billable ? 'Billable' : 'Non-Billable'}</span>
-                    <p>${escapeHtml(log.notes)}</p>
-                    <span>${escapeHtml(formatDateTime(log.savedAt))}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
+    function openDashboardModal(id) { document.getElementById(id)?.classList.add('show'); }
+    function closeDashboardModal(id) { document.getElementById(id)?.classList.remove('show'); }
 
-function openTimeEntryPanel(elapsedMs) {
-    if (!elapsedMs || elapsedMs < 1000 || !timeEntryPanel) {
-        return;
-    }
-
-    pendingTimeEntry = {
-        durationMs: elapsedMs,
-        durationLabel: formatDuration(elapsedMs),
-        stoppedAt: new Date().toISOString()
-    };
-
-    timeEntryDuration.value = pendingTimeEntry.durationLabel;
-    timeEntryPanel.classList.add('show');
-    timeEntryActivity.focus();
-}
-
-function clearTimeEntryForm() {
-    timeEntryForm.reset();
-    document.getElementById('billableYes').checked = true;
-    timeEntryDuration.value = '';
-    saveTimeBtn.disabled = false;
-    saveTimeBtn.querySelector('.spinner-border').classList.add('d-none');
-}
-
-window.closeTimeEntryPanel = function closeTimeEntryPanel() {
-    timeEntryPanel.classList.remove('show');
-};
-
-window.discardTimeEntry = function discardTimeEntry() {
-    pendingTimeEntry = null;
-    clearTimeEntryForm();
-    closeTimeEntryPanel();
-}
-
-window.addEventListener('ila:timer-stopped', function (event) {
-    openTimeEntryPanel(event.detail ? event.detail.elapsedTime : 0);
-});
-
-window.addEventListener('ila:timer-reset', function () {
-    discardTimeEntry();
-});
-
-window.addEventListener('ila:timer-started', function () {
-    discardTimeEntry();
-});
-
-timeEntryForm.addEventListener('submit', async function (event) {
-    event.preventDefault();
-
-    if (!pendingTimeEntry) {
-        return;
-    }
-
-    const spinner = saveTimeBtn.querySelector('.spinner-border');
-    saveTimeBtn.disabled = true;
-    spinner.classList.remove('d-none');
-
-    try {
-        const response = await fetch(dashboardTimeEntryUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
-            },
-            body: JSON.stringify({
-                case_id: timeEntryCase.value,
-                activity: timeEntryActivity.value,
-                duration_ms: pendingTimeEntry.durationMs,
-                description: timeEntryNotes.value.trim(),
-                billable: document.querySelector('input[name="billable"]:checked').value === 'yes' ? 1 : 0,
-                stopped_at: pendingTimeEntry.stoppedAt
-            })
+    // Chart init
+    const ctx = document.getElementById('activityChart')?.getContext('2d');
+    if(ctx) {
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels: @json($chartLabels ?? []), datasets: [{ data: @json($chartData ?? []), borderColor: '#0891b2' }] },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
-
-        if (!response.ok) {
-            throw new Error('Unable to save time entry.');
-        }
-
-        const payload = await response.json();
-        dashboardTimeEntries.push({
-            id: payload.entry.id,
-            durationMs: payload.entry.durationMs,
-            durationLabel: formatDuration(payload.entry.durationMs),
-            activity: payload.entry.activity,
-            caseName: payload.entry.caseName,
-            billable: payload.entry.billable,
-            notes: payload.entry.description,
-            savedAt: payload.entry.savedAt
-        });
-
-        renderTimeLogs();
-        discardTimeEntry();
-    } catch (error) {
-        alert('Unable to save the time entry right now. Please try again.');
-    } finally {
-        saveTimeBtn.disabled = false;
-        spinner.classList.add('d-none');
     }
-});
 
-timeLogFilter?.addEventListener('change', renderTimeLogs);
+    // Handle Form Submit
+    document.getElementById('timeEntryForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('saveTimeBtn');
+        btn.disabled = true;
+        
+        try {
+            const res = await fetch(dashboardTimeEntryUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                body: JSON.stringify({
+                    case_id: document.getElementById('timeEntryCase').value,
+                    activity: document.getElementById('timeEntryActivity').value,
+                    description: document.getElementById('timeEntryNotes').value
+                })
+            });
+            if(res.ok) location.reload();
+        } catch(err) { console.error(err); }
+        finally { btn.disabled = false; }
+    });
 
-renderTimeLogs();
+    renderTimeLogs();
 </script>
 @endsection
-
-
-
-

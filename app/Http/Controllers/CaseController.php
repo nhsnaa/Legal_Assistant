@@ -2,29 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CaseModel;
-use App\Models\Client;
 use Illuminate\Http\Request;
+use Kreait\Laravel\Firebase\Facades\Firebase;
 
 class CaseController extends Controller
 {
     public function index(Request $request)
     {
+        $database = Firebase::database();
         $filter = $request->query('filter', 'all');
-        $casesQuery = CaseModel::with('client')->latest();
 
-        if ($filter === 'active') {
-            $casesQuery->whereIn('status', ['Active', 'Pending']);
-        } elseif ($filter === 'archived') {
-            $casesQuery->where('status', 'Closed');
-        }
+        $allCases = collect($database->getReference('cases')->getValue() ?? []);
+        $clients = collect($database->getReference('clients')->getValue() ?? []);
 
-        $cases = $casesQuery->get();
-        $clients = Client::orderBy('name')->get();
+        // Filter logic
+        $cases = $allCases->when($filter === 'active', function ($c) {
+            return $c->whereIn('status', ['Active', 'Pending']);
+        })->when($filter === 'archived', function ($c) {
+            return $c->where('status', 'Closed');
+        })->reverse();
+
         $caseCounts = [
-            'all' => CaseModel::count(),
-            'active' => CaseModel::whereIn('status', ['Active', 'Pending'])->count(),
-            'archived' => CaseModel::where('status', 'Closed')->count(),
+            'all' => $allCases->count(),
+            'active' => $allCases->whereIn('status', ['Active', 'Pending'])->count(),
+            'archived' => $allCases->where('status', 'Closed')->count(),
         ];
 
         return view('modules.cases', compact('cases', 'clients', 'filter', 'caseCounts'));
@@ -32,8 +33,9 @@ class CaseController extends Controller
 
     public function store(Request $request)
     {
+        $database = Firebase::database();
         $validated = $request->validate([
-            'client_id' => ['required', 'exists:clients,id'],
+            'client_id' => ['required', 'string'],
             'case_name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'status' => ['required', 'in:Active,Closed,Pending'],
@@ -41,28 +43,39 @@ class CaseController extends Controller
             'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
-        CaseModel::create($validated);
+        $validated['created_at'] = now()->toIso8601String();
+        $database->getReference('cases')->push($validated);
 
-        $redirectTo = $request->input('redirect_to');
+        return redirect()->back()->with('success', 'Case created successfully.');
+    }
+// app/Http/Controllers/CaseController.php
 
-        return $redirectTo
-            ? redirect()->to($redirectTo)->with('success', 'Case created successfully.')
-            : redirect()->route('cases.index')->with('success', 'Case created successfully.');
+public function show($id)
+{
+    $database = Firebase::database();
+    
+    // Fetch specific case from Firebase
+    $caseData = $database->getReference('cases/' . $id)->getValue();
+    
+    if (!$caseData) {
+        abort(404);
     }
 
-    public function show(CaseModel $case)
-    {
-        $case->load(['client', 'timeEntries']);
+    // Wrap in a collection or object to mimic CaseModel behavior for the view
+    $case = (object) $caseData;
+    $case->id = $id;
 
-        return view('modules.case-show', compact('case'));
+    // Fetch linked client
+    if (isset($case->client_id)) {
+        $clientData = $database->getReference('clients/' . $case->client_id)->getValue();
+        $case->client = (object) $clientData;
     }
 
-    public function destroy(CaseModel $case)
+    return view('modules.case-show', compact('case'));
+    }
+    public function destroy($id)
     {
-        $case->delete();
-
-        return redirect()
-            ->route('cases.index')
-            ->with('success', 'Case deleted successfully.');
+        Firebase::database()->getReference('cases/' . $id)->remove();
+        return redirect()->route('cases.index')->with('success', 'Case deleted.');
     }
 }

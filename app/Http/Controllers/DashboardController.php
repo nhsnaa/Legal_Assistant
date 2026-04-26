@@ -2,20 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CaseModel;
-use App\Models\Client;
-use App\Models\Document;
-use App\Models\Hearing;
-use App\Models\TimeEntry;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Kreait\Laravel\Firebase\Facades\Firebase;
+use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        $user = Auth::user();
+        $database = Firebase::database();
         $hour = now()->hour;
 
         $greeting = match(true) {
@@ -24,81 +20,75 @@ class DashboardController extends Controller
             default => 'Good Evening'
         };
 
-        $activeCases = CaseModel::where('status', 'Active')->count();
+        // 1. Fetch Cases & Count Active
+        $casesRef = $database->getReference('cases')->getValue() ?? [];
+        $activeCases = count(array_filter($casesRef, fn($c) => ($c['status'] ?? '') === 'Active'));
 
+        // 2. Chart Logic (Last 7 Days)
         $startDate = now()->subDays(6)->startOfDay();
         $endDate = now()->endOfDay();
-
-        $casesByDay = CaseModel::whereBetween('created_at', [$startDate, $endDate])
-            ->get(['created_at'])
-            ->groupBy(fn ($case) => $case->created_at->format('Y-m-d'));
-
         $chartLabels = [];
         $chartData = [];
 
         foreach (CarbonPeriod::create($startDate, $endDate) as $date) {
+            $dayKey = $date->format('Y-m-d');
             $chartLabels[] = $date->format('D');
-            $chartData[] = $casesByDay->get($date->format('Y-m-d'), collect())->count();
+            
+            // Count cases created on this day in Firebase
+            $count = count(array_filter($casesRef, function($case) use ($dayKey) {
+                return isset($case['created_at']) && str_starts_with($case['created_at'], $dayKey);
+            }));
+            $chartData[] = $count;
         }
 
-        $hearings = Hearing::orderBy('hearing_time')
-            ->limit(5)
-            ->get(['hearing_time', 'case_name', 'status']);
+        // 3. Fetch Hearings (Limit 5)
+        $hearingsRef = $database->getReference('hearings')->orderByChild('hearing_time')->limitToFirst(5)->getValue() ?? [];
+        $hearings = collect($hearingsRef);
 
-        $recentDocuments = Document::latest()
-            ->limit(4)
-            ->get(['name', 'original_name', 'mime_type', 'created_at']);
+        // 4. Fetch Recent Documents (Limit 4)
+        $docsRef = $database->getReference('documents')->limitToLast(4)->getValue() ?? [];
+        $recentDocuments = collect($docsRef)->reverse();
+        $documentsCount = count($database->getReference('documents')->getValue() ?? []);
 
-        $recentTimeEntries = TimeEntry::with('case')
-            ->latest()
-            ->take(8)
-            ->get();
-
-        $recentTimeEntryData = $recentTimeEntries->map(function ($entry) {
+        // 5. Recent Time Entries
+        $timeRef = $database->getReference('time_entries')->limitToLast(8)->getValue() ?? [];
+        $recentTimeEntryData = collect($timeRef)->map(function ($entry, $key) {
             return [
-                'id' => $entry->id,
-                'durationMs' => (int) round(((float) $entry->hours) * 3600000),
-                'durationLabel' => number_format((float) $entry->hours, 2) . 'h',
-                'activity' => $entry->activity,
-                'caseName' => optional($entry->case)->case_name,
-                'billable' => $entry->billable,
-                'notes' => $entry->description,
-                'savedAt' => optional($entry->created_at)->toIso8601String(),
+                'id' => $key,
+                'durationMs' => (int) round(((float) ($entry['hours'] ?? 0)) * 3600000),
+                'durationLabel' => number_format((float) ($entry['hours'] ?? 0), 2) . 'h',
+                'activity' => $entry['activity'] ?? 'Unknown',
+                'caseName' => $entry['case_name'] ?? 'No case',
+                'billable' => $entry['billable'] ?? false,
+                'notes' => $entry['description'] ?? '',
+                'savedAt' => $entry['created_at'] ?? now()->toIso8601String(),
             ];
-        })->values()->all();
+        })->reverse()->values()->all();
 
-        $clientsCount = Client::count();
-        $documentsCount = Document::count();
-        $clients = Client::orderBy('name')->get(['id', 'name']);
+        // 6. Clients & Case Options
+        $clientsRef = $database->getReference('clients')->getValue() ?? [];
+        $clientsCount = count($clientsRef);
+        $clients = collect($clientsRef)->map(fn($c, $id) => (object)['id' => $id, 'name' => $c['name']]);
 
-        $caseOptions = CaseModel::with('client')
-            ->whereNotNull('case_name')
-            ->where('case_name', '!=', '')
-            ->orderBy('case_name')
-            ->limit(50)
-            ->get(['id', 'client_id', 'case_name']);
+        $caseOptions = collect($casesRef)->map(fn($c, $id) => (object)[
+            'id' => $id, 
+            'case_name' => $c['case_name'],
+            'client_id' => $c['client_id'] ?? null
+        ]);
 
         return view('dashboard', compact(
-            'greeting',
-            'user',
-            'activeCases',
-            'chartLabels',
-            'chartData',
-            'hearings',
-            'recentDocuments',
-            'recentTimeEntries',
-            'recentTimeEntryData',
-            'clients',
-            'clientsCount',
-            'documentsCount',
-            'caseOptions'
+            'greeting', 'activeCases', 'chartLabels', 'chartData', 
+            'hearings', 'recentDocuments', 'recentTimeEntryData', 
+            'clients', 'clientsCount', 'documentsCount', 'caseOptions'
         ));
     }
 
     public function storeTimeEntry(Request $request)
     {
+        $database = Firebase::database();
+        
         $validated = $request->validate([
-            'case_id' => ['required', 'exists:cases,id'],
+            'case_id' => ['required', 'string'],
             'activity' => ['required', 'string', 'max:255'],
             'duration_ms' => ['required', 'integer', 'min:1000'],
             'description' => ['required', 'string'],
@@ -107,32 +97,26 @@ class DashboardController extends Controller
         ]);
 
         $hours = max(round(($validated['duration_ms'] / 3600000), 2), 0.01);
+        
+        // Get Case Name for display
+        $case = $database->getReference('cases/' . $validated['case_id'])->getValue();
 
-        $timeEntry = TimeEntry::create([
+        $newData = [
             'case_id' => $validated['case_id'],
+            'case_name' => $case['case_name'] ?? 'General',
             'work_date' => date('Y-m-d', strtotime($validated['stopped_at'])),
             'hours' => $hours,
             'activity' => $validated['activity'],
             'billable' => (bool) $validated['billable'],
             'description' => $validated['description'],
-        ]);
+            'created_at' => now()->toIso8601String(),
+        ];
 
-        $timeEntry->load('case');
+        $newPostKey = $database->getReference('time_entries')->push($newData)->getKey();
 
         return response()->json([
-            'message' => 'Time entry saved successfully.',
-            'entry' => [
-                'id' => $timeEntry->id,
-                'activity' => $timeEntry->activity,
-                'billable' => $timeEntry->billable,
-                'description' => $timeEntry->description,
-                'hours' => (float) $timeEntry->hours,
-                'durationMs' => (int) $validated['duration_ms'],
-                'savedAt' => $timeEntry->created_at?->toIso8601String(),
-                'workDate' => $timeEntry->work_date?->toDateString(),
-                'caseName' => optional($timeEntry->case)->case_name,
-            ],
+            'message' => 'Time entry saved to Firebase.',
+            'entry' => array_merge($newData, ['id' => $newPostKey, 'durationMs' => $validated['duration_ms'], 'savedAt' => $newData['created_at']])
         ]);
     }
 }
-

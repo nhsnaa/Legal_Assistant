@@ -2,109 +2,49 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Kreait\Laravel\Firebase\Facades\Firebase;
 
 class DocumentController extends Controller
 {
     public function index()
     {
-        $documents = Document::latest()->get();
-
+        $documents = collect(Firebase::database()->getReference('documents')->getValue() ?? [])->reverse();
         return view('modules.documents', compact('documents'));
-    }
-
-    public function create()
-    {
-        return view('modules.documents-upload');
     }
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'documents' => ['required', 'array'],
-            'documents.*' => ['file', 'max:10240'],
-        ], [
-            'documents.required' => 'Please select at least one document to upload.',
-            'documents.*.max' => 'Each document must not be larger than 10MB.',
-        ]);
-
-        $allowedExtensions = ['pdf', 'doc', 'docx', 'txt'];
+        $database = Firebase::database();
         $files = $request->file('documents', []);
-
-        foreach ($files as $file) {
-            $extension = strtolower($file->getClientOriginalExtension());
-
-            if (!in_array($extension, $allowedExtensions, true)) {
-                return back()
-                    ->withErrors(['documents' => 'Only PDF, DOC, DOCX, and TXT files are allowed.'])
-                    ->withInput();
-            }
-        }
-
-        $created = 0;
 
         foreach ($files as $file) {
             $path = $file->store('documents');
 
-            Document::create([
+            $database->getReference('documents')->push([
                 'name' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
                 'file_path' => $path,
                 'original_name' => $file->getClientOriginalName(),
-                'mime_type' => $file->getMimeType() ?: 'application/octet-stream',
+                'mime_type' => $file->getMimeType(),
                 'size' => $file->getSize(),
+                'created_at' => now()->toIso8601String(),
             ]);
-
-            $created++;
         }
 
-        $redirectTo = $request->input('redirect_to');
-
-        return $redirectTo
-            ? redirect()->to($redirectTo)->with('success', $created . ' document(s) uploaded successfully.')
-            : redirect()->route('documents.index')->with('success', $created . ' document(s) uploaded successfully.');
+        return redirect()->route('documents.index')->with('success', 'Documents uploaded.');
     }
 
-    public function show(Document $document)
+    public function destroy($id)
     {
-        if (!Storage::exists($document->file_path)) {
-            abort(404, 'File not found.');
+        $ref = Firebase::database()->getReference('documents/' . $id);
+        $doc = $ref->getValue();
+
+        if (isset($doc['file_path'])) {
+            Storage::delete($doc['file_path']);
         }
 
-        return Storage::download($document->file_path, $document->original_name);
-    }
-
-    public function edit(Document $document)
-    {
-        return view('modules.documents-edit', compact('document'));
-    }
-
-    public function update(Request $request, Document $document)
-    {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-        ]);
-
-        $document->update([
-            'name' => $validated['name'],
-        ]);
-
-        return redirect()
-            ->route('documents.index')
-            ->with('success', 'Document updated successfully.');
-    }
-
-    public function destroy(Document $document)
-    {
-        if (Storage::exists($document->file_path)) {
-            Storage::delete($document->file_path);
-        }
-
-        $document->delete();
-
-        return redirect()
-            ->route('documents.index')
-            ->with('success', 'Document deleted successfully.');
+        $ref->remove();
+        return redirect()->back()->with('success', 'Document deleted.');
     }
 }

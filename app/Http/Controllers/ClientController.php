@@ -2,27 +2,28 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Client;
 use Illuminate\Http\Request;
+use Kreait\Laravel\Firebase\Facades\Firebase;
 
 class ClientController extends Controller
 {
     public function index(Request $request)
     {
+        $database = Firebase::database();
         $filter = $request->query('filter', 'all');
-        $clientsQuery = Client::latest();
+        
+        $allClients = collect($database->getReference('clients')->getValue() ?? []);
 
-        if ($filter === 'active') {
-            $clientsQuery->where('status', 'Active');
-        } elseif ($filter === 'archived') {
-            $clientsQuery->where('status', 'Inactive');
-        }
+        $clients = $allClients->when($filter === 'active', function ($c) {
+            return $c->where('status', 'Active');
+        })->when($filter === 'archived', function ($c) {
+            return $c->where('status', 'Inactive');
+        })->reverse();
 
-        $clients = $clientsQuery->get();
         $clientCounts = [
-            'all' => Client::count(),
-            'active' => Client::where('status', 'Active')->count(),
-            'archived' => Client::where('status', 'Inactive')->count(),
+            'all' => $allClients->count(),
+            'active' => $allClients->where('status', 'Active')->count(),
+            'archived' => $allClients->where('status', 'Inactive')->count(),
         ];
 
         return view('modules.clients', compact('clients', 'filter', 'clientCounts'));
@@ -32,26 +33,18 @@ class ClientController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['required', 'string', 'max:30'],
+            'email' => ['required', 'email'],
+            'phone' => ['required', 'string'],
             'status' => ['required', 'in:Active,Inactive'],
         ]);
 
-        Client::create($validated);
-
-        $redirectTo = $request->input('redirect_to');
-
-        return $redirectTo
-            ? redirect()->to($redirectTo)->with('success', 'Client added successfully.')
-            : redirect()->route('clients.index')->with('success', 'Client added successfully.');
+        Firebase::database()->getReference('clients')->push($validated);
+        return redirect()->back()->with('success', 'Client added.');
     }
 
-    public function destroy(Client $client)
+    public function destroy($id)
     {
-        $client->delete();
-
-        return redirect()
-            ->route('clients.index')
-            ->with('success', 'Client deleted successfully.');
+        Firebase::database()->getReference('clients/' . $id)->remove();
+        return redirect()->route('clients.index')->with('success', 'Client deleted.');
     }
 }

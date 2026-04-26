@@ -96,6 +96,10 @@
     </div>
 
     <script>
+        // Add this simple script update to your Login button logic
+     <button type="submit" class="btn btn-primary btn-block" onclick="this.disabled=true; this.innerHTML='Signing in...'; this.form.submit();">
+    Sign In
+     </button>
     function togglePassword(inputId, button) {
         const input = document.getElementById(inputId);
         const icon = button.querySelector('i');

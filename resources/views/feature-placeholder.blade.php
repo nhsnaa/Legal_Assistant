@@ -16,7 +16,9 @@
 
     <div class="mt-4">
         <p class="mb-4">This page is linked in the navigation and now loads safely, but the full feature screen has not been built yet.</p>
-        <a href="{{ route('dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+        <a href="{{ route('dashboard') }}" class="btn btn-primary">
+            <i class="bi bi-arrow-left mr-2"></i>Back to Dashboard
+        </a>
     </div>
 </div>
 @endsection

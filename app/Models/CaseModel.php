@@ -1,36 +1,29 @@
-<?php
-
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CaseModel extends Model
 {
-    use HasFactory;
-
+    // Important: Specify the table name if it's just 'cases'
     protected $table = 'cases';
 
     protected $fillable = [
-        'client_id',
-        'case_name',
-        'description',
-        'status',
-        'priority',
-        'progress',
+        'client_id', 
+        'case_name', 
+        'description', 
+        'status', 
+        'priority', 
+        'progress'
     ];
 
-    protected $casts = [
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-    ];
-
-    public function client()
+    public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class, 'client_id');
+        return $this->belongsTo(Client::class);
     }
 
-    public function timeEntries()
+    public function timeEntries(): HasMany
     {
         return $this->hasMany(TimeEntry::class, 'case_id');
     }

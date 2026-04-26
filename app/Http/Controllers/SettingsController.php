@@ -10,6 +10,7 @@ class SettingsController extends Controller
 {
     public function index()
     {
+        // Still using Laravel's built-in Auth for user data
         $user = Auth::user();
 
         return view('settings', compact('user'));
@@ -21,11 +22,13 @@ class SettingsController extends Controller
             'new_password' => 'required|string|min:4|confirmed',
         ]);
 
-        $user = $request->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        
+        // This still saves to your SQL 'users' table
         $user->password = Hash::make($request->new_password);
         $user->save();
 
         return back()->with('success', 'Password updated successfully.');
     }
 }
-
