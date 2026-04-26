@@ -11,12 +11,13 @@
     { "src": "/assets/(.*)", "dest": "/public/assets/$1" },
     { "src": "/(.*)", "dest": "/api/index.php" }
   ],
-  "env": {
-  "APP_ENV": "production",
-  "APP_DEBUG": "true",
-  "LOG_CHANNEL": "stderr",
-  "VIEW_COMPILED_PATH": "/tmp",
-  "CACHE_DRIVER": "array",
-  "SESSION_DRIVER": "cookie"
-}
+"env": {
+    "APP_ENV": "production",
+    "APP_DEBUG": "true",
+    "LOG_CHANNEL": "stderr",
+    "VIEW_COMPILED_PATH": "/tmp",
+    "CACHE_DRIVER": "array",
+    "SESSION_DRIVER": "cookie",
+    "APP_STORAGE": "/tmp"
+  }
 }
