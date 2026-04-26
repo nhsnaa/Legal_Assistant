@@ -59,11 +59,12 @@ return [
     |
     */
 
-    'providers' => [
+   'providers' => [
         'users' => [
-            'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'driver' => 'database', // Change from 'eloquent' to 'database'
+            'table' => 'users',     // This stops Eloquent from looking for a Model
         ],
+    ],
 
         // 'users' => [
         //     'driver' => 'database',

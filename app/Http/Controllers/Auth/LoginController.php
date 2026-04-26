@@ -4,10 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Kreait\Laravel\Firebase\Facades\Firebase;
-// Import your Firebase library or service here
-// use Kreait\Firebase\Contract\Auth as FirebaseAuth; 
 
 class LoginController extends Controller
 {
@@ -18,24 +16,29 @@ class LoginController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
+        $credentials = $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
         ]);
 
-        try {
-            // 1. Here is where you would call Firebase to sign in
-            // $signInResult = $this->firebaseAuth->signInWithEmailAndPassword($email, $password);
-            
-            // 2. For now, to just get the login page to LOAD without crashing:
-            // We will leave the logic blank or use a simple check
-            
-            return redirect()->intended('dashboard');
+        $database = Firebase::database();
+        // Look for the user in your 'users' reference
+        $usersRef = $database->getReference('users')->orderByChild('email')->equalTo($credentials['email'])->getValue();
 
-        } catch (\Exception $e) {
-            return back()->withErrors([
-                'email' => 'Firebase Authentication failed: ' . $e->getMessage(),
-            ]);
+        if ($usersRef) {
+            // Firebase returns an array, get the first match
+            $userId = array_key_first($usersRef);
+            $userData = $usersRef[$userId];
+
+            // Verify the hashed password
+            if (Hash::check($credentials['password'], $userData['password'])) {
+                // Manually log them into the session
+                session(['firebase_user_id' => $userId, 'user_role' => $userData['user_role']]);
+                
+                return redirect()->route('dashboard');
+            }
         }
+
+        return back()->withErrors(['email' => 'Invalid email or password.']);
     }
 }
