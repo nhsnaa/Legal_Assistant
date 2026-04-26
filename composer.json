@@ -8,7 +8,7 @@
     "require": {
         "php": "^8.2",
         "guzzlehttp/guzzle": "^7.8",
-        "kreait/laravel-firebase": "^5.0",
+        "kreait/laravel-firebase": "^6.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1"
     },
