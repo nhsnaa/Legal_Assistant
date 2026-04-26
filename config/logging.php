@@ -18,7 +18,10 @@ return [
     |
     */
 
-     'default' => env('LOG_CHANNEL', 'errorlog'),   /*
+     'errorlog' => [
+    'driver' => 'errorlog',
+    'level' => env('LOG_LEVEL', 'debug'),
+    ], /*
     |--------------------------------------------------------------------------
     | Deprecations Log Channel
     |--------------------------------------------------------------------------
