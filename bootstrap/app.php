@@ -15,4 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
-    })->create();
+    })
+    ->registered(function ($app) {
+        // This is the magic part for Vercel
+        if (isset($_SERVER['VERCEL_URL'])) {
+            $app->useStoragePath('/tmp/storage');
+            config(['view.compiled' => '/tmp/storage/framework/views']);
+        }
+    })
+    ->create();

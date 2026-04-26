@@ -18,8 +18,7 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'errorlog'), // Change 'stack' to 'errorlog'
-    /*
+     'default' => 'errorlog',    /*
     |--------------------------------------------------------------------------
     | Deprecations Log Channel
     |--------------------------------------------------------------------------
