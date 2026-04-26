@@ -4,6 +4,11 @@
   "functions": {
     "api/index.php": { "runtime": "vercel-php@0.7.1" }
   },
+  "build": {
+    "env": {
+      "COMPOSER_NODE_VERSION": "20"
+    }
+  },
   "routes": [
     { "src": "/(.*)", "dest": "/api/index.php" }
   ],
