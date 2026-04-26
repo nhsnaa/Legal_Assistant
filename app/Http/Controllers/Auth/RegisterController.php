@@ -2,21 +2,23 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Kreait\Laravel\Firebase\Facades\Firebase;
+// We remove the "use App\Http\Controllers\Controller;" line to avoid the crash
 
-class RegisterController extends Controller
+class RegisterController extends \App\Http\Controllers\Controller
 {
     public function show()
     {
         if (auth()->check()) { return redirect()->route('dashboard'); }
-        return view('register');
+        // Make sure this view exists in resources/views/register.blade.php
+        return view('register'); 
     }
 
     public function store(Request $request)
     {
+        // ... your existing Firebase code is fine here ...
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -28,16 +30,14 @@ class RegisterController extends Controller
         $database = Firebase::database();
         $fullName = trim($validated['first_name'].' '.$validated['last_name']);
 
-        // Create the user data array
         $userData = [
             'name' => $fullName,
             'email' => $validated['email'],
-            'password' => Hash::make($validated['password']), // Securely hash
+            'password' => Hash::make($validated['password']),
             'user_role' => $validated['userRole'],
             'created_at' => now()->toDateTimeString(),
         ];
 
-        // Push to Firebase Realtime Database
         $database->getReference('users')->push($userData);
 
         return redirect()->route('login')->with('success', 'Registration successful! Please login.');
