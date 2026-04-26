@@ -1,12 +1,10 @@
 <?php
 
-// 1. Fix for Vercel's Read-Only Filesystem
-# This creates the necessary folders in /tmp so Laravel doesn't crash
+// Create required folders in the only writable space on Vercel
 $storagePaths = [
     '/tmp/storage/framework/views',
     '/tmp/storage/framework/cache',
     '/tmp/storage/framework/sessions',
-    '/tmp/storage/logs',
 ];
 
 foreach ($storagePaths as $path) {
@@ -15,10 +13,8 @@ foreach ($storagePaths as $path) {
     }
 }
 
-// 2. Point Laravel to the temporary storage
-# This overrides the default storage path globally
-putenv('APP_STORAGE=/tmp/storage');
+// Overwrite the environment variables for this request
 putenv('VIEW_COMPILED_PATH=/tmp/storage/framework/views');
+putenv('APP_STORAGE=/tmp/storage');
 
-// 3. Launch the App
 require __DIR__ . '/../public/index.php';
