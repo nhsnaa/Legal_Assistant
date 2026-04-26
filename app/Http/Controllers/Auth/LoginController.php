@@ -6,14 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
-// Using the absolute path to the Facade to avoid "Class not found"
+// Ensure we use the absolute path for Vercel
 use Kreait\Laravel\Firebase\Facades\Firebase;
 
 class LoginController extends Controller
 {
     public function show()
     {
-        // Matches C:\xampp\htdocs\ILA-System\resources\views\login.blade.php
+        // Fixed: Points directly to resources/views/login.blade.php
         return view('login');
     }
 
@@ -25,7 +25,12 @@ class LoginController extends Controller
         ]);
 
         try {
-            // This will now find the class correctly
+            // Defensive check for Group 19's Firebase setup
+            if (!class_exists('Kreait\Laravel\Firebase\Facades\Firebase')) {
+                error_log('Error: Firebase Facade class is missing on Vercel.');
+                return back()->withErrors(['email' => 'System configuration error.']);
+            }
+
             $database = Firebase::database();
             $usersRef = $database->getReference('users')
                 ->orderByChild('email')
@@ -44,10 +49,9 @@ class LoginController extends Controller
                     return redirect()->route('dashboard');
                 }
             }
-        } catch (\Exception $e) {
-            // This will now show up in your Vercel "Runtime" logs 
-            // because of our previous errorlog fix
-            error_log('Firebase Login Error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            // Catching all errors to prevent the "Read-only" 500 loop
+            error_log('Group 19 Login Error: ' . $e->getMessage());
         }
 
         return back()->withErrors(['email' => 'Invalid email or password.']);
