@@ -11,7 +11,7 @@ class LoginController extends \App\Http\Controllers\Controller
 {
     public function show()
     {
-        return view('auth.login');
+        return view('login');
     }
 
     public function store(Request $request)
