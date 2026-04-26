@@ -12,12 +12,12 @@
     { "src": "/(.*)", "dest": "/api/index.php" }
   ],
 "env": {
-    "APP_ENV": "production",
-    "APP_DEBUG": "true",
-    "LOG_CHANNEL": "stderr",
-    "VIEW_COMPILED_PATH": "/tmp",
-    "CACHE_DRIVER": "array",
-    "SESSION_DRIVER": "cookie",
-    "APP_STORAGE": "/tmp"
-  }
+  "APP_ENV": "production",
+  "APP_DEBUG": "true",
+  "LOG_CHANNEL": "stderr",
+  "VIEW_COMPILED_PATH": "/tmp/views",
+  "SESSION_DRIVER": "cookie",
+  "CACHE_DRIVER": "array",
+  "APP_STORAGE": "/tmp"
+}
 }
