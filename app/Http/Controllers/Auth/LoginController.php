@@ -5,15 +5,12 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
-// Ensure we use the absolute path for Vercel
-use Kreait\Laravel\Firebase\Facades\Firebase;
+use Illuminate\Support\Facades\Session;
 
 class LoginController extends Controller
 {
     public function show()
     {
-        // Fixed: Points directly to resources/views/login.blade.php
         return view('login');
     }
 
@@ -25,13 +22,7 @@ class LoginController extends Controller
         ]);
 
         try {
-            // Defensive check for Group 19's Firebase setup
-            if (!class_exists('Kreait\Laravel\Firebase\Facades\Firebase')) {
-                error_log('Error: Firebase Facade class is missing on Vercel.');
-                return back()->withErrors(['email' => 'System configuration error.']);
-            }
-
-            $database = Firebase::database();
+            $database = \Kreait\Laravel\Firebase\Facades\Firebase::database();
             $usersRef = $database->getReference('users')
                 ->orderByChild('email')
                 ->equalTo($credentials['email'])
@@ -42,16 +33,17 @@ class LoginController extends Controller
                 $userData = $usersRef[$userId];
 
                 if (Hash::check($credentials['password'], $userData['password'])) {
-                    session([
-                        'firebase_user_id' => $userId, 
-                        'user_role' => $userData['user_role']
-                    ]);
+                    // Manual session storage for Vercel stability
+                    Session::put('firebase_user_id', $userId);
+                    Session::put('user_role', $userData['user_role']);
+                    Session::save(); 
+
                     return redirect()->route('dashboard');
                 }
             }
         } catch (\Throwable $e) {
-            // Catching all errors to prevent the "Read-only" 500 loop
-            error_log('Group 19 Login Error: ' . $e->getMessage());
+            error_log('Login Error: ' . $e->getMessage());
+            return back()->withErrors(['email' => 'System Error: ' . $e->getMessage()]);
         }
 
         return back()->withErrors(['email' => 'Invalid email or password.']);
