@@ -1,5 +1,7 @@
 <?php
 
+// Force the log channel to 'errorlog' so it doesn't try to write to the disk
+putenv('LOG_CHANNEL=errorlog');
 // 1. Manually kill any cached config files brought over from your laptop
 $cacheConfig = __DIR__ . '/../bootstrap/cache/config.php';
 if (file_exists($cacheConfig)) {
