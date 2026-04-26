@@ -11,6 +11,9 @@ class LoginController extends Controller
 {
     public function show()
     {
+        if (auth()->check()) { 
+            return redirect()->route('dashboard'); 
+        }
         return view('login');
     }
 
@@ -22,7 +25,12 @@ class LoginController extends Controller
         ]);
 
         try {
-            // Using the app helper is the most stable way on Vercel
+            // Force verify that the credentials string exists
+            if (!env('FIREBASE_CREDENTIALS')) {
+                return back()->withErrors(['email' => 'System Error: FIREBASE_CREDENTIALS missing in Vercel settings.']);
+            }
+
+            // Using the app helper now that the package is properly installed
             $database = app('firebase.database');
             
             $usersRef = $database->getReference('users')
@@ -31,15 +39,18 @@ class LoginController extends Controller
                 ->getValue();
 
             if (!$usersRef) {
-                return back()->withErrors(['email' => 'User not found in database. Please register again.']);
+                return back()->withErrors(['email' => 'User not found in database. Please register first.']);
             }
 
             $userId = array_key_first($usersRef);
             $userData = $usersRef[$userId];
 
+            // Verify password against the hashed version in Firebase
             if (Hash::check($credentials['password'], $userData['password'])) {
+                // Manual session persistence for Vercel 'cookie' driver
                 Session::put('firebase_user_id', $userId);
                 Session::put('user_role', $userData['user_role']);
+                Session::put('user_name', $userData['name'] ?? 'User');
                 Session::save(); 
 
                 return redirect()->route('dashboard');
@@ -47,7 +58,12 @@ class LoginController extends Controller
 
         } catch (\Throwable $e) {
             error_log('Vercel Login Crash: ' . $e->getMessage());
-            // This will tell you EXACTLY what is missing (e.g. "Service Account not found")
+            
+            // This catches the "Value missing" error specifically
+            if (str_contains($e->getMessage(), 'ServiceAccount')) {
+                return back()->withErrors(['email' => 'Firebase Auth Error: Ensure the FIREBASE_CREDENTIALS in Vercel is the full JSON text.']);
+            }
+            
             return back()->withErrors(['email' => 'Firebase Error: ' . $e->getMessage()]);
         }
 
