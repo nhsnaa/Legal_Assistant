@@ -1,6 +1,6 @@
 <?php
 
-// Create required folders in the only writable space on Vercel
+// Create the directories
 $storagePaths = [
     '/tmp/storage/framework/views',
     '/tmp/storage/framework/cache',
@@ -13,8 +13,8 @@ foreach ($storagePaths as $path) {
     }
 }
 
-// Overwrite the environment variables for this request
-putenv('VIEW_COMPILED_PATH=/tmp/storage/framework/views');
-putenv('APP_STORAGE=/tmp/storage');
+// Manually set the config overrides before the app starts
+config(['view.compiled' => '/tmp/storage/framework/views']);
+config(['session.files' => '/tmp/storage/framework/sessions']);
 
 require __DIR__ . '/../public/index.php';
