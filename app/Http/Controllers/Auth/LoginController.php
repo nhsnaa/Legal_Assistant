@@ -22,28 +22,33 @@ class LoginController extends Controller
         ]);
 
         try {
-            $database = \Kreait\Laravel\Firebase\Facades\Firebase::database();
+            // Using the app helper is the most stable way on Vercel
+            $database = app('firebase.database');
+            
             $usersRef = $database->getReference('users')
                 ->orderByChild('email')
                 ->equalTo($credentials['email'])
                 ->getValue();
 
-            if ($usersRef) {
-                $userId = array_key_first($usersRef);
-                $userData = $usersRef[$userId];
-
-                if (Hash::check($credentials['password'], $userData['password'])) {
-                    // Manual session storage for Vercel stability
-                    Session::put('firebase_user_id', $userId);
-                    Session::put('user_role', $userData['user_role']);
-                    Session::save(); 
-
-                    return redirect()->route('dashboard');
-                }
+            if (!$usersRef) {
+                return back()->withErrors(['email' => 'User not found in database. Please register again.']);
             }
+
+            $userId = array_key_first($usersRef);
+            $userData = $usersRef[$userId];
+
+            if (Hash::check($credentials['password'], $userData['password'])) {
+                Session::put('firebase_user_id', $userId);
+                Session::put('user_role', $userData['user_role']);
+                Session::save(); 
+
+                return redirect()->route('dashboard');
+            }
+
         } catch (\Throwable $e) {
-            error_log('Login Error: ' . $e->getMessage());
-            return back()->withErrors(['email' => 'System Error: ' . $e->getMessage()]);
+            error_log('Vercel Login Crash: ' . $e->getMessage());
+            // This will tell you EXACTLY what is missing (e.g. "Service Account not found")
+            return back()->withErrors(['email' => 'Firebase Error: ' . $e->getMessage()]);
         }
 
         return back()->withErrors(['email' => 'Invalid email or password.']);
