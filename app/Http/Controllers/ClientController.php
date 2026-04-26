@@ -41,7 +41,14 @@ class ClientController extends Controller
         Firebase::database()->getReference('clients')->push($validated);
         return redirect()->back()->with('success', 'Client added.');
     }
+public function show($id)
+{
+    $clientData = Firebase::database()->getReference('clients/' . $id)->getValue();
+    if (!$clientData) { abort(404); }
 
+    $client = (object) $clientData;
+    return view('modules.clients-show', compact('client')); // If you have this view
+}
     public function destroy($id)
     {
         Firebase::database()->getReference('clients/' . $id)->remove();

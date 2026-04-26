@@ -20,8 +20,13 @@ class ScheduleController extends Controller
         // Fetch everything and filter locally for the calendar
         $hearings = collect($database->getReference('hearings')->getValue() ?? []);
         $timeEntries = collect($database->getReference('time_entries')->getValue() ?? [])->reverse()->take(8);
-        $caseOptions = collect($database->getReference('cases')->getValue() ?? []);
-
+// Inside ScheduleController@index
+$caseOptions = collect($database->getReference('cases')->getValue() ?? [])
+                ->map(function($case, $id) {
+                    $case['id'] = $id;
+                    return (object)$case;
+                });
+                
         $calendarDays = [];
         $cursor = $calendarStart->copy();
 

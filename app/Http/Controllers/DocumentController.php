@@ -34,7 +34,24 @@ class DocumentController extends Controller
 
         return redirect()->route('documents.index')->with('success', 'Documents uploaded.');
     }
+public function edit($id)
+{
+    $docData = Firebase::database()->getReference('documents/' . $id)->getValue();
+    if (!$docData) { abort(404); }
 
+    $document = (object) $docData;
+    $document->id = $id; // Ensure the ID is passed for the update route
+    return view('modules.documents-edit', compact('document'));
+}
+
+public function update(Request $request, $id)
+{
+    $request->validate(['name' => 'required|string']);
+    Firebase::database()->getReference('documents/' . $id)->update([
+        'name' => $request->name
+    ]);
+    return redirect()->route('documents.index')->with('success', 'Document renamed.');
+}
     public function destroy($id)
     {
         $ref = Firebase::database()->getReference('documents/' . $id);
