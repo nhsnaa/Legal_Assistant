@@ -1,10 +1,9 @@
 <?php
 
-// Make folders
-$paths = ['/tmp/storage/framework/views', '/tmp/storage/framework/sessions', '/tmp/storage/framework/cache'];
-foreach ($paths as $path) {
-    if (!is_dir($path)) {
-        mkdir($path, 0755, true);
+$storagePath = '/tmp/storage';
+foreach (['/framework/views', '/framework/cache', '/framework/sessions', '/logs'] as $dir) {
+    if (!is_dir($storagePath . $dir)) {
+        mkdir($storagePath . $dir, 0755, true);
     }
 }
 

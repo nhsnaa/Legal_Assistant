@@ -17,10 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->registered(function ($app) {
-        // This is the magic part for Vercel
+        // This is the correct way to set it in the Builder
         if (isset($_SERVER['VERCEL_URL'])) {
             $app->useStoragePath('/tmp/storage');
-            config(['view.compiled' => '/tmp/storage/framework/views']);
         }
     })
     ->create();
