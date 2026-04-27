@@ -49,6 +49,13 @@
                         <p class="text-muted mb-0">Sign in to access your legal office dashboard</p>
                     </div>
 
+                    @if (session('success'))
+                        <div class="auth-success mb-4">
+                            <i class="bi bi-check-circle"></i>
+                            <span>{{ session('success') }}</span>
+                        </div>
+                    @endif
+
                     @if ($errors->any())
                         <div class="auth-alert mb-4">
                             <i class="bi bi-exclamation-circle"></i>
@@ -69,7 +76,7 @@
                         <div class="form-group">
                             <div class="d-flex justify-content-between align-items-center">
                                 <label for="password" class="mb-2">Password</label>
-                                <a href="#" class="helper-link small">Forgot password?</a>
+                                <button type="button" class="helper-link small border-0 bg-transparent p-0" onclick="showPasswordHelp()">Forgot password?</button>
                             </div>
                             <div class="password-field">
                                 <input type="password" id="password" name="password" class="form-control @error('password') is-invalid @enderror" placeholder="Enter your password" required>
@@ -111,6 +118,10 @@
             input.type = 'password';
             icon.className = 'bi bi-eye';
         }
+    }
+
+    function showPasswordHelp() {
+        alert('Password reset is not available yet. Please contact the system administrator or create a new account if appropriate.');
     }
     </script>
 </body>

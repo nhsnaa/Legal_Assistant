@@ -62,6 +62,7 @@ class ScheduleController extends Controller
             'selectedMonth' => $selectedMonth,
             'previousMonth' => $selectedMonth->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $selectedMonth->copy()->addMonth()->format('Y-m'),
+            'hearings' => $hearings,
             'calendarDays' => $calendarDays,
             'upcomingHearings' => $hearings->sortBy(fn ($hearing) => $hearing->hearing_time->timestamp)->take(6)->values(),
             'timeEntries' => $timeEntries,
@@ -117,6 +118,14 @@ class ScheduleController extends Controller
             'description' => $validated['description'],
             'created_at' => now()->toIso8601String(),
         ]);
+
+        $returnTarget = $request->input('return_to');
+
+        if ($returnTarget === 'dashboard') {
+            return redirect()
+                ->route('dashboard')
+                ->with('success', 'Time entry saved successfully.');
+        }
 
         return redirect()
             ->route('schedule', ['tab' => 'time'])

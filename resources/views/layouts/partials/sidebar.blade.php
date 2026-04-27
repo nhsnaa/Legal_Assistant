@@ -27,10 +27,5 @@
             <span class="nav-icon"><i class="bi bi-folder-fill"></i></span>
             <span class="link-text">Documents</span>
         </a>
-        <a class="nav-link {{ request()->routeIs('settings') ? 'active' : '' }}" href="{{ route('settings') }}">
-            <span class="nav-icon"><i class="bi bi-gear-fill"></i></span>
-            <span class="link-text">Settings</span>
-        </a>
     </nav>
 </aside>
-

@@ -78,7 +78,7 @@
                             </td>
                             <td>
                                 <div class="module-actions-inline">
-                                    <form action="{{ route('clients.destroy', $client) }}" method="POST" onsubmit="return confirm('Delete this client?')">
+                                    <form action="{{ route('clients.destroy', $client->id) }}" method="POST" onsubmit="return confirm('Delete this client?')">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>

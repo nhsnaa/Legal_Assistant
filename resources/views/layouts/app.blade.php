@@ -47,6 +47,13 @@
 
 <script>
     $(document).ready(function() {
+        const sidebar = document.getElementById('sidebar');
+        const storedSidebarState = localStorage.getItem('ilaSidebarCollapsed');
+
+        if (sidebar && storedSidebarState === 'true') {
+            sidebar.classList.add('collapsed');
+        }
+
         // Setup CSRF for all AJAX requests (Essential for your Time Tracker)
         $.ajaxSetup({
             headers: {
@@ -76,6 +83,17 @@
             });
         @endif
     });
+
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+
+        if (!sidebar) {
+            return;
+        }
+
+        sidebar.classList.toggle('collapsed');
+        localStorage.setItem('ilaSidebarCollapsed', sidebar.classList.contains('collapsed') ? 'true' : 'false');
+    }
 </script>
 
 @yield('scripts')

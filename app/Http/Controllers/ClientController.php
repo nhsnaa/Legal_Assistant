@@ -12,7 +12,10 @@ class ClientController extends Controller
         $database = Firebase::database();
         $filter = $request->query('filter', 'all');
         
-        $allClients = collect($database->getReference('clients')->getValue() ?? []);
+        $allClients = collect($database->getReference('clients')->getValue() ?? [])
+            ->map(function ($client, $id) {
+                return (object) array_merge($client, ['id' => $id]);
+            });
 
         $clients = $allClients->when($filter === 'active', function ($c) {
             return $c->where('status', 'Active');
@@ -41,14 +44,15 @@ class ClientController extends Controller
         Firebase::database()->getReference('clients')->push($validated);
         return redirect()->back()->with('success', 'Client added.');
     }
-public function show($id)
-{
-    $clientData = Firebase::database()->getReference('clients/' . $id)->getValue();
-    if (!$clientData) { abort(404); }
+    public function show($id)
+    {
+        $clientData = Firebase::database()->getReference('clients/' . $id)->getValue();
+        if (!$clientData) { abort(404); }
 
-    $client = (object) $clientData;
-    return view('modules.clients-show', compact('client')); // If you have this view
-}
+        $client = (object) array_merge($clientData, ['id' => $id]);
+        return view('modules.clients-show', compact('client')); // If you have this view
+    }
+
     public function destroy($id)
     {
         Firebase::database()->getReference('clients/' . $id)->remove();

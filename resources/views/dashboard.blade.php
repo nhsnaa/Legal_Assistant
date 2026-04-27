@@ -12,20 +12,19 @@
     @endif
 
     <h6 class="font-weight-bold mb-4">Quick Create</h6>
-    <div class="row mb-5">
+    <div class="quick-create-grid mb-5">
         @php
             $actions = [
                 ['bi bi-person-plus-fill', 'Client', 'modal', 'dashboardClientModal'],
                 ['bi bi-briefcase-fill', 'Case', 'modal', 'dashboardCaseModal'],
-                ['bi bi-stopwatch-fill', 'Time', '#timerWorkspace'],
+                ['bi bi-stopwatch-fill', 'Time', 'modal', 'dashboardTimeModal'],
                 ['bi bi-calendar-plus-fill', 'Event', 'modal', 'dashboardEventModal'],
                 ['bi bi-folder2-open', 'Doc', 'modal', 'dashboardDocumentModal'],
-                ['bi bi-journal-text', 'Note', route('settings') . '#document'],
             ];
         @endphp
 
         @foreach ($actions as $action)
-            <div class="col-xl-2 col-md-4 col-6 mb-3">
+            <div class="quick-create-item">
                 @if (($action[2] ?? null) === 'modal')
                     <button type="button" class="btn btn-action w-100 py-4" onclick="openDashboardModal('{{ $action[3] }}')">
                         <span class="action-icon"><i class="{{ $action[0] }}"></i></span>
@@ -89,7 +88,7 @@
                     </div>
                     <div class="schedule-timer-buttons">
                         <a href="{{ route('schedule') }}" class="btn btn-light btn-sm">Open Calendar</a>
-                        <a href="#timerWorkspace" class="btn btn-primary btn-sm">Review Timer</a>
+                        <a href="{{ route('schedule', ['tab' => 'time']) }}" class="btn btn-primary btn-sm">Review Timer</a>
                     </div>
                 </div>
             </div>
@@ -393,6 +392,75 @@
                 <div class="module-modal-actions">
                     <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardDocumentModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary px-4">Upload Documents</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboardTimeModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card module-modal-card-compact">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="font-weight-bold mb-0">Add Time Entry</h4>
+                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardTimeModal')">&times;</button>
+            </div>
+
+            <form action="{{ route('schedule.time-entries.store') }}" method="POST">
+                @csrf
+                <input type="hidden" name="return_to" value="dashboard">
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Case Title</label>
+                        <select name="case_id" class="form-control module-input" required>
+                            <option value="">Select case</option>
+                            @foreach ($caseOptions as $caseOption)
+                                <option value="{{ $caseOption->id }}">{{ $caseOption->case_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Date</label>
+                        <input type="date" name="work_date" class="form-control module-input" value="{{ now()->toDateString() }}" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Hours</label>
+                        <input type="number" step="0.25" min="0.25" max="24" name="hours" class="form-control module-input" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Activity</label>
+                        <select name="activity" class="form-control module-input">
+                            <option>Document Review</option>
+                            <option>Client Interview</option>
+                            <option>Case Preparation</option>
+                            <option>Legal Research</option>
+                            <option>Court Preparation</option>
+                            <option>Admin Work</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="font-weight-bold small d-block">Billing Type</label>
+                    <div class="time-entry-billable-toggle" role="radiogroup" aria-label="Billing type">
+                        <input class="time-entry-toggle-input" type="radio" name="billable" id="dashboardBillableYes" value="1" checked>
+                        <label class="time-entry-toggle-option" for="dashboardBillableYes">Billable</label>
+
+                        <input class="time-entry-toggle-input" type="radio" name="billable" id="dashboardBillableNo" value="0">
+                        <label class="time-entry-toggle-option" for="dashboardBillableNo">Non-Billable</label>
+                    </div>
+                </div>
+
+                <div class="form-group mb-0">
+                    <label class="font-weight-bold small">Description</label>
+                    <textarea name="description" rows="3" class="form-control module-input module-textarea-compact" required></textarea>
+                </div>
+
+                <div class="module-modal-actions">
+                    <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardTimeModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4">Save Time Entry</button>
                 </div>
             </form>
         </div>

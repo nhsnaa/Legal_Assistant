@@ -44,16 +44,16 @@
                             <p class="text-muted mb-0">Plan hearings, follow-ups, and other date-based legal work.</p>
                         </div>
                         <div class="schedule-toolbar-actions">
-                            <a href="{{ route('schedule', ['month' => $previousMonth]) }}" class="btn btn-light btn-sm">Prev</a>
-                            <span class="schedule-month-label">{{ $selectedMonth->format('F Y') }}</span>
-                            <a href="{{ route('schedule', ['month' => $nextMonth]) }}" class="btn btn-light btn-sm">Next</a>
+                            <button type="button" class="btn btn-light btn-sm" id="schedulePrevMonthBtn">Prev</button>
+                            <span class="schedule-month-label" id="scheduleMonthLabel">{{ $selectedMonth->format('F Y') }}</span>
+                            <button type="button" class="btn btn-light btn-sm" id="scheduleNextMonthBtn">Next</button>
                             <button type="button" class="btn btn-primary btn-sm" onclick="openScheduleModal('scheduleEventModal')">
                                 <i class="bi bi-plus-lg mr-1"></i>Add Task
                             </button>
                         </div>
                     </div>
 
-                    <div class="schedule-calendar">
+                    <div class="schedule-calendar" id="scheduleCalendar">
                         @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $weekday)
                             <div class="schedule-weekday">{{ $weekday }}</div>
                         @endforeach
@@ -139,6 +139,7 @@
                                     <th>Case Title</th>
                                     <th>Date</th>
                                     <th>Hours</th>
+                                    <th>Billing</th>
                                     <th>Description</th>
                                     <th>Actions</th>
                                 </tr>
@@ -149,6 +150,11 @@
                                         <td class="font-weight-bold">{{ optional($entry->case)->case_name }}</td>
                                         <td>{{ $entry->work_date->format('d M Y') }}</td>
                                         <td>{{ number_format((float) $entry->hours, 2) }}</td>
+                                        <td>
+                                            <span class="module-badge {{ !empty($entry->billable) ? 'module-badge-info' : 'module-badge-muted' }}">
+                                                {{ !empty($entry->billable) ? 'Billable' : 'Non-Billable' }}
+                                            </span>
+                                        </td>
                                         <td>{{ $entry->description }}</td>
                                         <td>
                                             <form action="{{ route('schedule.time-entries.destroy', $entry->id) }}" method="POST" onsubmit="return confirm('Delete this time entry?')">
@@ -160,7 +166,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="module-empty-cell">No time entries yet. Add one for an existing case.</td>
+                                        <td colspan="6" class="module-empty-cell">No time entries yet. Add one for an existing case.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -239,7 +245,7 @@
     </div>
 
     <div id="scheduleTimeModal" class="module-modal-backdrop" aria-hidden="true">
-        <div class="module-modal-card">
+        <div class="module-modal-card module-modal-card-compact">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="font-weight-bold mb-0">Add Time Entry</h4>
                 <button type="button" class="module-modal-close" onclick="closeScheduleModal('scheduleTimeModal')">&times;</button>
@@ -247,37 +253,51 @@
 
             <form action="{{ route('schedule.time-entries.store') }}" method="POST">
                 @csrf
-                <div class="form-group">
-                    <label class="font-weight-bold small">Case Title</label>
-                    <select name="case_id" class="form-control module-input" required>
-                        <option value="">Select case</option>
-                        @foreach ($caseOptions as $caseOption)
-                            <option value="{{ $caseOption->id }}">{{ $caseOption->case_name }}</option>
-                        @endforeach
-                    </select>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Case Title</label>
+                        <select name="case_id" class="form-control module-input" required>
+                            <option value="">Select case</option>
+                            @foreach ($caseOptions as $caseOption)
+                                <option value="{{ $caseOption->id }}">{{ $caseOption->case_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Date</label>
+                        <input type="date" name="work_date" class="form-control module-input" value="{{ now()->toDateString() }}" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Hours</label>
+                        <input type="number" step="0.25" min="0.25" max="24" name="hours" class="form-control module-input" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Activity</label>
+                        <select name="activity" class="form-control module-input">
+                            <option>Document Review</option>
+                            <option>Client Interview</option>
+                            <option>Case Preparation</option>
+                            <option>Legal Research</option>
+                            <option>Court Preparation</option>
+                            <option>Admin Work</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label class="font-weight-bold small">Date</label>
-                    <input type="date" name="work_date" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Hours</label>
-                    <input type="number" step="0.25" min="0.25" max="24" name="hours" class="form-control module-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="font-weight-bold small">Activity</label>
-                    <select name="activity" class="form-control module-input">
-                        <option>Document Review</option>
-                        <option>Client Interview</option>
-                        <option>Case Preparation</option>
-                        <option>Legal Research</option>
-                        <option>Court Preparation</option>
-                        <option>Admin Work</option>
-                    </select>
+                    <label class="font-weight-bold small d-block">Billing Type</label>
+                    <div class="time-entry-billable-toggle" role="radiogroup" aria-label="Billing type">
+                        <input class="time-entry-toggle-input" type="radio" name="billable" id="scheduleBillableYes" value="1" checked>
+                        <label class="time-entry-toggle-option" for="scheduleBillableYes">Billable</label>
+
+                        <input class="time-entry-toggle-input" type="radio" name="billable" id="scheduleBillableNo" value="0">
+                        <label class="time-entry-toggle-option" for="scheduleBillableNo">Non-Billable</label>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Description</label>
-                    <textarea name="description" rows="4" class="form-control module-input" required></textarea>
+                    <textarea name="description" rows="3" class="form-control module-input module-textarea-compact" required></textarea>
                 </div>
 
                 <div class="module-modal-actions">
@@ -294,6 +314,18 @@
     @include('layouts.modals.logout')
 @endsection
 
+@php
+    $scheduleEventsJson = $hearings->map(function ($hearing) {
+        return [
+            'id' => $hearing->id,
+            'title' => $hearing->title ?: $hearing->case_name,
+            'case_name' => $hearing->case_name,
+            'status' => $hearing->status,
+            'hearing_time' => $hearing->hearing_time->toIso8601String(),
+        ];
+    })->values()->all();
+@endphp
+
 @section('scripts')
 <script>
 function openScheduleModal(modalId) {
@@ -303,6 +335,10 @@ function openScheduleModal(modalId) {
 function closeScheduleModal(modalId) {
     document.getElementById(modalId)?.classList.remove('show');
 }
+
+const scheduleEvents = @json($scheduleEventsJson);
+
+let currentScheduleMonth = new Date(@json($selectedMonth->copy()->startOfMonth()->format('Y-m-d')) + 'T00:00:00');
 
 function activateScheduleTab(target) {
     document.querySelectorAll('.schedule-tab').forEach(function (item) {
@@ -320,12 +356,108 @@ document.querySelectorAll('[data-schedule-tab]').forEach(function (tab) {
     });
 });
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function renderScheduleCalendar() {
+    const calendar = document.getElementById('scheduleCalendar');
+    const monthLabel = document.getElementById('scheduleMonthLabel');
+
+    if (!calendar || !monthLabel) {
+        return;
+    }
+
+    monthLabel.textContent = currentScheduleMonth.toLocaleDateString([], {
+        month: 'long',
+        year: 'numeric'
+    });
+
+    const firstDay = new Date(currentScheduleMonth.getFullYear(), currentScheduleMonth.getMonth(), 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(firstDay.getDate() - firstDay.getDay());
+
+    const lastDay = new Date(currentScheduleMonth.getFullYear(), currentScheduleMonth.getMonth() + 1, 0);
+    const endDate = new Date(lastDay);
+    endDate.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
+
+    const weekdayMarkup = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+        .map(function (weekday) {
+            return '<div class="schedule-weekday">' + weekday + '</div>';
+        })
+        .join('');
+
+    const dayMarkup = [];
+    const cursor = new Date(startDate);
+
+    while (cursor <= endDate) {
+        const cursorKey = cursor.getFullYear() + '-' + String(cursor.getMonth() + 1).padStart(2, '0') + '-' + String(cursor.getDate()).padStart(2, '0');
+        const isCurrentMonth = cursor.getMonth() === currentScheduleMonth.getMonth();
+
+        const dayEvents = scheduleEvents.filter(function (event) {
+            const eventDate = new Date(event.hearing_time);
+            const eventKey = eventDate.getFullYear() + '-' + String(eventDate.getMonth() + 1).padStart(2, '0') + '-' + String(eventDate.getDate()).padStart(2, '0');
+            return eventKey === cursorKey;
+        });
+
+        const visibleEvents = dayEvents.slice(0, 3).map(function (event) {
+            const eventTime = new Date(event.hearing_time);
+            return `
+                <div class="schedule-event-pill">
+                    <strong>${escapeHtml(event.title || event.case_name)}</strong>
+                    <span>${escapeHtml(eventTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</span>
+                </div>
+            `;
+        }).join('');
+
+        const extraCount = dayEvents.length > 3
+            ? `<small class="text-muted">+${dayEvents.length - 3} more</small>`
+            : '';
+
+        dayMarkup.push(`
+            <div class="schedule-day ${isCurrentMonth ? '' : 'is-muted'}">
+                <div class="schedule-day-number">${cursor.getDate()}</div>
+                <div class="schedule-day-events">
+                    ${visibleEvents}
+                    ${extraCount}
+                </div>
+            </div>
+        `);
+
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    calendar.innerHTML = weekdayMarkup + dayMarkup.join('');
+}
+
+document.getElementById('schedulePrevMonthBtn')?.addEventListener('click', function () {
+    currentScheduleMonth = new Date(currentScheduleMonth.getFullYear(), currentScheduleMonth.getMonth() - 1, 1);
+    renderScheduleCalendar();
+});
+
+document.getElementById('scheduleNextMonthBtn')?.addEventListener('click', function () {
+    currentScheduleMonth = new Date(currentScheduleMonth.getFullYear(), currentScheduleMonth.getMonth() + 1, 1);
+    renderScheduleCalendar();
+});
+
+renderScheduleCalendar();
+
 @if (request('tab') === 'time')
 activateScheduleTab('timePanel');
 @endif
 
 @if (request('create') === 'event')
 openScheduleModal('scheduleEventModal');
+@endif
+
+@if (request('create') === 'time')
+activateScheduleTab('timePanel');
+openScheduleModal('scheduleTimeModal');
 @endif
 </script>
 @endsection
