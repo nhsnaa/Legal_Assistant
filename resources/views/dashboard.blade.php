@@ -60,6 +60,51 @@
                 </div>
             </div>
 
+            <div class="glass-card ai-assistant-card mb-4">
+                <div class="d-flex justify-content-between align-items-start flex-wrap mb-4">
+                    <div>
+                        <span class="module-kicker">AI Planning Assistant</span>
+                        <h5 class="font-weight-bold mb-1 mt-3">Suggested tasks for today</h5>
+                        <p class="text-muted mb-0">A smart daily summary based on current hearings, active cases, documents, and recorded work.</p>
+                    </div>
+                    <div class="d-flex align-items-center flex-wrap gap-2">
+                        <span class="ai-assistant-badge mr-2"><i class="bi bi-stars mr-2"></i>Prototype</span>
+                        <button type="button" class="btn btn-primary btn-sm" id="generateAiSuggestionsBtn">
+                            <i class="bi bi-magic mr-1"></i>Generate Suggestions
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ai-assistant-empty" id="aiAssistantEmptyState">
+                    <i class="bi bi-stars"></i>
+                    <strong>Ready to plan your day</strong>
+                    <p class="mb-0">Generate a suggested task list based on your current hearings, cases, documents, and work logs.</p>
+                </div>
+
+                <div class="ai-suggestion-list d-none" id="aiSuggestionList">
+                    @forelse ($aiSuggestions as $suggestion)
+                        <div class="ai-suggestion-item">
+                            <div class="ai-suggestion-icon">
+                                <i class="bi bi-magic"></i>
+                            </div>
+                            <div class="ai-suggestion-copy">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                    <strong>{{ $suggestion['title'] }}</strong>
+                                    <span class="ai-suggestion-timing">{{ $suggestion['timing'] }}</span>
+                                </div>
+                                <p class="mb-0">{{ $suggestion['detail'] }}</p>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="time-log-empty">
+                            <i class="bi bi-stars"></i>
+                            <strong>No AI suggestions yet</strong>
+                            <p>As more cases, hearings, and time records are added, the assistant can generate a more useful daily plan.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
             <div class="schedule-timer-card mb-4">
                 <div class="schedule-timer-copy">
                     <div class="schedule-timer-icon">
@@ -586,6 +631,9 @@ const dashboardTimeEntryUrl = @json(route('dashboard.time-entries.store'));
 const csrfToken = @json(csrf_token());
 let dashboardTimeEntries = Array.isArray(recentTimeEntries) ? recentTimeEntries.slice() : [];
 let pendingTimeEntry = null;
+const generateAiSuggestionsBtn = document.getElementById('generateAiSuggestionsBtn');
+const aiAssistantEmptyState = document.getElementById('aiAssistantEmptyState');
+const aiSuggestionList = document.getElementById('aiSuggestionList');
 
 function formatDuration(milliseconds) {
     const totalSeconds = Math.max(1, Math.floor(milliseconds / 1000));
@@ -755,5 +803,17 @@ timeEntryForm?.addEventListener('submit', async function (event) {
 
 timeLogFilter?.addEventListener('change', renderTimeLogs);
 renderTimeLogs();
+
+generateAiSuggestionsBtn?.addEventListener('click', function () {
+    generateAiSuggestionsBtn.disabled = true;
+    generateAiSuggestionsBtn.innerHTML = '<span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>Generating...';
+
+    window.setTimeout(function () {
+        aiAssistantEmptyState?.classList.add('d-none');
+        aiSuggestionList?.classList.remove('d-none');
+        generateAiSuggestionsBtn.innerHTML = '<i class="bi bi-arrow-repeat mr-1"></i>Regenerate';
+        generateAiSuggestionsBtn.disabled = false;
+    }, 700);
+});
 </script>
 @endsection

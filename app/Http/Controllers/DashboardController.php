@@ -81,10 +81,58 @@ class DashboardController extends Controller
             'client_id' => $c['client_id'] ?? null
         ]);
 
+        $upcomingHearings = collect($hearingsRef)
+            ->filter(fn ($hearing) => !empty($hearing['hearing_time']))
+            ->sortBy('hearing_time')
+            ->take(3)
+            ->values();
+
+        $billableEntriesCount = collect($timeRef)
+            ->filter(fn ($entry) => !empty($entry['billable']))
+            ->count();
+
+        $aiSuggestions = [];
+
+        if ($upcomingHearings->isNotEmpty()) {
+            $nextHearing = $upcomingHearings->first();
+            $hearingTime = Carbon::parse($nextHearing['hearing_time']);
+            $aiSuggestions[] = [
+                'title' => 'Prepare the next hearing first',
+                'timing' => $hearingTime->isToday() ? 'Priority for today' : 'Upcoming priority',
+                'detail' => 'Focus on "' . ($nextHearing['title'] ?? $nextHearing['case_name'] ?? 'Untitled Case') . '" before ' . $hearingTime->format('d M, g:i A') . '.',
+            ];
+        }
+
+        if ($activeCases > 0) {
+            $aiSuggestions[] = [
+                'title' => 'Review active matters in focused blocks',
+                'timing' => 'Midday workflow',
+                'detail' => 'You currently have ' . $activeCases . ' active case' . ($activeCases === 1 ? '' : 's') . '. Group follow-up, research, and drafting into one focused session.',
+            ];
+        }
+
+        if ($documentsCount > 0) {
+            $aiSuggestions[] = [
+                'title' => 'Set aside time for document handling',
+                'timing' => 'Admin window',
+                'detail' => 'With ' . $documentsCount . ' stored document' . ($documentsCount === 1 ? '' : 's') . ', reserve a short review window for uploads, checking, or filing.',
+            ];
+        }
+
+        if ($billableEntriesCount > 0) {
+            $aiSuggestions[] = [
+                'title' => 'Close the day by confirming billable logs',
+                'timing' => 'End-of-day check',
+                'detail' => 'You already have ' . $billableEntriesCount . ' billable time entr' . ($billableEntriesCount === 1 ? 'y' : 'ies') . '. Use the last slot of the day to verify time records are complete.',
+            ];
+        }
+
+        $aiSuggestions = collect($aiSuggestions)->take(3)->values();
+
         return view('dashboard', compact(
             'greeting', 'activeCases', 'chartLabels', 'chartData', 
             'hearings', 'recentDocuments', 'recentTimeEntryData', 
-            'clients', 'clientsCount', 'documentsCount', 'caseOptions'
+            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'aiSuggestions'
         ));
     }
 
