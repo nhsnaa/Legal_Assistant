@@ -1,12 +1,14 @@
 @php
-    $currentUser = Auth::user();
+    $displayName = session('first_name')
+        ?: session('user_name')
+        ?: 'User';
     $greetingText = $greeting ?? match (true) {
         now()->hour < 12 => 'Good Morning',
         now()->hour < 18 => 'Good Afternoon',
         default => 'Good Evening',
     };
-    $displayName = $currentUser->first_name ?: ($currentUser->name ?? 'User');
-    $displayRole = $currentUser->user_role ?: 'staff';
+    $displayRole = session('user_role', 'staff');
+    $displayEmail = session('email', 'No Email');
 @endphp
 
 <header class="topbar">
@@ -46,7 +48,7 @@
                     <div>
                         <h6 class="mb-0 font-weight-bold" style="font-size: 0.9rem;">{{ $displayName }}</h6>
                         <p class="mb-0 text-muted small">
-                            {{ $currentUser->email }}
+                            {{ $displayEmail }}
                         </p>
                     </div>
                 </a>
@@ -238,4 +240,3 @@ function toggleVisibility(inputId, iconId) {
     loadState();
 })();
 </script>
-

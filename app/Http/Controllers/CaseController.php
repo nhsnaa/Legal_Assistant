@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Kreait\Laravel\Firebase\Facades\Firebase;
+use Illuminate\Support\Collection;
 
 class CaseController extends Controller
 {
@@ -12,8 +13,18 @@ class CaseController extends Controller
         $database = Firebase::database();
         $filter = $request->query('filter', 'all');
 
-        $allCases = collect($database->getReference('cases')->getValue() ?? []);
-        $clients = collect($database->getReference('clients')->getValue() ?? []);
+        $clients = collect($database->getReference('clients')->getValue() ?? [])->map(function ($client, $id) {
+            $client['id'] = $id;
+            return (object) $client;
+        });
+
+        $clientMap = $clients->keyBy('id');
+
+        $allCases = collect($database->getReference('cases')->getValue() ?? [])->map(function ($case, $id) use ($clientMap) {
+            $case['id'] = $id;
+            $case['client'] = $clientMap->get($case['client_id'] ?? null);
+            return (object) $case;
+        });
 
         // Filter logic
         $cases = $allCases->when($filter === 'active', function ($c) {

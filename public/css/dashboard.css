@@ -17,6 +17,7 @@
     --border: #dbe7f0;
     --accent: #0891b2;
     --accent-strong: #0e7490;
+    --accent-bright: #06b6d4;
     --accent-soft: rgba(8, 145, 178, 0.12);
     --success-soft: #ecfeff;
     --warning-soft: #fff7ed;
@@ -559,7 +560,7 @@ body {
 .module-modal-card {
     width: min(520px, 100%);
     padding: 1.5rem;
-    border-radius: 22px;
+    border-radius: 26px;
     background: rgba(255, 255, 255, 0.97);
     border: 1px solid rgba(219, 231, 240, 0.95);
     box-shadow: var(--shadow-lg);
@@ -575,9 +576,10 @@ body {
 
 .module-input {
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 18px;
     min-height: 46px;
     box-shadow: none !important;
+    background: rgba(255, 255, 255, 0.96);
 }
 
 .module-input:focus {
@@ -1289,7 +1291,7 @@ body {
 .time-entry-card {
     width: min(560px, 100%);
     padding: 1.35rem;
-    border-radius: 24px;
+    border-radius: 28px;
     background: rgba(255, 255, 255, 0.96);
     border: 1px solid rgba(219, 231, 240, 0.95);
     box-shadow: var(--shadow-lg);
@@ -1351,7 +1353,7 @@ body {
 .time-entry-field textarea {
     width: 100%;
     padding: 0.82rem 1.1rem;
-    border-radius: 14px;
+    border-radius: 18px;
     border: 1px solid var(--border);
     background: var(--surface-strong);
     color: var(--text);
@@ -1373,7 +1375,7 @@ body {
     margin: 0;
     padding: 0.82rem 1rem;
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 18px;
     background: var(--surface-strong);
     color: var(--muted);
     font-size: 0.85rem;
@@ -1453,6 +1455,48 @@ body {
     justify-content: flex-end;
     gap: 0.75rem;
     margin-top: 1rem;
+}
+
+.btn-primary {
+    border: 1px solid rgba(6, 182, 212, 0.14) !important;
+    border-radius: 16px !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 38%),
+        linear-gradient(135deg, var(--accent-bright) 0%, var(--accent) 55%, var(--accent-strong) 100%) !important;
+    box-shadow: 0 14px 28px rgba(8, 145, 178, 0.18);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(8, 145, 178, 0.22);
+    filter: saturate(1.04);
+}
+
+.btn-primary:focus {
+    outline: none;
+}
+
+.btn-primary.btn-sm {
+    border-radius: 14px !important;
+}
+
+.btn-outline-secondary {
+    border-radius: 16px !important;
+    border-color: rgba(148, 163, 184, 0.28) !important;
+    color: var(--muted) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus {
+    color: var(--text) !important;
+    border-color: rgba(8, 145, 178, 0.22) !important;
+    background: rgba(236, 254, 255, 0.96) !important;
 }
 
 .tiny {

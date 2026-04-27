@@ -10,9 +10,6 @@ class RegisterController extends Controller
 {
     public function show()
     {
-        if (auth()->check()) { 
-            return redirect()->route('dashboard'); 
-        }
         return view('register');
     }
 
@@ -33,6 +30,8 @@ class RegisterController extends Controller
             $fullName = trim($validated['first_name'].' '.$validated['last_name']);
 
             $userData = [
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
                 'name' => $fullName,
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),

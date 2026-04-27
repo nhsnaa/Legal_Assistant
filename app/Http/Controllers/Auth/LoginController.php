@@ -11,9 +11,6 @@ class LoginController extends Controller
 {
     public function show()
     {
-        if (auth()->check()) { 
-            return redirect()->route('dashboard'); 
-        }
         return view('login');
     }
 
@@ -32,11 +29,28 @@ class LoginController extends Controller
 
             // Using the app helper now that the package is properly installed
             $database = app('firebase.database');
-            
-            $usersRef = $database->getReference('users')
-                ->orderByChild('email')
-                ->equalTo($credentials['email'])
-                ->getValue();
+
+            try {
+                $usersRef = $database->getReference('users')
+                    ->orderByChild('email')
+                    ->equalTo($credentials['email'])
+                    ->getValue();
+            } catch (\Throwable $queryException) {
+                // Fallback for projects that haven't added .indexOn rules yet.
+                if (!str_contains($queryException->getMessage(), '.indexOn')) {
+                    throw $queryException;
+                }
+
+                $allUsers = $database->getReference('users')->getValue() ?? [];
+                $usersRef = [];
+
+                foreach ($allUsers as $userId => $userData) {
+                    if (($userData['email'] ?? null) === $credentials['email']) {
+                        $usersRef[$userId] = $userData;
+                        break;
+                    }
+                }
+            }
 
             if (!$usersRef) {
                 return back()->withErrors(['email' => 'User not found in database. Please register first.']);
@@ -50,7 +64,9 @@ class LoginController extends Controller
                 // Manual session persistence for Vercel 'cookie' driver
                 Session::put('firebase_user_id', $userId);
                 Session::put('user_role', $userData['user_role']);
+                Session::put('first_name', $userData['first_name'] ?? null);
                 Session::put('user_name', $userData['name'] ?? 'User');
+                Session::put('email', $userData['email'] ?? $credentials['email']);
                 Session::save(); 
 
                 return redirect()->route('dashboard');

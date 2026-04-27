@@ -9,7 +9,6 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     return view('welcome');
@@ -23,13 +22,13 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('/logout', function () {
-    Auth::logout();
+    session()->forget(['firebase_user_id', 'user_role', 'user_name']);
     request()->session()->invalidate();
     request()->session()->regenerateToken();
     return redirect()->route('login');
-})->name('logout');
+})->name('logout')->middleware('firebase.auth');
 
-Route::middleware('auth')->group(function () {
+Route::middleware('firebase.auth')->group(function () {
     // Dashboard & Settings
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/dashboard/time-entries', [DashboardController::class, 'storeTimeEntry'])->name('dashboard.time-entries.store');

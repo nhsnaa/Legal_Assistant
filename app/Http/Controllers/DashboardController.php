@@ -20,8 +20,11 @@ class DashboardController extends Controller
             default => 'Good Evening'
         };
 
+        // Fetch the dashboard data in a single Firebase read to reduce page-load latency.
+        $rootData = $database->getReference()->getValue() ?? [];
+
         // 1. Fetch Cases & Count Active
-        $casesRef = $database->getReference('cases')->getValue() ?? [];
+        $casesRef = $rootData['cases'] ?? [];
         $activeCases = count(array_filter($casesRef, fn($c) => ($c['status'] ?? '') === 'Active'));
 
         // 2. Chart Logic (Last 7 Days)
@@ -41,17 +44,19 @@ class DashboardController extends Controller
             $chartData[] = $count;
         }
 
-        // 3. Fetch Hearings (Limit 5)
-        $hearingsRef = $database->getReference('hearings')->orderByChild('hearing_time')->limitToFirst(5)->getValue() ?? [];
-        $hearings = collect($hearingsRef);
+        // 3. Fetch Hearings (Limit 5) without requiring a Firebase index
+        $hearingsRef = $rootData['hearings'] ?? [];
+        $hearings = collect($hearingsRef)
+            ->sortBy('hearing_time')
+            ->take(5);
 
-        // 4. Fetch Recent Documents (Limit 4)
-        $docsRef = $database->getReference('documents')->limitToLast(4)->getValue() ?? [];
-        $recentDocuments = collect($docsRef)->reverse();
-        $documentsCount = count($database->getReference('documents')->getValue() ?? []);
+        // 4. Fetch Recent Documents (Limit 4) without Firebase query requirements
+        $docsRef = $rootData['documents'] ?? [];
+        $recentDocuments = collect($docsRef)->reverse()->take(4);
+        $documentsCount = count($docsRef);
 
         // 5. Recent Time Entries
-        $timeRef = $database->getReference('time_entries')->limitToLast(8)->getValue() ?? [];
+        $timeRef = $rootData['time_entries'] ?? [];
         $recentTimeEntryData = collect($timeRef)->map(function ($entry, $key) {
             return [
                 'id' => $key,
@@ -63,10 +68,10 @@ class DashboardController extends Controller
                 'notes' => $entry['description'] ?? '',
                 'savedAt' => $entry['created_at'] ?? now()->toIso8601String(),
             ];
-        })->reverse()->values()->all();
+        })->reverse()->take(8)->values()->all();
 
         // 6. Clients & Case Options
-        $clientsRef = $database->getReference('clients')->getValue() ?? [];
+        $clientsRef = $rootData['clients'] ?? [];
         $clientsCount = count($clientsRef);
         $clients = collect($clientsRef)->map(fn($c, $id) => (object)['id' => $id, 'name' => $c['name']]);
 

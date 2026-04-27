@@ -4,7 +4,7 @@
             <div class="modal-body text-center p-5">
                 <div style="font-size: 3rem; margin-bottom: 15px;"><i class="bi bi-door-open-fill"></i></div>
                 <h4 class="font-weight-bold">Confirm Logout</h4>
-                <p class="text-muted">Are you sure you want to leave, {{ Auth::user()->first_name }}?</p>
+                <p class="text-muted">Are you sure you want to leave, {{ session('first_name') ?: session('user_name', 'User') }}?</p>
                 <div class="d-flex justify-content-center mt-4">
                     <button type="button" class="btn btn-light px-4 mr-2" data-dismiss="modal">Cancel</button>
                     <form method="POST" action="{{ route('logout') }}" style="display: inline;">
@@ -16,4 +16,3 @@
         </div>
     </div>
 </div>
-

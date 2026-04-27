@@ -3,15 +3,19 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Kreait\Laravel\Firebase\Facades\Firebase;
 
 class SettingsController extends Controller
 {
     public function index()
     {
-        // Still using Laravel's built-in Auth for user data
-        $user = Auth::user();
+        $user = (object) [
+            'first_name' => session('first_name'),
+            'name' => session('user_name', 'User'),
+            'email' => session('email', 'No Email'),
+            'user_role' => session('user_role', 'staff'),
+        ];
 
         return view('settings', compact('user'));
     }
@@ -22,12 +26,15 @@ class SettingsController extends Controller
             'new_password' => 'required|string|min:4|confirmed',
         ]);
 
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        
-        // This still saves to your SQL 'users' table
-        $user->password = Hash::make($request->new_password);
-        $user->save();
+        $userId = session('firebase_user_id');
+
+        if (!$userId) {
+            return back()->withErrors(['error' => 'Please sign in again before updating your password.']);
+        }
+
+        Firebase::database()->getReference('users/' . $userId)->update([
+            'password' => Hash::make($request->new_password),
+        ]);
 
         return back()->with('success', 'Password updated successfully.');
     }

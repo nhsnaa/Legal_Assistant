@@ -177,6 +177,17 @@ body {
     padding-right: 3rem;
 }
 
+.password-field .form-control::-ms-reveal,
+.password-field .form-control::-ms-clear {
+    display: none;
+}
+
+.password-field .form-control::-webkit-credentials-auto-fill-button,
+.password-field .form-control::-webkit-textfield-decoration-container {
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .password-toggle {
     position: absolute;
     top: 50%;
@@ -186,6 +197,7 @@ body {
     background: transparent;
     color: #7a8da0;
     padding: 0;
+    z-index: 2;
 }
 
 .helper-link {

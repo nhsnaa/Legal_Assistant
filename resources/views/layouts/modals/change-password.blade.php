@@ -12,7 +12,7 @@
                     @csrf
                     <div class="form-group mb-4">
                         <label class="small text-muted mb-1">Email</label>
-                        <input type="email" class="form-control bg-light border" value="{{ Auth::user()->email }}" readonly style="border-radius: 8px; padding: 12px;">
+                        <input type="email" class="form-control bg-light border" value="{{ session('email', 'No Email') }}" readonly style="border-radius: 8px; padding: 12px;">
                     </div>
 
                     <div class="form-group mb-4 position-relative">
@@ -50,4 +50,3 @@
         </div>
     </div>
 </div>
-

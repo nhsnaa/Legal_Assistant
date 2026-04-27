@@ -8,25 +8,13 @@
     <link rel="stylesheet" href="{{ asset('css/marketing.css') }}">
 </head>
 <body>
-    @php
-        $isAuthenticated = auth()->check();
-    @endphp
-
     <nav class="navbar navbar-expand-lg navbar-light py-3">
         <div class="container">
             <a class="navbar-brand font-weight-bold" href="{{ route('welcome') }}">ILA <span class="text-primary">SYSTEM</span></a>
             <div class="ml-auto d-flex align-items-center">
                 <a href="#features" class="nav-inline-link mr-4">Features</a>
-                @if ($isAuthenticated)
-                    <a href="{{ route('dashboard') }}" class="btn btn-link text-dark">Dashboard</a>
-                    <form action="{{ route('logout') }}" method="POST" class="d-inline-block mb-0 ml-2">
-                        @csrf
-                        <button type="submit" class="btn btn-primary rounded-pill px-4">Switch Account</button>
-                    </form>
-                @else
-                    <a href="{{ route('login') }}" class="btn btn-link text-dark">Login</a>
-                    <a href="{{ route('register') }}" class="btn btn-primary rounded-pill px-4">Get Started</a>
-                @endif
+                <a href="{{ route('login') }}" class="btn btn-link text-dark">Login</a>
+                <a href="{{ route('register') }}" class="btn btn-primary rounded-pill px-4">Get Started</a>
             </div>
         </div>
     </nav>
@@ -48,16 +36,8 @@
                     </p>
 
                     <div class="hero-actions mt-5">
-                        @if ($isAuthenticated)
-                            <a href="{{ route('dashboard') }}" class="btn btn-primary btn-lg rounded-pill px-5 mr-sm-4 mb-3 mb-sm-0">Open Your Dashboard</a>
-                            <form action="{{ route('logout') }}" method="POST" class="d-inline-block mb-3 mb-sm-0">
-                                @csrf
-                                <button type="submit" class="btn btn-outline-dark btn-lg rounded-pill px-5">Switch Account</button>
-                            </form>
-                        @else
-                            <a href="{{ route('register') }}" class="btn btn-primary btn-lg rounded-pill px-5 mr-sm-4 mb-3 mb-sm-0">Start Your Workspace</a>
-                            <a href="#features" class="btn btn-outline-dark btn-lg rounded-pill px-5">Explore Features</a>
-                        @endif
+                        <a href="{{ route('register') }}" class="btn btn-primary btn-lg rounded-pill px-5 mr-sm-4 mb-3 mb-sm-0">Start Your Workspace</a>
+                        <a href="#features" class="btn btn-outline-dark btn-lg rounded-pill px-5">Explore Features</a>
                     </div>
 
                     <div class="hero-trust row mt-5">
