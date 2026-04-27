@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Kreait\Laravel\Firebase\Facades\Firebase;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -91,49 +93,149 @@ class DashboardController extends Controller
             ->filter(fn ($entry) => !empty($entry['billable']))
             ->count();
 
-        $aiSuggestions = [];
-
-        if ($upcomingHearings->isNotEmpty()) {
-            $nextHearing = $upcomingHearings->first();
-            $hearingTime = Carbon::parse($nextHearing['hearing_time']);
-            $aiSuggestions[] = [
-                'title' => 'Prepare the next hearing first',
-                'timing' => $hearingTime->isToday() ? 'Priority for today' : 'Upcoming priority',
-                'detail' => 'Focus on "' . ($nextHearing['title'] ?? $nextHearing['case_name'] ?? 'Untitled Case') . '" before ' . $hearingTime->format('d M, g:i A') . '.',
-            ];
-        }
-
-        if ($activeCases > 0) {
-            $aiSuggestions[] = [
-                'title' => 'Review active matters in focused blocks',
-                'timing' => 'Midday workflow',
-                'detail' => 'You currently have ' . $activeCases . ' active case' . ($activeCases === 1 ? '' : 's') . '. Group follow-up, research, and drafting into one focused session.',
-            ];
-        }
-
-        if ($documentsCount > 0) {
-            $aiSuggestions[] = [
-                'title' => 'Set aside time for document handling',
-                'timing' => 'Admin window',
-                'detail' => 'With ' . $documentsCount . ' stored document' . ($documentsCount === 1 ? '' : 's') . ', reserve a short review window for uploads, checking, or filing.',
-            ];
-        }
-
-        if ($billableEntriesCount > 0) {
-            $aiSuggestions[] = [
-                'title' => 'Close the day by confirming billable logs',
-                'timing' => 'End-of-day check',
-                'detail' => 'You already have ' . $billableEntriesCount . ' billable time entr' . ($billableEntriesCount === 1 ? 'y' : 'ies') . '. Use the last slot of the day to verify time records are complete.',
-            ];
-        }
-
-        $aiSuggestions = collect($aiSuggestions)->take(3)->values();
+        $aiPlan = $this->buildPrototypeAiPlan(
+            $upcomingHearings,
+            $activeCases,
+            $documentsCount,
+            $billableEntriesCount
+        );
+        $aiSuggestions = collect($aiPlan['suggestions'])->values();
+        $aiSummary = $aiPlan['summary'];
 
         return view('dashboard', compact(
             'greeting', 'activeCases', 'chartLabels', 'chartData', 
             'hearings', 'recentDocuments', 'recentTimeEntryData', 
-            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'aiSuggestions'
+            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'aiSuggestions', 'aiSummary'
         ));
+    }
+
+    public function generateAiSuggestions()
+    {
+        $rootData = Firebase::database()->getReference()->getValue() ?? [];
+
+        $hearings = collect($rootData['hearings'] ?? [])
+            ->filter(fn ($hearing) => !empty($hearing['hearing_time']))
+            ->sortBy('hearing_time')
+            ->take(3)
+            ->values();
+
+        $activeCases = count(array_filter($rootData['cases'] ?? [], fn ($case) => ($case['status'] ?? '') === 'Active'));
+        $documentsCount = count($rootData['documents'] ?? []);
+        $billableEntriesCount = collect($rootData['time_entries'] ?? [])
+            ->filter(fn ($entry) => !empty($entry['billable']))
+            ->count();
+
+        $prototypePlan = $this->buildPrototypeAiPlan(
+            $hearings,
+            $activeCases,
+            $documentsCount,
+            $billableEntriesCount
+        );
+
+        $apiKey = config('services.gemini.api_key');
+
+        if (!$apiKey) {
+            return response()->json([
+                'source' => 'prototype',
+                'configured' => false,
+                'message' => 'GEMINI_API_KEY is not configured yet, so the assistant is using the local planning prototype.',
+                'summary' => $prototypePlan['summary'],
+                'suggestions' => $prototypePlan['suggestions'],
+            ]);
+        }
+
+        try {
+            $model = config('services.gemini.model', 'gemini-2.5-flash');
+            $payload = [
+                'system_instruction' => [
+                    'parts' => [
+                        [
+                            'text' => 'You are a legal workflow planning assistant. Generate a practical day plan for a small legal office. Keep suggestions specific, calm, and professional. Return only valid JSON.',
+                        ],
+                    ],
+                ],
+                'contents' => [
+                    [
+                        'parts' => [
+                            [
+                                'text' => 'Build a suggested work plan from this dashboard data and return JSON in this shape: {"summary":"...","suggestions":[{"slot":"...","title":"...","timing":"...","detail":"...","reason":"..."}]}. Dashboard data: ' . json_encode([
+                                    'generated_at' => now()->toIso8601String(),
+                                    'upcoming_hearings' => $hearings->map(function ($hearing) {
+                                        return [
+                                            'title' => $hearing['title'] ?? ($hearing['case_name'] ?? 'Untitled Case'),
+                                            'case_name' => $hearing['case_name'] ?? 'Untitled Case',
+                                            'hearing_time' => $hearing['hearing_time'],
+                                            'status' => $hearing['status'] ?? 'Scheduled',
+                                        ];
+                                    })->values()->all(),
+                                    'active_cases' => $activeCases,
+                                    'documents_count' => $documentsCount,
+                                    'billable_entries_count' => $billableEntriesCount,
+                                ], JSON_UNESCAPED_SLASHES),
+                            ],
+                        ],
+                    ],
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.4,
+                    'responseMimeType' => 'application/json',
+                ],
+            ];
+
+            $response = null;
+            $attemptDelays = [0, 2, 4];
+
+            foreach ($attemptDelays as $attempt => $delaySeconds) {
+                if ($delaySeconds > 0) {
+                    sleep($delaySeconds);
+                }
+
+                $response = Http::withHeaders([
+                        'x-goog-api-key' => $apiKey,
+                    ])
+                    ->timeout(30)
+                    ->post('https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent', $payload);
+
+                if ($response->successful()) {
+                    break;
+                }
+
+                if (!in_array($response->status(), [429, 503], true) || $attempt === array_key_last($attemptDelays)) {
+                    break;
+                }
+            }
+
+            if (!$response || $response->failed()) {
+                throw new \RuntimeException('Gemini request failed with status ' . ($response ? $response->status() : 'unknown'));
+            }
+
+            $responseBody = $response->json();
+            $outputText = data_get($responseBody, 'candidates.0.content.parts.0.text');
+
+            if (!$outputText) {
+                throw new \RuntimeException('Gemini response did not include candidate text.');
+            }
+
+            $aiPlan = json_decode($outputText, true, 512, JSON_THROW_ON_ERROR);
+
+            return response()->json([
+                'source' => 'gemini',
+                'configured' => true,
+                'message' => 'Live suggestions generated through the Gemini API.',
+                'summary' => $aiPlan['summary'] ?? $prototypePlan['summary'],
+                'suggestions' => collect($aiPlan['suggestions'] ?? [])->take(3)->values()->all(),
+            ]);
+        } catch (\Throwable $exception) {
+            Log::warning('AI suggestion fallback triggered: ' . $exception->getMessage());
+
+            return response()->json([
+                'source' => 'prototype',
+                'configured' => false,
+                'message' => 'Live AI could not be reached, so the assistant is using the local planning prototype instead.',
+                'summary' => $prototypePlan['summary'],
+                'suggestions' => $prototypePlan['suggestions'],
+            ]);
+        }
     }
 
     public function storeTimeEntry(Request $request)
@@ -171,5 +273,70 @@ class DashboardController extends Controller
             'message' => 'Time entry saved to Firebase.',
             'entry' => array_merge($newData, ['id' => $newPostKey, 'durationMs' => $validated['duration_ms'], 'savedAt' => $newData['created_at']])
         ]);
+    }
+
+    private function buildPrototypeAiPlan($upcomingHearings, int $activeCases, int $documentsCount, int $billableEntriesCount): array
+    {
+        $suggestions = [];
+        $summary = 'Generate a suggested day plan based on the latest legal workload in the system.';
+
+        if ($upcomingHearings->isNotEmpty()) {
+            $nextHearing = $upcomingHearings->first();
+            $hearingTime = Carbon::parse($nextHearing['hearing_time']);
+            $suggestions[] = [
+                'slot' => 'Morning Priority',
+                'title' => 'Prepare the next hearing first',
+                'timing' => $hearingTime->isToday() ? 'Due today' : 'Upcoming hearing',
+                'detail' => 'Focus on "' . ($nextHearing['title'] ?? $nextHearing['case_name'] ?? 'Untitled Case') . '" before ' . $hearingTime->format('d M, g:i A') . '.',
+                'reason' => 'Court-related work is the highest-risk item to leave until later in the day.',
+            ];
+
+            $summary = 'The dashboard found a hearing-based priority, so the assistant is recommending court preparation first.';
+        }
+
+        if ($activeCases > 0) {
+            $suggestions[] = [
+                'slot' => 'Midday Focus',
+                'title' => 'Review active matters in focused blocks',
+                'timing' => 'Deep work block',
+                'detail' => 'You currently have ' . $activeCases . ' active case' . ($activeCases === 1 ? '' : 's') . '. Group follow-up, research, and drafting into one focused session.',
+                'reason' => 'Clustering case review reduces context switching and helps legal drafting move faster.',
+            ];
+        }
+
+        if ($documentsCount > 0) {
+            $suggestions[] = [
+                'slot' => 'Afternoon Follow-up',
+                'title' => 'Set aside time for document handling',
+                'timing' => 'Document window',
+                'detail' => 'With ' . $documentsCount . ' stored document' . ($documentsCount === 1 ? '' : 's') . ', reserve a short review window for uploads, checking, or filing.',
+                'reason' => 'Documents are easier to batch together after the main case priority is under control.',
+            ];
+        }
+
+        if ($billableEntriesCount > 0) {
+            $suggestions[] = [
+                'slot' => 'End-of-day Wrap-up',
+                'title' => 'Close the day by confirming billable logs',
+                'timing' => 'End-of-day check',
+                'detail' => 'You already have ' . $billableEntriesCount . ' billable time entr' . ($billableEntriesCount === 1 ? 'y' : 'ies') . '. Use the last slot of the day to verify time records are complete.',
+                'reason' => 'Time records are easiest to verify after the day’s work has been completed.',
+            ];
+        }
+
+        if (empty($suggestions)) {
+            $suggestions[] = [
+                'slot' => 'Suggested Starting Point',
+                'title' => 'Start by adding today’s first legal activity',
+                'timing' => 'Setup step',
+                'detail' => 'There is not enough case, hearing, or billing data yet, so begin by creating one task, one case, or one time record.',
+                'reason' => 'The assistant improves as soon as the workspace has more real working data.',
+            ];
+        }
+
+        return [
+            'summary' => $summary,
+            'suggestions' => collect($suggestions)->take(3)->values()->all(),
+        ];
     }
 }

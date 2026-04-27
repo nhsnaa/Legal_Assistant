@@ -13,8 +13,8 @@
 
     <div class="module-toolbar">
         <div>
-            <h1 class="module-title mb-2">Upload Document</h1>
-            <p class="module-copy mb-0">Securely upload PDF, DOC, DOCX, or TXT files up to 10MB each.</p>
+            <h1 class="module-title mb-2">Add Document</h1>
+            <p class="module-copy mb-0">Upload a file or save a Google Drive or external link for faster access to legal materials.</p>
         </div>
         <a href="{{ route('documents.index') }}" class="btn btn-light px-4 py-2">Back to Documents</a>
     </div>
@@ -39,9 +39,25 @@
                 <div id="documentFileList" class="module-file-list"></div>
             </div>
 
+            <div class="module-link-divider">
+                <span>or save a document link</span>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-5 mb-3 mb-lg-0">
+                    <label class="font-weight-bold small">Link Title</label>
+                    <input type="text" name="link_name" class="form-control module-input" value="{{ old('link_name') }}" placeholder="Example: Draft Agreement in Google Drive">
+                </div>
+                <div class="col-lg-7">
+                    <label class="font-weight-bold small">Document URL</label>
+                    <input type="url" name="link_url" class="form-control module-input" value="{{ old('link_url') }}" placeholder="https://drive.google.com/...">
+                    <small class="text-muted d-block mt-2">Useful when the legal team wants to keep editing the original document in Google Drive.</small>
+                </div>
+            </div>
+
             <div class="module-modal-actions">
                 <a href="{{ route('documents.index') }}" class="btn btn-light px-4">Cancel</a>
-                <button type="submit" class="btn btn-primary px-4" id="documentSubmitBtn">Upload Documents</button>
+                <button type="submit" class="btn btn-primary px-4" id="documentSubmitBtn">Save Document Record</button>
             </div>
         </form>
     </div>

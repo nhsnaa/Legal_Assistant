@@ -64,11 +64,11 @@
                 <div class="d-flex justify-content-between align-items-start flex-wrap mb-4">
                     <div>
                         <span class="module-kicker">AI Planning Assistant</span>
-                        <h5 class="font-weight-bold mb-1 mt-3">Suggested tasks for today</h5>
-                        <p class="text-muted mb-0">A smart daily summary based on current hearings, active cases, documents, and recorded work.</p>
+                        <h5 class="font-weight-bold mb-1 mt-3">Suggested day plan</h5>
+                        <p class="text-muted mb-0" id="aiAssistantSummary">{{ $aiSummary ?? 'A smart daily summary based on current hearings, active cases, documents, and recorded work.' }}</p>
                     </div>
                     <div class="d-flex align-items-center flex-wrap gap-2">
-                        <span class="ai-assistant-badge mr-2"><i class="bi bi-stars mr-2"></i>Prototype</span>
+                        <span class="ai-assistant-badge mr-2" id="aiAssistantBadge"><i class="bi bi-stars mr-2"></i>Prototype</span>
                         <button type="button" class="btn btn-primary btn-sm" id="generateAiSuggestionsBtn">
                             <i class="bi bi-magic mr-1"></i>Generate Suggestions
                         </button>
@@ -81,6 +81,8 @@
                     <p class="mb-0">Generate a suggested task list based on your current hearings, cases, documents, and work logs.</p>
                 </div>
 
+                <div class="ai-assistant-status d-none" id="aiAssistantStatus"></div>
+
                 <div class="ai-suggestion-list d-none" id="aiSuggestionList">
                     @forelse ($aiSuggestions as $suggestion)
                         <div class="ai-suggestion-item">
@@ -88,11 +90,13 @@
                                 <i class="bi bi-magic"></i>
                             </div>
                             <div class="ai-suggestion-copy">
+                                <span class="ai-suggestion-slot">{{ $suggestion['slot'] ?? 'Suggested Block' }}</span>
                                 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                                     <strong>{{ $suggestion['title'] }}</strong>
                                     <span class="ai-suggestion-timing">{{ $suggestion['timing'] }}</span>
                                 </div>
-                                <p class="mb-0">{{ $suggestion['detail'] }}</p>
+                                <p class="mb-1">{{ $suggestion['detail'] }}</p>
+                                <small class="ai-suggestion-reason">Why this matters: {{ $suggestion['reason'] ?? 'It helps structure the day with clearer priorities.' }}</small>
                             </div>
                         </div>
                     @empty
@@ -422,7 +426,7 @@
     <div id="dashboardDocumentModal" class="module-modal-backdrop" aria-hidden="true">
         <div class="module-modal-card">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="font-weight-bold mb-0">Upload Document</h4>
+                <h4 class="font-weight-bold mb-0">Add Document</h4>
                 <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardDocumentModal')">&times;</button>
             </div>
 
@@ -430,13 +434,27 @@
                 @csrf
                 <div class="form-group mb-4">
                     <label class="font-weight-bold small">Select Files</label>
-                    <input type="file" name="documents[]" class="form-control module-input py-2" accept=".pdf,.doc,.docx,.txt" multiple required>
+                    <input type="file" name="documents[]" class="form-control module-input py-2" accept=".pdf,.doc,.docx,.txt" multiple>
                     <small class="text-muted d-block mt-2">Allowed: PDF, DOC, DOCX, TXT. Maximum 10MB each.</small>
+                </div>
+
+                <div class="module-link-divider">
+                    <span>or save a link</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="font-weight-bold small">Link Title</label>
+                    <input type="text" name="link_name" class="form-control module-input" placeholder="Example: Shared draft in Google Drive">
+                </div>
+                <div class="form-group mb-4">
+                    <label class="font-weight-bold small">Document URL</label>
+                    <input type="url" name="link_url" class="form-control module-input" placeholder="https://drive.google.com/...">
+                    <small class="text-muted d-block mt-2">Use this when the team wants to keep working on the live document in Google Drive.</small>
                 </div>
 
                 <div class="module-modal-actions">
                     <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardDocumentModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary px-4">Upload Documents</button>
+                    <button type="submit" class="btn btn-primary px-4">Save Document Record</button>
                 </div>
             </form>
         </div>
@@ -628,12 +646,18 @@ const timeEntryCase = document.getElementById('timeEntryCase');
 const timeEntryNotes = document.getElementById('timeEntryNotes');
 const saveTimeBtn = document.getElementById('saveTimeBtn');
 const dashboardTimeEntryUrl = @json(route('dashboard.time-entries.store'));
+const dashboardAiSuggestionsUrl = @json(route('dashboard.ai-suggestions'));
 const csrfToken = @json(csrf_token());
 let dashboardTimeEntries = Array.isArray(recentTimeEntries) ? recentTimeEntries.slice() : [];
 let pendingTimeEntry = null;
 const generateAiSuggestionsBtn = document.getElementById('generateAiSuggestionsBtn');
 const aiAssistantEmptyState = document.getElementById('aiAssistantEmptyState');
 const aiSuggestionList = document.getElementById('aiSuggestionList');
+const aiAssistantSummary = document.getElementById('aiAssistantSummary');
+const aiAssistantBadge = document.getElementById('aiAssistantBadge');
+const aiAssistantStatus = document.getElementById('aiAssistantStatus');
+const initialAiSuggestions = @json($aiSuggestions ?? []);
+const initialAiSummary = @json($aiSummary ?? '');
 
 function formatDuration(milliseconds) {
     const totalSeconds = Math.max(1, Math.floor(milliseconds / 1000));
@@ -662,6 +686,60 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function renderAiSuggestions(summary, suggestions, source, message) {
+    if (aiAssistantSummary) {
+        aiAssistantSummary.textContent = summary || initialAiSummary;
+    }
+
+    if (aiAssistantBadge) {
+        aiAssistantBadge.innerHTML = source === 'gemini'
+            ? '<i class="bi bi-cpu mr-2"></i>Live AI'
+            : '<i class="bi bi-stars mr-2"></i>Prototype';
+    }
+
+    if (aiAssistantStatus) {
+        aiAssistantStatus.classList.remove('d-none', 'is-live', 'is-fallback');
+        aiAssistantStatus.classList.add(source === 'gemini' ? 'is-live' : 'is-fallback');
+        aiAssistantStatus.innerHTML = source === 'gemini'
+            ? '<i class="bi bi-check-circle-fill mr-2"></i>' + escapeHtml(message || 'Live AI suggestions loaded successfully.')
+            : '<i class="bi bi-info-circle-fill mr-2"></i>' + escapeHtml(message || 'Live AI is unavailable right now, so the local planner is being used.');
+    }
+
+    const items = Array.isArray(suggestions) ? suggestions : [];
+
+    if (!items.length) {
+        aiSuggestionList.innerHTML = `
+            <div class="time-log-empty">
+                <i class="bi bi-stars"></i>
+                <strong>No AI suggestions yet</strong>
+                <p>${escapeHtml(message || 'The assistant could not generate suggestions right now.')}</p>
+            </div>
+        `;
+    } else {
+        aiSuggestionList.innerHTML = items.map(function (suggestion) {
+            return `
+                <div class="ai-suggestion-item">
+                    <div class="ai-suggestion-icon">
+                        <i class="bi bi-magic"></i>
+                    </div>
+                    <div class="ai-suggestion-copy">
+                        <span class="ai-suggestion-slot">${escapeHtml(suggestion.slot || 'Suggested Block')}</span>
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <strong>${escapeHtml(suggestion.title || 'Suggestion')}</strong>
+                            <span class="ai-suggestion-timing">${escapeHtml(suggestion.timing || 'Today')}</span>
+                        </div>
+                        <p class="mb-1">${escapeHtml(suggestion.detail || '')}</p>
+                        <small class="ai-suggestion-reason">Why this matters: ${escapeHtml(suggestion.reason || 'It helps structure the day with clearer priorities.')}</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    aiAssistantEmptyState?.classList.add('d-none');
+    aiSuggestionList?.classList.remove('d-none');
 }
 
 function renderTimeLogs() {
@@ -808,12 +886,30 @@ generateAiSuggestionsBtn?.addEventListener('click', function () {
     generateAiSuggestionsBtn.disabled = true;
     generateAiSuggestionsBtn.innerHTML = '<span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>Generating...';
 
-    window.setTimeout(function () {
-        aiAssistantEmptyState?.classList.add('d-none');
-        aiSuggestionList?.classList.remove('d-none');
-        generateAiSuggestionsBtn.innerHTML = '<i class="bi bi-arrow-repeat mr-1"></i>Regenerate';
-        generateAiSuggestionsBtn.disabled = false;
-    }, 700);
+    fetch(dashboardAiSuggestionsUrl, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        }
+    })
+        .then(function (response) {
+            if (!response.ok) {
+                throw new Error('Unable to generate suggestions right now.');
+            }
+
+            return response.json();
+        })
+        .then(function (payload) {
+            renderAiSuggestions(payload.summary, payload.suggestions, payload.source, payload.message);
+            generateAiSuggestionsBtn.innerHTML = '<i class="bi bi-arrow-repeat mr-1"></i>Regenerate';
+            generateAiSuggestionsBtn.disabled = false;
+        })
+        .catch(function () {
+            renderAiSuggestions(initialAiSummary, initialAiSuggestions, 'prototype', 'Live AI could not be reached, so the local planner is being used.');
+            generateAiSuggestionsBtn.innerHTML = '<i class="bi bi-arrow-repeat mr-1"></i>Try Again';
+            generateAiSuggestionsBtn.disabled = false;
+        });
 });
 </script>
 @endsection

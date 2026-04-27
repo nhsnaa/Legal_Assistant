@@ -31,6 +31,13 @@
                         <input type="text" name="name" class="form-control module-input" value="{{ old('name', $document->name) }}" required>
                     </div>
 
+                    @if (($document->type ?? 'file') === 'link')
+                        <div class="form-group">
+                            <label class="font-weight-bold small">Document URL</label>
+                            <input type="url" name="link_url" class="form-control module-input" value="{{ old('link_url', $document->link_url ?? '') }}" required>
+                        </div>
+                    @endif
+
                     <div class="module-modal-actions">
                         <a href="{{ route('documents.index') }}" class="btn btn-light px-4">Cancel</a>
                         <button type="submit" class="btn btn-primary px-4">Save Changes</button>
@@ -43,16 +50,22 @@
                 <h6 class="font-weight-bold mb-3">Document Details</h6>
                 <div class="module-note-list">
                     <div class="module-note-item">
-                        <strong>Original File Name</strong>
+                        <strong>{{ ($document->type ?? 'file') === 'link' ? 'Source Label' : 'Original File Name' }}</strong>
                         <p class="mb-0">{{ $document->original_name }}</p>
                     </div>
                     <div class="module-note-item">
-                        <strong>File Size</strong>
-                        <p class="mb-0">{{ number_format($document->size / 1024, 2) }} KB</p>
+                        <strong>{{ ($document->type ?? 'file') === 'link' ? 'Document Type' : 'File Size' }}</strong>
+                        <p class="mb-0">
+                            @if (($document->type ?? 'file') === 'link')
+                                External Link
+                            @else
+                                {{ number_format(($document->size ?? 0) / 1024, 2) }} KB
+                            @endif
+                        </p>
                     </div>
                     <div class="module-note-item">
-                        <strong>Download</strong>
-                        <p class="mb-0"><a href="{{ route('documents.show', $document) }}">Open current file</a></p>
+                        <strong>{{ ($document->type ?? 'file') === 'link' ? 'Open Link' : 'Download' }}</strong>
+                        <p class="mb-0"><a href="{{ route('documents.show', $document) }}" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">{{ ($document->type ?? 'file') === 'link' ? 'Open current link' : 'Open current file' }}</a></p>
                     </div>
                 </div>
             </div>

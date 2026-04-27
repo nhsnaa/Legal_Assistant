@@ -39,6 +39,7 @@
                     <thead>
                         <tr>
                             <th>Document Name</th>
+                            <th>Type</th>
                             <th>Original Name</th>
                             <th>Size</th>
                             <th>Uploaded</th>
@@ -49,12 +50,25 @@
                         @foreach ($documents as $document)
                             <tr>
                                 <td class="font-weight-bold">{{ $document->name }}</td>
+                                <td>
+                                    <span class="module-badge {{ ($document->type ?? 'file') === 'link' ? 'module-badge-info' : 'module-badge-muted' }}">
+                                        {{ ($document->type ?? 'file') === 'link' ? 'Link' : 'File' }}
+                                    </span>
+                                </td>
                                 <td>{{ $document->original_name }}</td>
-                                <td>{{ number_format(($document->size ?? 0) / 1024, 2) }} KB</td>
+                                <td>
+                                    @if (($document->type ?? 'file') === 'link')
+                                        --
+                                    @else
+                                        {{ number_format(($document->size ?? 0) / 1024, 2) }} KB
+                                    @endif
+                                </td>
                                 <td>{{ $document->created_at ? $document->created_at->format('M d, Y') : 'N/A' }}</td>
                                 <td>
                                     <div class="module-actions-inline">
-                                        <a href="{{ route('documents.show', $document->id) }}" class="btn btn-sm btn-light">Download</a>
+                                        <a href="{{ route('documents.show', $document->id) }}" class="btn btn-sm btn-light" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">
+                                            {{ ($document->type ?? 'file') === 'link' ? 'Open Link' : 'Download' }}
+                                        </a>
                                         <a href="{{ route('documents.edit', $document->id) }}" class="btn btn-sm btn-light">Edit</a>
                                         <form action="{{ route('documents.destroy', $document->id) }}" method="POST" onsubmit="return confirm('Delete this document?')">
                                             @csrf
@@ -72,8 +86,8 @@
             <div class="module-empty-state">
                 <div class="module-empty-icon"><i class="bi bi-folder2-open"></i></div>
                 <h5 class="font-weight-bold">No documents yet</h5>
-                <p class="text-muted mb-3">Upload your first legal document to start building the file library.</p>
-                <a href="{{ route('documents.create') }}" class="btn btn-primary px-4">Upload Document</a>
+                <p class="text-muted mb-3">Upload your first legal document or save a working link to start building the file library.</p>
+                <a href="{{ route('documents.create') }}" class="btn btn-primary px-4">Add Document</a>
             </div>
         @endif
     </div>
