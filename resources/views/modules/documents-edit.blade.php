@@ -31,6 +31,16 @@
                         <input type="text" name="name" class="form-control module-input" value="{{ old('name', $document->name) }}" required>
                     </div>
 
+                    <div class="form-group">
+                        <label class="font-weight-bold small">Document Category</label>
+                        <select name="category" class="form-control module-input" required>
+                            <option value="Court Filing" {{ old('category', $document->category ?? '') === 'Court Filing' ? 'selected' : '' }}>Court Filing</option>
+                            <option value="Client Correspondence" {{ old('category', $document->category ?? '') === 'Client Correspondence' ? 'selected' : '' }}>Client Correspondence</option>
+                            <option value="Evidence" {{ old('category', $document->category ?? '') === 'Evidence' ? 'selected' : '' }}>Evidence</option>
+                            <option value="Contract" {{ old('category', $document->category ?? '') === 'Contract' ? 'selected' : '' }}>Contract</option>
+                        </select>
+                    </div>
+
                     @if (($document->type ?? 'file') === 'link')
                         <div class="form-group">
                             <label class="font-weight-bold small">Document URL</label>
@@ -52,6 +62,10 @@
                     <div class="module-note-item">
                         <strong>{{ ($document->type ?? 'file') === 'link' ? 'Source Label' : 'Original File Name' }}</strong>
                         <p class="mb-0">{{ $document->original_name }}</p>
+                    </div>
+                    <div class="module-note-item">
+                        <strong>Category</strong>
+                        <p class="mb-0">{{ $document->category ?? 'Uncategorized' }}</p>
                     </div>
                     <div class="module-note-item">
                         <strong>{{ ($document->type ?? 'file') === 'link' ? 'Document Type' : 'File Size' }}</strong>

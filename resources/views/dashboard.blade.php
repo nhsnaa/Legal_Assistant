@@ -432,6 +432,15 @@
 
             <form action="{{ route('documents.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
+                <div class="form-group">
+                    <label class="font-weight-bold small">Document Category</label>
+                    <select name="document_category" class="form-control module-input" required>
+                        <option value="Court Filing">Court Filing</option>
+                        <option value="Client Correspondence">Client Correspondence</option>
+                        <option value="Evidence">Evidence</option>
+                        <option value="Contract">Contract</option>
+                    </select>
+                </div>
                 <div class="form-group mb-4">
                     <label class="font-weight-bold small">Select Files</label>
                     <input type="file" name="documents[]" class="form-control module-input py-2" accept=".pdf,.doc,.docx,.txt" multiple>

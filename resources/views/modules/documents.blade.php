@@ -39,6 +39,7 @@
                     <thead>
                         <tr>
                             <th>Document Name</th>
+                            <th>Category</th>
                             <th>Type</th>
                             <th>Original Name</th>
                             <th>Size</th>
@@ -50,6 +51,7 @@
                         @foreach ($documents as $document)
                             <tr>
                                 <td class="font-weight-bold">{{ $document->name }}</td>
+                                <td>{{ $document->category ?? 'Uncategorized' }}</td>
                                 <td>
                                     <span class="module-badge {{ ($document->type ?? 'file') === 'link' ? 'module-badge-info' : 'module-badge-muted' }}">
                                         {{ ($document->type ?? 'file') === 'link' ? 'Link' : 'File' }}

@@ -9,12 +9,23 @@ use Carbon\Carbon;
 
 class DocumentController extends Controller
 {
+    private const MIME_EXTENSION_MAP = [
+        'application/pdf' => 'PDF',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'DOCX',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'XLSX',
+        'image/jpeg' => 'JPG',
+        'image/png' => 'PNG',
+        'text/plain' => 'TXT',
+        'application/msword' => 'DOCX',
+    ];
+
     public function index()
     {
         $documents = collect(Firebase::database()->getReference('documents')->getValue() ?? [])
             ->map(function ($document, $id) {
                 $document['id'] = $id;
                 $document['type'] = $document['type'] ?? 'file';
+                $document['category'] = $document['category'] ?? 'Uncategorized';
                 $document['created_at'] = !empty($document['created_at'])
                     ? Carbon::parse($document['created_at'])
                     : null;
@@ -28,14 +39,28 @@ class DocumentController extends Controller
 
     public function create()
     {
-        return view('modules.documents-upload');
+        $documentRules = Firebase::database()->getReference('settings/document_rules')->getValue() ?? [
+            'max_upload_size' => 25,
+            'allowed_file_types' => ['PDF', 'DOCX'],
+            'file_naming_rule' => '',
+        ];
+
+        return view('modules.documents-upload', compact('documentRules'));
     }
 
     public function store(Request $request)
     {
         $database = Firebase::database();
+        $documentRules = $database->getReference('settings/document_rules')->getValue() ?? [
+            'max_upload_size' => 25,
+            'allowed_file_types' => ['PDF', 'DOCX'],
+            'file_naming_rule' => '',
+        ];
+        $maxUploadKilobytes = ((int) ($documentRules['max_upload_size'] ?? 25)) * 1024;
+
         $request->validate([
-            'documents.*' => ['nullable', 'file', 'max:10240'],
+            'documents.*' => ['nullable', 'file', 'max:' . $maxUploadKilobytes],
+            'document_category' => ['required', 'string', 'in:Court Filing,Client Correspondence,Evidence,Contract'],
             'link_url' => ['nullable', 'url'],
             'link_name' => ['nullable', 'string', 'max:255'],
         ]);
@@ -52,11 +77,24 @@ class DocumentController extends Controller
         }
 
         foreach ($files as $file) {
+            $normalizedType = $this->normalizeFileType($file->getMimeType(), $file->getClientOriginalExtension());
+            $allowedTypes = $documentRules['allowed_file_types'] ?? ['PDF', 'DOCX'];
+
+            if (!in_array($normalizedType, $allowedTypes, true)) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->withErrors(['documents' => 'The file type "' . strtolower($normalizedType) . '" is not allowed by the current document rules.']);
+            }
+
             $path = $file->store('documents');
+            $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            $documentName = $this->buildDocumentName($baseName, $documentRules['file_naming_rule'] ?? '');
 
             $database->getReference('documents')->push([
                 'type' => 'file',
-                'name' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
+                'category' => $request->input('document_category'),
+                'name' => $documentName,
                 'file_path' => $path,
                 'original_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getMimeType(),
@@ -67,10 +105,12 @@ class DocumentController extends Controller
 
         if ($linkUrl !== '') {
             $host = parse_url($linkUrl, PHP_URL_HOST) ?: 'External Link';
+            $linkBaseName = $linkName !== '' ? $linkName : $host;
 
             $database->getReference('documents')->push([
                 'type' => 'link',
-                'name' => $linkName !== '' ? $linkName : $host,
+                'category' => $request->input('document_category'),
+                'name' => $this->buildDocumentName($linkBaseName, $documentRules['file_naming_rule'] ?? ''),
                 'original_name' => $host,
                 'link_url' => $linkUrl,
                 'created_at' => now()->toIso8601String(),
@@ -119,11 +159,13 @@ class DocumentController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'category' => ['required', 'string', 'in:Court Filing,Client Correspondence,Evidence,Contract'],
             'link_url' => [($document['type'] ?? 'file') === 'link' ? 'required' : 'nullable', 'url'],
         ]);
 
         $payload = [
             'name' => $validated['name'],
+            'category' => $validated['category'],
         ];
 
         if (($document['type'] ?? 'file') === 'link') {
@@ -146,5 +188,26 @@ class DocumentController extends Controller
 
         $ref->remove();
         return redirect()->back()->with('success', 'Document deleted.');
+    }
+
+    private function normalizeFileType(?string $mimeType, ?string $extension): string
+    {
+        if ($mimeType && isset(self::MIME_EXTENSION_MAP[$mimeType])) {
+            return self::MIME_EXTENSION_MAP[$mimeType];
+        }
+
+        return strtoupper((string) $extension);
+    }
+
+    private function buildDocumentName(string $baseName, string $namingRule): string
+    {
+        $cleanBaseName = trim($baseName) !== '' ? trim($baseName) : 'Document';
+
+        return match ($namingRule) {
+            'DATE_PREFIX' => now()->format('Ymd') . '_' . $cleanBaseName,
+            'CLIENT_DOC' => 'CLIENT_' . $cleanBaseName,
+            'CASE_DOC' => 'CASE_' . $cleanBaseName,
+            default => $cleanBaseName,
+        };
     }
 }

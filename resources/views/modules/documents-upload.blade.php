@@ -23,15 +23,33 @@
         <form action="{{ route('documents.store') }}" method="POST" enctype="multipart/form-data" id="documentUploadForm">
             @csrf
 
+            <div class="row mb-4">
+                <div class="col-lg-6">
+                    <label class="font-weight-bold small">Document Category</label>
+                    <select name="document_category" class="form-control module-input" required>
+                        <option value="Court Filing" {{ old('document_category') === 'Court Filing' ? 'selected' : '' }}>Court Filing</option>
+                        <option value="Client Correspondence" {{ old('document_category') === 'Client Correspondence' ? 'selected' : '' }}>Client Correspondence</option>
+                        <option value="Evidence" {{ old('document_category') === 'Evidence' ? 'selected' : '' }}>Evidence</option>
+                        <option value="Contract" {{ old('document_category') === 'Contract' ? 'selected' : '' }}>Contract</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="module-upload-dropzone" id="documentDropzone">
                 <div class="module-empty-icon mb-3"><i class="bi bi-cloud-arrow-up"></i></div>
                 <h5 class="font-weight-bold">Upload files</h5>
                 <p class="text-muted mb-3">Choose files or drag and drop multiple documents here.</p>
                 <label class="btn btn-primary px-4 mb-0">
                     Select Files
-                    <input id="documentsInput" name="documents[]" type="file" multiple accept=".pdf,.doc,.docx,.txt" hidden>
+                    @php
+                        $allowedExtensions = collect($documentRules['allowed_file_types'] ?? ['PDF', 'DOCX'])
+                            ->map(fn ($type) => '.' . strtolower($type))
+                            ->values()
+                            ->all();
+                    @endphp
+                    <input id="documentsInput" name="documents[]" type="file" multiple accept="{{ implode(',', $allowedExtensions) }}" hidden>
                 </label>
-                <small class="d-block text-muted mt-3">Allowed: PDF, DOC, DOCX, TXT</small>
+                <small class="d-block text-muted mt-3">Allowed: {{ implode(', ', $documentRules['allowed_file_types'] ?? ['PDF', 'DOCX']) }} | Max {{ $documentRules['max_upload_size'] ?? 25 }} MB</small>
             </div>
 
             <div id="documentFileInfo" class="module-file-list-wrap d-none">

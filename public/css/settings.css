@@ -280,6 +280,16 @@
     gap: 0.6rem;
 }
 
+.settings-chip-wrap {
+    margin: 0;
+}
+
+.settings-chip-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .settings-chip {
     display: inline-flex;
     align-items: center;
@@ -480,4 +490,3 @@
         min-width: 0;
     }
 }
-

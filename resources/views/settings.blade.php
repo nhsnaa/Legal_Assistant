@@ -52,10 +52,11 @@
                         <span class="settings-section-tag">Essential</span>
                     </div>
 
-                    <form class="settings-form-grid" data-demo-form="profile">
+                    <form class="settings-form-grid" action="{{ route('settings.profile.update') }}" method="POST">
+                        @csrf
                         <div class="settings-field">
                             <label class="settings-label">Display Name</label>
-                            <input class="settings-input" type="text" name="first_name" value="{{ $settingsDisplayName }}">
+                            <input class="settings-input" type="text" name="display_name" value="{{ old('display_name', $settingsDisplayName) }}">
                         </div>
                         <div class="settings-field">
                             <label class="settings-label">Email Address</label>
@@ -67,14 +68,14 @@
                         </div>
                         <div class="settings-field">
                             <label class="settings-label">Firm / Department</label>
-                            <input class="settings-input" type="text" placeholder="Enter firm or department name">
+                            <input class="settings-input" type="text" name="firm_name" value="{{ old('firm_name', $user->firm_name ?? '') }}" placeholder="Enter firm or department name">
                         </div>
                         <div class="settings-field full">
                             <label class="settings-label">Office Address</label>
-                            <textarea class="settings-textarea" placeholder="Enter office address"></textarea>
+                            <textarea class="settings-textarea" name="office_address" placeholder="Enter office address">{{ old('office_address', $user->office_address ?? '') }}</textarea>
                         </div>
                         <div class="settings-actions">
-                            <button type="submit" class="btn btn-info text-white" data-demo-form="profile"><i class="bi bi-check2-circle mr-1"></i>Save Profile</button>
+                            <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Save Profile</button>
                             <button type="button" class="btn btn-light" data-demo-action="logo upload opened"><i class="bi bi-image mr-1"></i>Upload Logo</button>
                         </div>
                     </form>
@@ -196,39 +197,43 @@
                         <span class="settings-section-tag">Records</span>
                     </div>
 
-                    <div class="settings-form-grid">
-                        <div class="settings-field">
-                            <label class="settings-label">Default Category</label>
-                            <select class="settings-select">
-                                <option>Court Filing</option>
-                                <option>Client Correspondence</option>
-                                <option>Evidence</option>
-                                <option>Contract</option>
-                            </select>
-                        </div>
+                    @php
+                        $allowedTypes = old('allowed_file_types', $documentRules['allowed_file_types'] ?? ['PDF', 'DOCX']);
+                    @endphp
+                    <form class="settings-form-grid" action="{{ route('settings.document-rules.update') }}" method="POST">
+                        @csrf
                         <div class="settings-field">
                             <label class="settings-label">Max Upload Size</label>
-                            <select class="settings-select">
-                                <option>25 MB</option>
-                                <option>50 MB</option>
-                                <option>100 MB</option>
+                            <select class="settings-select" name="max_upload_size">
+                                <option value="25" {{ (int) old('max_upload_size', $documentRules['max_upload_size'] ?? 25) === 25 ? 'selected' : '' }}>25 MB</option>
+                                <option value="50" {{ (int) old('max_upload_size', $documentRules['max_upload_size'] ?? 25) === 50 ? 'selected' : '' }}>50 MB</option>
+                                <option value="100" {{ (int) old('max_upload_size', $documentRules['max_upload_size'] ?? 25) === 100 ? 'selected' : '' }}>100 MB</option>
                             </select>
                         </div>
                         <div class="settings-field full">
                             <label class="settings-label">Allowed File Types</label>
                             <div class="settings-chip-row">
-                                <button type="button" class="settings-chip accent settings-chip-toggle" aria-pressed="true">PDF</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">DOCX</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">XLSX</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">JPG</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">PNG</button>
+                                @foreach (['PDF', 'DOCX', 'XLSX', 'JPG', 'PNG', 'TXT'] as $fileType)
+                                    <label class="settings-chip-wrap">
+                                        <input type="checkbox" name="allowed_file_types[]" value="{{ $fileType }}" class="settings-chip-input" {{ in_array($fileType, $allowedTypes) ? 'checked' : '' }}>
+                                        <span class="settings-chip {{ in_array($fileType, $allowedTypes) ? 'accent' : '' }} settings-chip-toggle" aria-pressed="{{ in_array($fileType, $allowedTypes) ? 'true' : 'false' }}">{{ $fileType }}</span>
+                                    </label>
+                                @endforeach
                             </div>
                         </div>
                         <div class="settings-field full">
                             <label class="settings-label">File Naming Rule</label>
-                            <input class="settings-input" type="text" placeholder="Enter preferred document naming rule">
+                            <select class="settings-select" name="file_naming_rule">
+                                <option value="" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === '' ? 'selected' : '' }}>Keep original document name</option>
+                                <option value="DATE_PREFIX" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === 'DATE_PREFIX' ? 'selected' : '' }}>Add date prefix</option>
+                                <option value="CLIENT_DOC" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === 'CLIENT_DOC' ? 'selected' : '' }}>Add CLIENT_ prefix</option>
+                                <option value="CASE_DOC" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === 'CASE_DOC' ? 'selected' : '' }}>Add CASE_ prefix</option>
+                            </select>
                         </div>
-                    </div>
+                        <div class="settings-actions">
+                            <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Save Document Rules</button>
+                        </div>
+                    </form>
                 </section>
 
                 <section class="settings-section" id="schedule">
@@ -364,13 +369,6 @@ function showSettingsToast(message) {
     }, 2200);
 }
 
-document.querySelectorAll('[data-demo-form]').forEach((form) => {
-    form.addEventListener('submit', (event) => {
-        event.preventDefault();
-        showSettingsToast('Profile changes updated for demo view.');
-    });
-});
-
 document.querySelectorAll('[data-demo-action]').forEach((button) => {
     button.addEventListener('click', () => {
         const action = button.getAttribute('data-demo-action');
@@ -380,6 +378,15 @@ document.querySelectorAll('[data-demo-action]').forEach((button) => {
 
 document.querySelectorAll('.settings-chip-toggle').forEach((chip) => {
     chip.addEventListener('click', () => {
+        const hiddenInput = chip.previousElementSibling;
+
+        if (hiddenInput && hiddenInput.classList.contains('settings-chip-input')) {
+            hiddenInput.checked = !hiddenInput.checked;
+            chip.classList.toggle('accent', hiddenInput.checked);
+            chip.setAttribute('aria-pressed', hiddenInput.checked ? 'true' : 'false');
+            return;
+        }
+
         const isActive = chip.classList.toggle('accent');
         chip.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });

@@ -34,6 +34,8 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/dashboard/ai-suggestions', [DashboardController::class, 'generateAiSuggestions'])->name('dashboard.ai-suggestions');
     Route::post('/dashboard/time-entries', [DashboardController::class, 'storeTimeEntry'])->name('dashboard.time-entries.store');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+    Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile.update');
+    Route::post('/settings/document-rules', [SettingsController::class, 'updateDocumentRules'])->name('settings.document-rules.update');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('password.update');
 
     // Clients - Using {id} for Firebase Key
