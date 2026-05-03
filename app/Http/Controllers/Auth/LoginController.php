@@ -61,17 +61,23 @@ class LoginController extends Controller
 
             // Verify password against the hashed version in Firebase
             if (Hash::check($credentials['password'], $userData['password'])) {
-                $workspaceId = $userData['workspace_id'] ?? $userId;
-                $workspaceOwnerId = $userData['workspace_owner_id'] ?? $workspaceId;
                 $workspaceStatus = $userData['workspace_status'] ?? 'active';
+                $workspaceId = $workspaceStatus === 'pending_invitation'
+                    ? ($userData['invited_workspace_id'] ?? null)
+                    : ($userData['workspace_id'] ?? $userId);
+                $workspaceOwnerId = $workspaceStatus === 'pending_invitation'
+                    ? ($userData['invited_workspace_owner_id'] ?? null)
+                    : ($userData['workspace_owner_id'] ?? $workspaceId);
 
-                $database->getReference('users/' . $userId)->update([
-                    'workspace_id' => $workspaceId,
-                    'workspace_owner_id' => $workspaceOwnerId,
-                    'workspace_status' => $workspaceStatus,
-                ]);
+                if ($workspaceStatus !== 'pending_invitation') {
+                    $database->getReference('users/' . $userId)->update([
+                        'workspace_id' => $workspaceId,
+                        'workspace_owner_id' => $workspaceOwnerId,
+                        'workspace_status' => $workspaceStatus,
+                    ]);
+                }
 
-                if ($workspaceOwnerId === $userId) {
+                if ($workspaceOwnerId === $userId && $workspaceStatus !== 'pending_invitation') {
                     $this->backfillWorkspaceData($database, $workspaceId, $workspaceOwnerId);
                 }
 

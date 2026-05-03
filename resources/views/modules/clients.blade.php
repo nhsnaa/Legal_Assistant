@@ -90,6 +90,13 @@
                                         onclick="openClientEditModal(@js(['id' => $client->id, 'name' => $client->name, 'email' => $client->email, 'phone' => $client->phone, 'status' => $client->status]))">
                                         Edit
                                     </button>
+                                    <form action="{{ route('clients.archive', $client->id) }}" method="POST" onsubmit="return confirm('{{ $client->status === 'Inactive' ? 'Restore this client?' : 'Archive this client?' }}')">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="btn btn-sm btn-light">
+                                            {{ $client->status === 'Inactive' ? 'Restore' : 'Archive' }}
+                                        </button>
+                                    </form>
                                     <form action="{{ route('clients.destroy', $client->id) }}" method="POST" onsubmit="return confirm('Delete this client?')">
                                         @csrf
                                         @method('DELETE')

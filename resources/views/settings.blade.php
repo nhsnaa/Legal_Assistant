@@ -122,8 +122,12 @@
                     </div>
 
                     <div class="settings-actions">
-                        <button type="button" class="btn btn-info text-white" id="sendInviteBtn"><i class="bi bi-send mr-1"></i>Send Invitation</button>
-                        <button type="button" class="btn btn-light" onclick="openSettingsModal('createStaffModal')"><i class="bi bi-person-plus mr-1"></i>Create Staff Account</button>
+                        @if ($canManageWorkspaceUsers)
+                            <button type="button" class="btn btn-info text-white" id="sendInviteBtn"><i class="bi bi-send mr-1"></i>Send Invitation</button>
+                            <button type="button" class="btn btn-light" onclick="openSettingsModal('createStaffModal')"><i class="bi bi-person-plus mr-1"></i>Create Staff Account</button>
+                        @else
+                            <span class="settings-helper">Only the workspace owner can invite or create staff accounts.</span>
+                        @endif
                     </div>
 
                     <div class="settings-member-list">
@@ -142,14 +146,16 @@
                                         <span class="settings-chip">Full Access</span>
                                     @else
                                         <span class="settings-chip">{{ ucfirst($member->user_role) }}</span>
-                                        <span class="settings-chip {{ $member->workspace_status === 'pending' ? 'accent' : '' }}">
-                                            {{ $member->workspace_status === 'pending' ? 'Pending Invitation' : 'Workspace Access' }}
+                                        <span class="settings-chip {{ $member->workspace_status === 'pending_invitation' ? 'accent' : '' }}">
+                                            {{ $member->workspace_status === 'pending_invitation' ? 'Pending Invitation' : 'Workspace Access' }}
                                         </span>
-                                        <form action="{{ route('settings.staff.destroy', $member->id) }}" method="POST" onsubmit="return confirm('Delete this staff account?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="settings-inline-danger">Delete</button>
-                                        </form>
+                                        @if ($canManageWorkspaceUsers)
+                                            <form action="{{ route('settings.staff.destroy', $member->id) }}" method="POST" onsubmit="return confirm('Delete this staff account?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="settings-inline-danger">Delete</button>
+                                            </form>
+                                        @endif
                                     @endif
                                 </div>
                             </div>
@@ -423,8 +429,6 @@ const inviteStaffResults = document.getElementById('inviteStaffResults');
 const inviteStaffHelper = document.getElementById('inviteStaffHelper');
 const inviteStaffRole = document.getElementById('inviteStaffRole');
 
-let emailRegistered = false;
-
 function showSettingsToast(message) {
     settingsToast.textContent = message;
     settingsToast.classList.add('show');
@@ -452,8 +456,7 @@ function hideInviteResults() {
 
 async function checkEmailInFirebase(email) {
     if (!email || !email.includes('@')) {
-        emailRegistered = false;
-        inviteStaffHelper.textContent = 'Type a valid email to check registration.';
+        inviteStaffHelper.textContent = 'Type a valid email to check whether the account has already registered.';
         hideInviteResults();
         return;
     }
@@ -472,17 +475,14 @@ async function checkEmailInFirebase(email) {
         const data = await response.json();
 
         if (data.registered) {
-            emailRegistered = true;
             inviteStaffHelper.textContent = 'Email is registered. You can send an invitation.';
         } else {
-            emailRegistered = false;
-            inviteStaffHelper.textContent = 'Email not registered. Use "Create Staff Account" instead.';
+            inviteStaffHelper.textContent = 'Email not registered yet. Ask them to register first or use "Create Staff Account".';
         }
         hideInviteResults();
     } catch (error) {
         console.error('Error checking email:', error);
-        emailRegistered = false;
-        inviteStaffHelper.textContent = 'Error checking email registration.';
+        inviteStaffHelper.textContent = 'Unable to verify email registration right now.';
         hideInviteResults();
     }
 }
@@ -538,7 +538,6 @@ inviteStaffEmail?.addEventListener('input', () => {
     if (!inviteStaffEmail.value.trim()) {
         inviteStaffHelper.textContent = 'Type an email to check registration.';
         hideInviteResults();
-        emailRegistered = false;
     }
 });
 
@@ -561,11 +560,6 @@ document.getElementById('sendInviteBtn')?.addEventListener('click', () => {
 
     if (!email) {
         showSettingsToast('Enter an email first.');
-        return;
-    }
-
-    if (!emailRegistered) {
-        showSettingsToast('Email not registered. Use "Create Staff Account" instead.');
         return;
     }
 

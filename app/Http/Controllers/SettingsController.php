@@ -13,6 +13,7 @@ class SettingsController extends Controller
         $database = Firebase::database();
         $userId = session('firebase_user_id');
         $workspaceId = $this->currentWorkspaceId();
+        $workspaceOwnerId = $this->currentWorkspaceOwnerId();
         $profileSettings = $userId
             ? ($database->getReference('settings/profile/' . $userId)->getValue() ?? [])
             : [];
@@ -27,16 +28,16 @@ class SettingsController extends Controller
                 }
 
                 return ($member['workspace_id'] ?? null) === $workspaceId
-                    || (($member['workspace_status'] ?? null) === 'pending' && ($member['invited_workspace_id'] ?? null) === $workspaceId);
+                    || (($member['workspace_status'] ?? null) === 'pending_invitation' && ($member['invited_workspace_id'] ?? null) === $workspaceId);
             })
-            ->map(function ($member, $id) use ($userId) {
+            ->map(function ($member, $id) use ($workspaceOwnerId) {
                 return (object) [
                     'id' => $id,
                     'name' => $member['name'] ?? trim(($member['first_name'] ?? '') . ' ' . ($member['last_name'] ?? '')),
                     'email' => $member['email'] ?? 'No Email',
                     'user_role' => $member['user_role'] ?? 'staff',
                     'workspace_status' => $member['workspace_status'] ?? 'active',
-                    'is_owner' => $id === $userId,
+                    'is_owner' => $id === $workspaceOwnerId,
                 ];
             })
             ->values();
@@ -50,7 +51,9 @@ class SettingsController extends Controller
             'office_address' => $profileSettings['office_address'] ?? '',
         ];
 
-        return view('settings', compact('user', 'documentRules', 'workspaceUsers'));
+        $canManageWorkspaceUsers = $userId === $workspaceOwnerId;
+
+        return view('settings', compact('user', 'documentRules', 'workspaceUsers', 'canManageWorkspaceUsers'));
     }
 
     public function updateProfile(Request $request)
@@ -110,6 +113,10 @@ class SettingsController extends Controller
 
     public function storeStaff(Request $request)
     {
+        if (session('firebase_user_id') !== $this->currentWorkspaceOwnerId()) {
+            return redirect()->route('settings')->with('error', 'Only the workspace owner can create staff accounts.');
+        }
+
         $validated = $request->validate([
             'form_context' => ['nullable', 'string'],
             'name' => ['required', 'string', 'max:255'],
@@ -163,6 +170,10 @@ class SettingsController extends Controller
 
     public function inviteStaff(Request $request)
     {
+        if (session('firebase_user_id') !== $this->currentWorkspaceOwnerId()) {
+            return response()->json(['message' => 'Only the workspace owner can send invitations.'], 403);
+        }
+
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255'],
             'role' => ['required', 'in:staff,lawyer,clerk,assistant'],
@@ -174,19 +185,16 @@ class SettingsController extends Controller
             return response()->json(['message' => 'Please sign in again before sending invitations.'], 401);
         }
 
-        // Check if email is registered in Firebase Auth
-        try {
-            $firebaseUser = Firebase::auth()->getUserByEmail($validated['email']);
-        } catch (\Kreait\Firebase\Exception\Auth\UserNotFound $e) {
-            return response()->json(['message' => 'Email not registered. Use "Create Staff Account" instead.'], 404);
-        }
-
         $database = Firebase::database();
         $users = collect($database->getReference('users')->getValue() ?? []);
         $match = $users->first(function ($member) use ($validated) {
             return strcasecmp($member['email'] ?? '', $validated['email']) === 0;
         });
         $matchedUserId = $users->search($match);
+
+        if (!$match || $matchedUserId === false) {
+            return response()->json(['message' => 'No registered account was found for that email. Ask them to register first.'], 404);
+        }
 
         if ($matchedUserId === $currentUserId) {
             return response()->json(['message' => 'You are already part of this workspace.'], 422);
@@ -198,29 +206,13 @@ class SettingsController extends Controller
             return response()->json(['message' => 'User is already in the workspace.'], 422);
         }
 
-        // If user exists in users table, update to pending
-        if ($match && $matchedUserId) {
-            $database->getReference('users/' . $matchedUserId)->update([
-                'workspace_status' => 'pending',
-                'pending_role' => $validated['role'],
-                'invited_workspace_id' => $workspaceId,
-                'invited_workspace_owner_id' => $this->currentWorkspaceOwnerId(),
-                'workspace_invited_at' => now()->toIso8601String(),
-            ]);
-        } else {
-            // Create pending user entry
-            $newUserRef = $database->getReference('users')->push([
-                'email' => $validated['email'],
-                'firebase_uid' => $firebaseUser->uid,
-                'user_role' => $validated['role'],
-                'workspace_status' => 'pending',
-                'invited_workspace_id' => $workspaceId,
-                'invited_workspace_owner_id' => $this->currentWorkspaceOwnerId(),
-                'workspace_invited_at' => now()->toIso8601String(),
-                'created_at' => now()->toDateTimeString(),
-            ]);
-            $matchedUserId = $newUserRef->getKey();
-        }
+        $database->getReference('users/' . $matchedUserId)->update([
+            'workspace_status' => 'pending_invitation',
+            'pending_role' => $validated['role'],
+            'invited_workspace_id' => $workspaceId,
+            'invited_workspace_owner_id' => $this->currentWorkspaceOwnerId(),
+            'workspace_invited_at' => now()->toIso8601String(),
+        ]);
 
         $database->getReference('notifications/' . $matchedUserId)->push([
             'title' => 'Workspace Invitation',
@@ -245,33 +237,47 @@ class SettingsController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        try {
-            $user = Firebase::auth()->getUserByEmail($validated['email']);
-            return response()->json(['registered' => true, 'uid' => $user->uid]);
-        } catch (\Kreait\Firebase\Exception\Auth\UserNotFound $e) {
-            return response()->json(['registered' => false]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Unable to check email'], 500);
-        }
+        $users = collect(Firebase::database()->getReference('users')->getValue() ?? []);
+        $existingUser = $users->first(function ($member) use ($validated) {
+            return strcasecmp($member['email'] ?? '', $validated['email']) === 0;
+        });
+
+        return response()->json([
+            'registered' => (bool) $existingUser,
+        ]);
     }
 
     public function destroyStaff($id)
     {
         $currentUserId = session('firebase_user_id');
+        $workspaceOwnerId = $this->currentWorkspaceOwnerId();
 
         if (!$currentUserId) {
             return redirect()->route('settings')->with('error', 'Please sign in again before managing staff accounts.');
         }
 
-        if ($id === $currentUserId) {
+        if ($currentUserId !== $workspaceOwnerId) {
+            return redirect()->route('settings')->with('error', 'Only the workspace owner can delete staff accounts.');
+        }
+
+        if ($id === $workspaceOwnerId) {
             return redirect()->route('settings')->with('error', 'The workspace owner account cannot be deleted from this screen.');
         }
 
         $database = Firebase::database();
         $userRef = $database->getReference('users/' . $id);
 
-        if (!$userRef->getValue()) {
+        $targetUser = $userRef->getValue();
+
+        if (!$targetUser) {
             return redirect()->route('settings')->with('error', 'Staff account not found.');
+        }
+
+        $belongsToWorkspace = ($targetUser['workspace_id'] ?? null) === $this->currentWorkspaceId()
+            || (($targetUser['invited_workspace_id'] ?? null) === $this->currentWorkspaceId());
+
+        if (!$belongsToWorkspace) {
+            return redirect()->route('settings')->with('error', 'That account does not belong to this workspace.');
         }
 
         $userRef->remove();

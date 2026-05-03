@@ -19,11 +19,18 @@ class FirebaseAuth
         $userId = session('firebase_user_id');
         $database = Firebase::database();
         $user = $database->getReference('users/' . $userId)->getValue() ?? [];
-        $workspaceId = $user['workspace_id'] ?? $userId;
-        $workspaceOwnerId = $user['workspace_owner_id'] ?? $workspaceId;
         $workspaceStatus = $user['workspace_status'] ?? 'active';
+        $workspaceId = $workspaceStatus === 'pending_invitation'
+            ? ($user['invited_workspace_id'] ?? null)
+            : ($user['workspace_id'] ?? $userId);
+        $workspaceOwnerId = $workspaceStatus === 'pending_invitation'
+            ? ($user['invited_workspace_owner_id'] ?? null)
+            : ($user['workspace_owner_id'] ?? $workspaceId);
 
-        if (empty($user['workspace_id']) || empty($user['workspace_owner_id']) || empty($user['workspace_status'])) {
+        if (
+            $workspaceStatus !== 'pending_invitation'
+            && (empty($user['workspace_id']) || empty($user['workspace_owner_id']) || empty($user['workspace_status']))
+        ) {
             $database->getReference('users/' . $userId)->update([
                 'workspace_id' => $workspaceId,
                 'workspace_owner_id' => $workspaceOwnerId,
@@ -31,7 +38,7 @@ class FirebaseAuth
             ]);
         }
 
-        if ($workspaceOwnerId === $userId) {
+        if ($workspaceOwnerId === $userId && $workspaceStatus !== 'pending_invitation') {
             foreach (['clients', 'cases', 'documents', 'hearings', 'time_entries'] as $node) {
                 $records = $database->getReference($node)->getValue() ?? [];
 

@@ -36,6 +36,10 @@
                         <strong>{{ optional($case->client)->name ?: 'Unassigned client' }}</strong>
                     </div>
                     <div class="module-detail-item">
+                        <label>Case Type</label>
+                        <strong>{{ $case->case_type ?? 'Other' }}</strong>
+                    </div>
+                    <div class="module-detail-item">
                         <label>Status</label>
                         <strong>{{ $case->status }}</strong>
                     </div>

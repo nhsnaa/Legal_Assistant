@@ -51,75 +51,78 @@
         </a>
     </div>
 
-    <div class="module-case-grid">
-        @forelse ($cases as $case)
-            <div class="glass-card module-case-card">
-                <div>
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <div>
-                            <h5 class="font-weight-bold mb-1">{{ $case->case_name }}</h5>
-                            <small class="module-id">REF-ID: {{ $case->id }}</small>
-                        </div>
-                    </div>
-
-                    <div class="module-case-tags">
-                        <span class="module-badge {{ $case->status === 'Active' ? 'module-badge-success' : ($case->status === 'Pending' ? 'module-badge-warning' : 'module-badge-muted') }}">
-                            {{ $case->status }}
-                        </span>
-                        <span class="module-badge {{ $case->priority === 'High' ? 'module-badge-danger' : ($case->priority === 'Medium' ? 'module-badge-info' : 'module-badge-warning') }}">
-                            {{ $case->priority }} Priority
-                        </span>
-                    </div>
-
-                    <div class="module-case-meta mb-3">
-                        <span><strong>Client:</strong> {{ $case->client->name ?? 'Unassigned client' }}</span>
-                    </div>
-
-                    <div class="module-progress-wrap">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="small text-muted font-weight-bold">Completion</span>
-                            <span class="small text-primary font-weight-bold">{{ $case->progress ?? 0 }}%</span>
-                        </div>
-                        <div class="progress module-progress">
-                            <div class="progress-bar" role="progressbar" style="width: {{ $case->progress ?? 0 }}%"></div>
-                        </div>
-                    </div>
-
-                    <p class="module-case-description mb-0">
-                        {{ $case->description ?: 'No case summary provided.' }}
-                    </p>
-                </div>
-
-                <div class="module-actions-inline mt-4">
-                    <a href="{{ route('cases.show', $case->id) }}" class="btn btn-sm btn-light">View Details</a>
-                    <button
-                        type="button"
-                        class="btn btn-sm btn-light"
-                        onclick="openCaseEditModal(@js([
-                            'id' => $case->id,
-                            'client_id' => $case->client_id,
-                            'case_name' => $case->case_name,
-                            'description' => $case->description,
-                            'status' => $case->status,
-                            'priority' => $case->priority,
-                            'progress' => $case->progress ?? 0,
-                        ]))">
-                        Edit
-                    </button>
-                    <form action="{{ route('cases.destroy', $case->id) }}" method="POST" onsubmit="return confirm('Delete this case?')">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                    </form>
-                </div>
-            </div>
-        @empty
-            <div class="glass-card module-empty-state">
-                <div class="module-empty-icon"><i class="bi bi-briefcase"></i></div>
-                <h5 class="font-weight-bold">No cases found</h5>
-                <p class="text-muted mb-0">You haven't added any legal cases to the system yet.</p>
-            </div>
-        @endforelse
+    <div class="glass-card module-table-card">
+        <div class="table-responsive">
+            <table class="table module-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Case ID</th>
+                        <th>Case Title</th>
+                        <th>Case Type</th>
+                        <th>Client</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($cases as $case)
+                        <tr>
+                            <td class="module-id">#{{ $case->id }}</td>
+                            <td class="font-weight-bold">{{ $case->case_name }}</td>
+                            <td>{{ $case->case_type ?? 'Other' }}</td>
+                            <td>{{ $case->client->name ?? 'Unassigned client' }}</td>
+                            <td>
+                                <span class="module-badge {{ $case->status === 'Active' ? 'module-badge-success' : ($case->status === 'Pending' ? 'module-badge-warning' : 'module-badge-muted') }}">
+                                    {{ $case->status }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="module-badge {{ $case->priority === 'High' ? 'module-badge-danger' : ($case->priority === 'Medium' ? 'module-badge-info' : 'module-badge-warning') }}">
+                                    {{ $case->priority }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="module-actions-inline">
+                                    <a href="{{ route('cases.show', $case->id) }}" class="btn btn-sm btn-light">View</a>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-light"
+                                        onclick="openCaseEditModal(@js([
+                                            'id' => $case->id,
+                                            'client_id' => $case->client_id,
+                                            'case_name' => $case->case_name,
+                                            'case_type' => $case->case_type ?? 'Other',
+                                            'description' => $case->description,
+                                            'status' => $case->status,
+                                            'priority' => $case->priority,
+                                            'progress' => $case->progress ?? 0,
+                                        ]))">
+                                        Edit
+                                    </button>
+                                    <form action="{{ route('cases.archive', $case->id) }}" method="POST" onsubmit="return confirm('{{ $case->status === 'Closed' ? 'Restore this case?' : 'Archive this case?' }}')">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="btn btn-sm btn-light">
+                                            {{ $case->status === 'Closed' ? 'Restore' : 'Archive' }}
+                                        </button>
+                                    </form>
+                                    <form action="{{ route('cases.destroy', $case->id) }}" method="POST" onsubmit="return confirm('Delete this case?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="module-empty-cell">No cases added to the system yet.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -149,6 +152,14 @@
             <div class="form-group">
                 <label class="font-weight-bold small">Case Title</label>
                 <input type="text" name="case_name" class="form-control module-input" required value="{{ old('case_name') }}">
+            </div>
+            <div class="form-group">
+                <label class="font-weight-bold small">Case Type</label>
+                <select name="case_type" class="form-control module-input" required>
+                    @foreach (['Criminal', 'Divorce', 'Family', 'Civil Litigation', 'Corporate', 'Employment', 'Property', 'Immigration', 'Other'] as $caseType)
+                        <option value="{{ $caseType }}" {{ old('case_type', 'Other') === $caseType ? 'selected' : '' }}>{{ $caseType }}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="form-group">
                 <label class="font-weight-bold small">Detailed Description</label>
@@ -209,6 +220,14 @@
                 <input type="text" name="case_name" id="caseEditName" class="form-control module-input" required>
             </div>
             <div class="form-group">
+                <label class="font-weight-bold small">Case Type</label>
+                <select name="case_type" id="caseEditType" class="form-control module-input" required>
+                    @foreach (['Criminal', 'Divorce', 'Family', 'Civil Litigation', 'Corporate', 'Employment', 'Property', 'Immigration', 'Other'] as $caseType)
+                        <option value="{{ $caseType }}">{{ $caseType }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="form-group">
                 <label class="font-weight-bold small">Detailed Description</label>
                 <textarea name="description" id="caseEditDescription" rows="3" class="form-control module-input"></textarea>
             </div>
@@ -263,6 +282,7 @@ function openCaseEditModal(caseItem) {
     form.action = "{{ url('/cases') }}/" + caseItem.id;
     document.getElementById('caseEditClient').value = caseItem.client_id || '';
     document.getElementById('caseEditName').value = caseItem.case_name || '';
+    document.getElementById('caseEditType').value = caseItem.case_type || 'Other';
     document.getElementById('caseEditDescription').value = caseItem.description || '';
     document.getElementById('caseEditStatus').value = caseItem.status || 'Active';
     document.getElementById('caseEditPriority').value = caseItem.priority || 'Medium';

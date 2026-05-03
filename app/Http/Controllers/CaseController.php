@@ -46,6 +46,7 @@ class CaseController extends Controller
         $validated = $request->validate([
             'client_id' => ['required', 'string'],
             'case_name' => ['required', 'string', 'max:255'],
+            'case_type' => ['required', 'in:Criminal,Divorce,Family,Civil Litigation,Corporate,Employment,Property,Immigration,Other'],
             'description' => ['nullable', 'string'],
             'status' => ['required', 'in:Active,Closed,Pending'],
             'priority' => ['required', 'in:High,Medium,Low'],
@@ -91,6 +92,7 @@ public function show($id)
         $validated = $request->validate([
             'client_id' => ['required', 'string'],
             'case_name' => ['required', 'string', 'max:255'],
+            'case_type' => ['required', 'in:Criminal,Divorce,Family,Civil Litigation,Corporate,Employment,Property,Immigration,Other'],
             'description' => ['nullable', 'string'],
             'status' => ['required', 'in:Active,Closed,Pending'],
             'priority' => ['required', 'in:High,Medium,Low'],
@@ -109,6 +111,28 @@ public function show($id)
             return redirect()->route('cases.index')->with('success', 'Case deleted successfully.');
         }
         return redirect()->route('cases.index')->with('error', 'Case not found.');
+    }
+
+    public function toggleArchive($id)
+    {
+        $case = $this->findWorkspaceRecord('cases', $id);
+
+        if (!$case) {
+            return redirect()->route('cases.index')->with('error', 'Case not found.');
+        }
+
+        $nextStatus = ($case['status'] ?? 'Active') === 'Closed' ? 'Active' : 'Closed';
+
+        Firebase::database()->getReference('cases/' . $id)->update([
+            'status' => $nextStatus,
+        ]);
+
+        return redirect()->route('cases.index')->with(
+            'success',
+            $nextStatus === 'Closed'
+                ? 'Case archived successfully.'
+                : 'Case restored successfully.'
+        );
     }
 
 }

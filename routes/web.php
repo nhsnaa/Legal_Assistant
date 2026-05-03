@@ -53,6 +53,7 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/clients/{id}', [ClientController::class, 'show'])->name('clients.show');
     Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
     Route::put('/clients/{id}', [ClientController::class, 'update'])->name('clients.update');
+    Route::patch('/clients/{id}/archive', [ClientController::class, 'toggleArchive'])->name('clients.archive');
     Route::delete('/clients/{id}', [ClientController::class, 'destroy'])->name('clients.destroy');
 
     // Cases - Using {id} for Firebase Key
@@ -60,6 +61,7 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::get('/cases/{id}', [CaseController::class, 'show'])->name('cases.show');
     Route::put('/cases/{id}', [CaseController::class, 'update'])->name('cases.update');
+    Route::patch('/cases/{id}/archive', [CaseController::class, 'toggleArchive'])->name('cases.archive');
     Route::delete('/cases/{id}', [CaseController::class, 'destroy'])->name('cases.destroy');
 
     // Schedule

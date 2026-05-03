@@ -9,6 +9,8 @@
     };
     $displayRole = session('user_role', 'staff');
     $displayEmail = session('email', 'No Email');
+    $showWorkspaceTimer = session('workspace_status') !== 'pending_invitation';
+    $isPendingWorkspace = session('workspace_status') === 'pending_invitation';
 @endphp
 
 <header class="topbar">
@@ -18,15 +20,22 @@
     </div>
 
     <div class="topbar-center d-flex align-items-center">
-        <div class="timer-wrapper mr-3">
-            <div class="timer-display" id="display">00:00:00</div>
-        </div>
-        <div class="timer-controls">
-            <button class="btn btn-sm btn-success px-3 mr-2" id="startStopBtn" onclick="toggleTimer()">
-                <i class="bi bi-play-fill mr-1"></i>Start
-            </button>
-            <button class="btn btn-sm btn-outline-secondary" onclick="resetTimer()">Reset</button>
-        </div>
+        @if ($showWorkspaceTimer)
+            <div class="timer-wrapper mr-3">
+                <div class="timer-display" id="display">00:00:00</div>
+            </div>
+            <div class="timer-controls">
+                <button class="btn btn-sm btn-success px-3 mr-2" id="startStopBtn" onclick="toggleTimer()">
+                    <i class="bi bi-play-fill mr-1"></i>Start
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetTimer()">Reset</button>
+            </div>
+        @else
+            <div class="pending-workspace-banner">
+                <i class="bi bi-envelope-exclamation mr-2"></i>
+                Awaiting workspace invitation
+            </div>
+        @endif
     </div>
 
     <div class="topbar-right d-flex align-items-center">
@@ -40,22 +49,6 @@
                 <i class="bi bi-bell"></i>
                 <span class="notification-dot d-none" id="notificationDot"></span>
             </button>
-
-            <div class="notification-dropdown d-none" id="notificationDropdown">
-                <div class="notification-dropdown-header">
-                    <div>
-                        <strong>Notifications</strong>
-                        <small>Workspace updates for your account</small>
-                    </div>
-                    <span class="notification-count-badge d-none" id="notificationCountBadge"></span>
-                </div>
-                <div class="notification-list" id="notificationList">
-                    <div class="notification-empty">
-                        <i class="bi bi-bell-slash"></i>
-                        <span>No notifications yet.</span>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div class="dropdown">
@@ -105,6 +98,28 @@
     </div>
 </header>
 
+<div class="notification-panel-backdrop d-none" id="notificationPanelBackdrop"></div>
+<aside class="notification-panel d-none" id="notificationPanel" aria-hidden="true">
+    <div class="notification-panel-header">
+        <div>
+            <strong>Notifications</strong>
+            <small>Workspace updates for your account</small>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="notification-count-badge d-none mr-2" id="notificationCountBadge"></span>
+            <button type="button" class="notification-panel-close" id="notificationPanelClose" aria-label="Close notifications">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    </div>
+    <div class="notification-list" id="notificationList">
+        <div class="notification-empty">
+            <i class="bi bi-bell-slash"></i>
+            <span>No notifications yet.</span>
+        </div>
+    </div>
+</aside>
+
 @include('layouts.modals.change-password')
 
 <script>
@@ -132,11 +147,14 @@ function toggleVisibility(inputId, iconId) {
     const globalSearchInput = document.getElementById('globalSearchInput');
     const globalSearchResults = document.getElementById('globalSearchResults');
     const notificationTrigger = document.getElementById('notificationTrigger');
-    const notificationDropdown = document.getElementById('notificationDropdown');
+    const notificationPanel = document.getElementById('notificationPanel');
+    const notificationPanelBackdrop = document.getElementById('notificationPanelBackdrop');
+    const notificationPanelClose = document.getElementById('notificationPanelClose');
     const notificationList = document.getElementById('notificationList');
     const notificationDot = document.getElementById('notificationDot');
     const notificationCountBadge = document.getElementById('notificationCountBadge');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const pendingWorkspaceMode = @json($isPendingWorkspace);
     let elapsedTime = 0;
     let startTime = null;
     let timerInterval = null;
@@ -410,17 +428,21 @@ function toggleVisibility(inputId, iconId) {
             });
     }
 
-    function toggleNotificationDropdown(forceOpen) {
-        if (!notificationDropdown || !notificationTrigger) {
+    function toggleNotificationPanel(forceOpen) {
+        if (!notificationPanel || !notificationTrigger || !notificationPanelBackdrop) {
             return;
         }
 
         const shouldOpen = typeof forceOpen === 'boolean'
             ? forceOpen
-            : notificationDropdown.classList.contains('d-none');
+            : notificationPanel.classList.contains('d-none');
 
-        notificationDropdown.classList.toggle('d-none', !shouldOpen);
+        notificationPanel.classList.toggle('d-none', !shouldOpen);
+        notificationPanelBackdrop.classList.toggle('d-none', !shouldOpen);
+        notificationPanel.classList.toggle('show', shouldOpen);
+        notificationPanelBackdrop.classList.toggle('show', shouldOpen);
         notificationTrigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+        notificationPanel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
 
         if (shouldOpen && !notificationsLoaded) {
             loadNotifications();
@@ -534,26 +556,37 @@ function toggleVisibility(inputId, iconId) {
     });
 
     document.addEventListener('click', function (event) {
-        if (!globalSearchInput || !globalSearchResults) {
-            return;
-        }
-
-        if (!globalSearchInput.closest('.search-box')?.contains(event.target)) {
+        if (globalSearchInput && globalSearchResults && !globalSearchInput.closest('.search-box')?.contains(event.target)) {
             hideSearchResults();
         }
 
-        if (notificationDropdown && notificationTrigger) {
-            const insideNotifications = notificationDropdown.contains(event.target)
+        if (notificationPanel && notificationTrigger && notificationPanelBackdrop) {
+            const insideNotifications = notificationPanel.contains(event.target)
                 || notificationTrigger.contains(event.target);
 
-            if (!insideNotifications) {
-                toggleNotificationDropdown(false);
+            if (!insideNotifications && !notificationPanel.classList.contains('d-none')) {
+                toggleNotificationPanel(false);
             }
         }
     });
 
-    notificationTrigger?.addEventListener('click', function () {
-        toggleNotificationDropdown();
+    notificationTrigger?.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        toggleNotificationPanel();
+    });
+
+    notificationTrigger?.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+    });
+
+    notificationPanelClose?.addEventListener('click', function () {
+        toggleNotificationPanel(false);
+    });
+
+    notificationPanelBackdrop?.addEventListener('click', function () {
+        toggleNotificationPanel(false);
     });
 
     notificationList?.addEventListener('click', function (event) {

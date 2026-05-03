@@ -93,4 +93,26 @@ class ClientController extends Controller
         Firebase::database()->getReference('clients/' . $id)->remove();
         return redirect()->route('clients.index')->with('success', 'Client deleted.');
     }
+
+    public function toggleArchive($id)
+    {
+        $client = $this->findWorkspaceRecord('clients', $id);
+
+        if (!$client) {
+            return redirect()->route('clients.index')->with('error', 'Client not found.');
+        }
+
+        $nextStatus = ($client['status'] ?? 'Active') === 'Inactive' ? 'Active' : 'Inactive';
+
+        Firebase::database()->getReference('clients/' . $id)->update([
+            'status' => $nextStatus,
+        ]);
+
+        return redirect()->route('clients.index')->with(
+            'success',
+            $nextStatus === 'Inactive'
+                ? 'Client archived successfully.'
+                : 'Client restored successfully.'
+        );
+    }
 }
