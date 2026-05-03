@@ -44,13 +44,25 @@ class ClientController extends Controller
         Firebase::database()->getReference('clients')->push($validated);
         return redirect()->back()->with('success', 'Client added.');
     }
-    public function show($id)
-    {
-        $clientData = Firebase::database()->getReference('clients/' . $id)->getValue();
-        if (!$clientData) { abort(404); }
 
-        $client = (object) array_merge($clientData, ['id' => $id]);
-        return view('modules.clients-show', compact('client')); // If you have this view
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email'],
+            'phone' => ['required', 'string'],
+            'status' => ['required', 'in:Active,Inactive'],
+        ]);
+
+        $clientRef = Firebase::database()->getReference('clients/' . $id);
+
+        if (!$clientRef->getValue()) {
+            return redirect()->route('clients.index')->with('error', 'Client not found.');
+        }
+
+        $clientRef->update($validated);
+
+        return redirect()->route('clients.index')->with('success', 'Client updated successfully.');
     }
 
     public function destroy($id)

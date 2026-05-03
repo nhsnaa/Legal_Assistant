@@ -78,6 +78,18 @@
                             </td>
                             <td>
                                 <div class="module-actions-inline">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-light"
+                                        onclick="openClientViewModal(@js(['id' => $client->id, 'name' => $client->name, 'email' => $client->email, 'phone' => $client->phone, 'status' => $client->status]))">
+                                        View
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-light"
+                                        onclick="openClientEditModal(@js(['id' => $client->id, 'name' => $client->name, 'email' => $client->email, 'phone' => $client->phone, 'status' => $client->status]))">
+                                        Edit
+                                    </button>
                                     <form action="{{ route('clients.destroy', $client->id) }}" method="POST" onsubmit="return confirm('Delete this client?')">
                                         @csrf
                                         @method('DELETE')
@@ -133,6 +145,80 @@
         </form>
     </div>
 </div>
+
+<div id="clientViewModal" class="module-modal-backdrop" aria-hidden="true">
+    <div class="module-modal-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="font-weight-bold mb-0">Client Details</h4>
+            <button type="button" class="module-modal-close" onclick="closeClientViewModal()">&times;</button>
+        </div>
+
+        <div class="module-detail-grid">
+            <div class="module-detail-item">
+                <label>Client ID</label>
+                <strong id="clientViewId">-</strong>
+            </div>
+            <div class="module-detail-item">
+                <label>Status</label>
+                <strong id="clientViewStatus">-</strong>
+            </div>
+            <div class="module-detail-item">
+                <label>Full Name</label>
+                <strong id="clientViewName">-</strong>
+            </div>
+            <div class="module-detail-item">
+                <label>Email Address</label>
+                <strong id="clientViewEmail">-</strong>
+            </div>
+            <div class="module-detail-item full">
+                <label>Phone Number</label>
+                <strong id="clientViewPhone">-</strong>
+            </div>
+        </div>
+
+        <div class="module-modal-actions">
+            <button type="button" class="btn btn-light px-4" onclick="closeClientViewModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="clientEditModal" class="module-modal-backdrop" aria-hidden="true">
+    <div class="module-modal-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="font-weight-bold mb-0">Edit Client</h4>
+            <button type="button" class="module-modal-close" onclick="closeClientEditModal()">&times;</button>
+        </div>
+
+        <form id="clientEditForm" method="POST">
+            @csrf
+            @method('PUT')
+            <div class="form-group">
+                <label class="font-weight-bold small">Full Name</label>
+                <input type="text" name="name" id="clientEditName" class="form-control module-input" required>
+            </div>
+            <div class="form-group">
+                <label class="font-weight-bold small">Email Address</label>
+                <input type="email" name="email" id="clientEditEmail" class="form-control module-input" required>
+            </div>
+            <div class="form-group">
+                <label class="font-weight-bold small">Phone Number</label>
+                <input type="text" name="phone" id="clientEditPhone" class="form-control module-input" required>
+            </div>
+            <div class="form-group">
+                <label class="font-weight-bold small">Status</label>
+                <select name="status" id="clientEditStatus" class="form-control module-input">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                </select>
+            </div>
+
+            <div class="module-modal-actions">
+                <button type="button" class="btn btn-light px-4" onclick="closeClientEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary px-4">Update Client</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @section('modals')
@@ -147,6 +233,33 @@ function openClientModal() {
 
 function closeClientModal() {
     document.getElementById('clientModal').classList.remove('show');
+}
+
+function openClientViewModal(client) {
+    document.getElementById('clientViewId').textContent = '#' + client.id;
+    document.getElementById('clientViewName').textContent = client.name;
+    document.getElementById('clientViewEmail').textContent = client.email;
+    document.getElementById('clientViewPhone').textContent = client.phone;
+    document.getElementById('clientViewStatus').textContent = client.status;
+    document.getElementById('clientViewModal').classList.add('show');
+}
+
+function closeClientViewModal() {
+    document.getElementById('clientViewModal').classList.remove('show');
+}
+
+function openClientEditModal(client) {
+    const form = document.getElementById('clientEditForm');
+    form.action = "{{ url('/clients') }}/" + client.id;
+    document.getElementById('clientEditName').value = client.name;
+    document.getElementById('clientEditEmail').value = client.email;
+    document.getElementById('clientEditPhone').value = client.phone;
+    document.getElementById('clientEditStatus').value = client.status;
+    document.getElementById('clientEditModal').classList.add('show');
+}
+
+function closeClientEditModal() {
+    document.getElementById('clientEditModal').classList.remove('show');
 }
 
 @if ($errors->any())

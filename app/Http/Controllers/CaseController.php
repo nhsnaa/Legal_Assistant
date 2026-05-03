@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Kreait\Laravel\Firebase\Facades\Firebase;
-use Illuminate\Support\Collection;
+use Carbon\Carbon;
 
 class CaseController extends Controller
 {
@@ -69,15 +69,42 @@ public function show($id)
     if (!$caseData) { abort(404); }
 
     $case = (object) $caseData;
+    $case->id = $id;
+    $case->created_at = !empty($caseData['created_at']) ? Carbon::parse($caseData['created_at']) : null;
     // Link client info for the "Case Snapshot" sidebar
     $clients = $database->getReference('clients')->getValue() ?? [];
     $case->client = (object) ($clients[$case->client_id] ?? ['name' => 'Unknown', 'email' => '-', 'phone' => '-']);
-    
-    // Setup an empty collection for time entries to prevent errors in the view
-    $case->timeEntries = collect([]); 
+
+    $case->timeEntries = collect($database->getReference('time_entries')->getValue() ?? [])
+        ->filter(fn ($entry) => ($entry['case_id'] ?? null) === $id)
+        ->values();
 
     return view('modules.case-show', compact('case'));
 }
+
+    public function update(Request $request, $id)
+    {
+        $database = Firebase::database();
+        $caseRef = $database->getReference('cases/' . $id);
+        $existing = $caseRef->getValue();
+
+        if (!$existing) {
+            return redirect()->route('cases.index')->with('error', 'Case not found.');
+        }
+
+        $validated = $request->validate([
+            'client_id' => ['required', 'string'],
+            'case_name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status' => ['required', 'in:Active,Closed,Pending'],
+            'priority' => ['required', 'in:High,Medium,Low'],
+            'progress' => ['required', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        $caseRef->update($validated);
+
+        return redirect()->route('cases.index')->with('success', 'Case updated successfully.');
+    }
 
     public function destroy($id)
     {

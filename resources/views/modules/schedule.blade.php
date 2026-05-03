@@ -63,10 +63,17 @@
                                 <div class="schedule-day-number">{{ $day['date']->format('j') }}</div>
                                 <div class="schedule-day-events">
                                     @foreach ($day['events']->take(3) as $event)
-                                        <div class="schedule-event-pill">
+                                        <button type="button" class="schedule-event-pill text-left border-0 w-100" onclick="openEventViewModal(@js([
+                                            'id' => $event->id,
+                                            'title' => $event->title ?: $event->case_name,
+                                            'case_name' => $event->case_name,
+                                            'status' => $event->status,
+                                            'notes' => $event->notes ?? '',
+                                            'hearing_time' => $event->hearing_time->toIso8601String(),
+                                        ]))">
                                             <strong>{{ $event->title ?: $event->case_name }}</strong>
                                             <span>{{ $event->hearing_time->format('g:i A') }}</span>
-                                        </div>
+                                        </button>
                                     @endforeach
                                     @if ($day['events']->count() > 3)
                                         <small class="text-muted">+{{ $day['events']->count() - 3 }} more</small>
@@ -98,11 +105,29 @@
                                     <span class="module-badge {{ $hearing->status === 'Confirmed' ? 'module-badge-success' : ($hearing->status === 'Pending' ? 'module-badge-warning' : 'module-badge-info') }}">
                                         {{ $hearing->status }}
                                     </span>
-                                    <form action="{{ route('schedule.events.destroy', $hearing->id) }}" method="POST" class="mt-2" onsubmit="return confirm('Delete this scheduled task?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                                    </form>
+                                    <div class="module-actions-inline mt-2">
+                                        <button type="button" class="btn btn-sm btn-light" onclick="openEventViewModal(@js([
+                                            'id' => $hearing->id,
+                                            'title' => $hearing->title ?: $hearing->case_name,
+                                            'case_name' => $hearing->case_name,
+                                            'status' => $hearing->status,
+                                            'notes' => $hearing->notes ?? '',
+                                            'hearing_time' => $hearing->hearing_time->toIso8601String(),
+                                        ]))">View</button>
+                                        <button type="button" class="btn btn-sm btn-light" onclick="openEventEditModal(@js([
+                                            'id' => $hearing->id,
+                                            'title' => $hearing->title ?: $hearing->case_name,
+                                            'case_name' => $hearing->case_name,
+                                            'status' => $hearing->status,
+                                            'notes' => $hearing->notes ?? '',
+                                            'hearing_time' => $hearing->hearing_time->format('Y-m-d\\TH:i'),
+                                        ]))">Edit</button>
+                                        <form action="{{ route('schedule.events.destroy', $hearing->id) }}" method="POST" onsubmit="return confirm('Delete this scheduled task?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
                         @empty
@@ -157,11 +182,32 @@
                                         </td>
                                         <td>{{ $entry->description }}</td>
                                         <td>
-                                            <form action="{{ route('schedule.time-entries.destroy', $entry->id) }}" method="POST" onsubmit="return confirm('Delete this time entry?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                                            </form>
+                                            <div class="module-actions-inline">
+                                                <button type="button" class="btn btn-sm btn-light" onclick="openTimeViewModal(@js([
+                                                    'id' => $entry->id,
+                                                    'case_id' => $entry->case_id,
+                                                    'case_name' => optional($entry->case)->case_name,
+                                                    'work_date' => $entry->work_date->format('Y-m-d'),
+                                                    'hours' => (float) $entry->hours,
+                                                    'activity' => $entry->activity ?? 'General Work',
+                                                    'billable' => !empty($entry->billable),
+                                                    'description' => $entry->description,
+                                                ]))">View</button>
+                                                <button type="button" class="btn btn-sm btn-light" onclick="openTimeEditModal(@js([
+                                                    'id' => $entry->id,
+                                                    'case_id' => $entry->case_id,
+                                                    'work_date' => $entry->work_date->format('Y-m-d'),
+                                                    'hours' => (float) $entry->hours,
+                                                    'activity' => $entry->activity ?? 'General Work',
+                                                    'billable' => !empty($entry->billable),
+                                                    'description' => $entry->description,
+                                                ]))">Edit</button>
+                                                <form action="{{ route('schedule.time-entries.destroy', $entry->id) }}" method="POST" onsubmit="return confirm('Delete this time entry?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                                </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 @empty
@@ -307,6 +353,186 @@
             </form>
         </div>
     </div>
+
+    <div id="scheduleEventViewModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="font-weight-bold mb-0">Task Details</h4>
+                <button type="button" class="module-modal-close" onclick="closeScheduleModal('scheduleEventViewModal')">&times;</button>
+            </div>
+            <div class="module-detail-grid">
+                <div class="module-detail-item">
+                    <label>Task Title</label>
+                    <strong id="scheduleEventViewTitle">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Status</label>
+                    <strong id="scheduleEventViewStatus">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Related Case</label>
+                    <strong id="scheduleEventViewCase">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Date & Time</label>
+                    <strong id="scheduleEventViewTime">-</strong>
+                </div>
+                <div class="module-detail-item full">
+                    <label>Notes</label>
+                    <p class="mb-0" id="scheduleEventViewNotes">-</p>
+                </div>
+            </div>
+            <div class="module-modal-actions">
+                <button type="button" class="btn btn-light px-4" onclick="closeScheduleModal('scheduleEventViewModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scheduleEventEditModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="font-weight-bold mb-0">Edit Calendar Task</h4>
+                <button type="button" class="module-modal-close" onclick="closeScheduleModal('scheduleEventEditModal')">&times;</button>
+            </div>
+            <form id="scheduleEventEditForm" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="form-group">
+                    <label class="font-weight-bold small">Task Title</label>
+                    <input type="text" name="title" id="scheduleEventEditTitle" class="form-control module-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold small">Related Case</label>
+                    <select name="case_name" id="scheduleEventEditCase" class="form-control module-input" required>
+                        <option value="">Select case</option>
+                        @foreach ($caseOptions as $caseOption)
+                            <option value="{{ $caseOption->case_name }}">{{ $caseOption->case_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold small">Date & Time</label>
+                    <input type="datetime-local" name="hearing_time" id="scheduleEventEditTime" class="form-control module-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold small">Status</label>
+                    <select name="status" id="scheduleEventEditStatus" class="form-control module-input">
+                        <option value="Scheduled">Scheduled</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Pending">Pending</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold small">Notes</label>
+                    <textarea name="notes" id="scheduleEventEditNotes" rows="3" class="form-control module-input"></textarea>
+                </div>
+                <div class="module-modal-actions">
+                    <button type="button" class="btn btn-light px-4" onclick="closeScheduleModal('scheduleEventEditModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4">Update Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="scheduleTimeViewModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="font-weight-bold mb-0">Time Entry Details</h4>
+                <button type="button" class="module-modal-close" onclick="closeScheduleModal('scheduleTimeViewModal')">&times;</button>
+            </div>
+            <div class="module-detail-grid">
+                <div class="module-detail-item">
+                    <label>Case</label>
+                    <strong id="scheduleTimeViewCase">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Date</label>
+                    <strong id="scheduleTimeViewDate">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Hours</label>
+                    <strong id="scheduleTimeViewHours">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Billing</label>
+                    <strong id="scheduleTimeViewBilling">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Activity</label>
+                    <strong id="scheduleTimeViewActivity">-</strong>
+                </div>
+                <div class="module-detail-item full">
+                    <label>Description</label>
+                    <p class="mb-0" id="scheduleTimeViewDescription">-</p>
+                </div>
+            </div>
+            <div class="module-modal-actions">
+                <button type="button" class="btn btn-light px-4" onclick="closeScheduleModal('scheduleTimeViewModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="scheduleTimeEditModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card module-modal-card-compact">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="font-weight-bold mb-0">Edit Time Entry</h4>
+                <button type="button" class="module-modal-close" onclick="closeScheduleModal('scheduleTimeEditModal')">&times;</button>
+            </div>
+            <form id="scheduleTimeEditForm" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Case Title</label>
+                        <select name="case_id" id="scheduleTimeEditCase" class="form-control module-input" required>
+                            <option value="">Select case</option>
+                            @foreach ($caseOptions as $caseOption)
+                                <option value="{{ $caseOption->id }}">{{ $caseOption->case_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Date</label>
+                        <input type="date" name="work_date" id="scheduleTimeEditDate" class="form-control module-input" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Hours</label>
+                        <input type="number" step="0.25" min="0.25" max="24" name="hours" id="scheduleTimeEditHours" class="form-control module-input" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label class="font-weight-bold small">Activity</label>
+                        <select name="activity" id="scheduleTimeEditActivity" class="form-control module-input">
+                            <option>Document Review</option>
+                            <option>Client Interview</option>
+                            <option>Case Preparation</option>
+                            <option>Legal Research</option>
+                            <option>Court Preparation</option>
+                            <option>Admin Work</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold small d-block">Billing Type</label>
+                    <div class="time-entry-billable-toggle" role="radiogroup" aria-label="Billing type">
+                        <input class="time-entry-toggle-input" type="radio" name="billable" id="scheduleEditBillableYes" value="1">
+                        <label class="time-entry-toggle-option" for="scheduleEditBillableYes">Billable</label>
+                        <input class="time-entry-toggle-input" type="radio" name="billable" id="scheduleEditBillableNo" value="0">
+                        <label class="time-entry-toggle-option" for="scheduleEditBillableNo">Non-Billable</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold small">Description</label>
+                    <textarea name="description" id="scheduleTimeEditDescription" rows="3" class="form-control module-input module-textarea-compact" required></textarea>
+                </div>
+                <div class="module-modal-actions">
+                    <button type="button" class="btn btn-light px-4" onclick="closeScheduleModal('scheduleTimeEditModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4">Update Time Entry</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -321,6 +547,7 @@
             'title' => $hearing->title ?: $hearing->case_name,
             'case_name' => $hearing->case_name,
             'status' => $hearing->status,
+            'notes' => $hearing->notes ?? '',
             'hearing_time' => $hearing->hearing_time->toIso8601String(),
         ];
     })->values()->all();
@@ -334,6 +561,61 @@ function openScheduleModal(modalId) {
 
 function closeScheduleModal(modalId) {
     document.getElementById(modalId)?.classList.remove('show');
+}
+
+function openEventViewModal(eventItem) {
+    document.getElementById('scheduleEventViewTitle').textContent = eventItem.title || '-';
+    document.getElementById('scheduleEventViewStatus').textContent = eventItem.status || '-';
+    document.getElementById('scheduleEventViewCase').textContent = eventItem.case_name || '-';
+    document.getElementById('scheduleEventViewTime').textContent = new Date(eventItem.hearing_time).toLocaleString();
+    document.getElementById('scheduleEventViewNotes').textContent = eventItem.notes || 'No notes added.';
+    openScheduleModal('scheduleEventViewModal');
+}
+
+function findScheduleEvent(eventId) {
+    return scheduleEvents.find(function (eventItem) {
+        return String(eventItem.id) === String(eventId);
+    });
+}
+
+function openEventViewModalById(eventId) {
+    const eventItem = findScheduleEvent(eventId);
+    if (eventItem) {
+        openEventViewModal(eventItem);
+    }
+}
+
+function openEventEditModal(eventItem) {
+    document.getElementById('scheduleEventEditForm').action = "{{ url('/schedule/events') }}/" + eventItem.id;
+    document.getElementById('scheduleEventEditTitle').value = eventItem.title || '';
+    document.getElementById('scheduleEventEditCase').value = eventItem.case_name || '';
+    document.getElementById('scheduleEventEditTime').value = eventItem.hearing_time || '';
+    document.getElementById('scheduleEventEditStatus').value = eventItem.status || 'Scheduled';
+    document.getElementById('scheduleEventEditNotes').value = eventItem.notes || '';
+    openScheduleModal('scheduleEventEditModal');
+}
+
+function openTimeViewModal(entry) {
+    document.getElementById('scheduleTimeViewCase').textContent = entry.case_name || 'General';
+    document.getElementById('scheduleTimeViewDate').textContent = entry.work_date || '-';
+    document.getElementById('scheduleTimeViewHours').textContent = Number(entry.hours || 0).toFixed(2);
+    document.getElementById('scheduleTimeViewBilling').textContent = entry.billable ? 'Billable' : 'Non-Billable';
+    document.getElementById('scheduleTimeViewActivity').textContent = entry.activity || 'General Work';
+    document.getElementById('scheduleTimeViewDescription').textContent = entry.description || 'No description added.';
+    openScheduleModal('scheduleTimeViewModal');
+}
+
+function openTimeEditModal(entry) {
+    document.getElementById('scheduleTimeEditForm').action = "{{ url('/schedule/time-entries') }}/" + entry.id;
+    document.getElementById('scheduleTimeEditCase').value = entry.case_id || '';
+    document.getElementById('scheduleTimeEditDate').value = entry.work_date || '';
+    document.getElementById('scheduleTimeEditHours').value = entry.hours || '';
+    document.getElementById('scheduleTimeEditActivity').value = entry.activity || 'General Work';
+    document.getElementById('scheduleEditBillableYes').checked = !!entry.billable;
+    document.getElementById('scheduleEditBillableNo').checked = !entry.billable;
+    document.getElementById('scheduleTimeEditDescription').value = entry.description || '';
+    activateScheduleTab('timePanel');
+    openScheduleModal('scheduleTimeEditModal');
 }
 
 const scheduleEvents = @json($scheduleEventsJson);
@@ -408,10 +690,10 @@ function renderScheduleCalendar() {
         const visibleEvents = dayEvents.slice(0, 3).map(function (event) {
             const eventTime = new Date(event.hearing_time);
             return `
-                <div class="schedule-event-pill">
+                <button type="button" class="schedule-event-pill text-left border-0 w-100" onclick="openEventViewModalById('${escapeHtml(event.id)}')">
                     <strong>${escapeHtml(event.title || event.case_name)}</strong>
                     <span>${escapeHtml(eventTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</span>
-                </div>
+                </button>
             `;
         }).join('');
 

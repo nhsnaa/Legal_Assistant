@@ -41,19 +41,23 @@ Route::middleware('firebase.auth')->group(function () {
     // Clients - Using {id} for Firebase Key
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
     Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+    Route::put('/clients/{id}', [ClientController::class, 'update'])->name('clients.update');
     Route::delete('/clients/{id}', [ClientController::class, 'destroy'])->name('clients.destroy');
 
     // Cases - Using {id} for Firebase Key
     Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::get('/cases/{id}', [CaseController::class, 'show'])->name('cases.show');
+    Route::put('/cases/{id}', [CaseController::class, 'update'])->name('cases.update');
     Route::delete('/cases/{id}', [CaseController::class, 'destroy'])->name('cases.destroy');
 
     // Schedule
     Route::get('/schedule', [ScheduleController::class, 'index'])->name('schedule');
     Route::post('/schedule/events', [ScheduleController::class, 'storeEvent'])->name('schedule.events.store');
+    Route::put('/schedule/events/{id}', [ScheduleController::class, 'updateEvent'])->name('schedule.events.update');
     Route::delete('/schedule/events/{id}', [ScheduleController::class, 'destroyEvent'])->name('schedule.events.destroy');
     Route::post('/schedule/time-entries', [ScheduleController::class, 'storeTimeEntry'])->name('schedule.time-entries.store');
+    Route::put('/schedule/time-entries/{id}', [ScheduleController::class, 'updateTimeEntry'])->name('schedule.time-entries.update');
     Route::delete('/schedule/time-entries/{id}', [ScheduleController::class, 'destroyTimeEntry'])->name('schedule.time-entries.destroy');
 
     // Documents

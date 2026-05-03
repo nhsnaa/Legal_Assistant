@@ -95,6 +95,28 @@ class ScheduleController extends Controller
             ->with('success', 'Schedule task deleted successfully.');
     }
 
+    public function updateEvent(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'case_name' => ['required', 'string'],
+            'hearing_time' => ['required', 'date'],
+            'status' => ['required', 'in:Scheduled,Confirmed,Pending'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $eventRef = Firebase::database()->getReference('hearings/' . $id);
+
+        if (!$eventRef->getValue()) {
+            return redirect()->route('schedule')->with('error', 'Schedule task not found.');
+        }
+
+        $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
+        $eventRef->update($validated);
+
+        return redirect()->route('schedule')->with('success', 'Schedule task updated successfully.');
+    }
+
     public function storeTimeEntry(Request $request)
     {
         $validated = $request->validate([
@@ -139,5 +161,39 @@ class ScheduleController extends Controller
         return redirect()
             ->route('schedule', ['tab' => 'time'])
             ->with('success', 'Time entry deleted successfully.');
+    }
+
+    public function updateTimeEntry(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'case_id' => ['required', 'string'],
+            'work_date' => ['required', 'date'],
+            'hours' => ['required', 'numeric', 'min:0.25', 'max:24'],
+            'activity' => ['nullable', 'string', 'max:255'],
+            'billable' => ['nullable'],
+            'description' => ['required', 'string'],
+        ]);
+
+        $entryRef = Firebase::database()->getReference('time_entries/' . $id);
+
+        if (!$entryRef->getValue()) {
+            return redirect()->route('schedule', ['tab' => 'time'])->with('error', 'Time entry not found.');
+        }
+
+        $case = Firebase::database()->getReference('cases/' . $validated['case_id'])->getValue() ?? [];
+
+        $entryRef->update([
+            'case_id' => $validated['case_id'],
+            'case_name' => $case['case_name'] ?? 'General',
+            'work_date' => Carbon::parse($validated['work_date'])->toDateString(),
+            'hours' => (float) $validated['hours'],
+            'activity' => $validated['activity'] ?? 'General Work',
+            'billable' => filter_var($validated['billable'] ?? true, FILTER_VALIDATE_BOOLEAN),
+            'description' => $validated['description'],
+        ]);
+
+        return redirect()
+            ->route('schedule', ['tab' => 'time'])
+            ->with('success', 'Time entry updated successfully.');
     }
 }

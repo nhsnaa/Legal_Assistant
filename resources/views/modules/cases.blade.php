@@ -92,6 +92,20 @@
 
                 <div class="module-actions-inline mt-4">
                     <a href="{{ route('cases.show', $case->id) }}" class="btn btn-sm btn-light">View Details</a>
+                    <button
+                        type="button"
+                        class="btn btn-sm btn-light"
+                        onclick="openCaseEditModal(@js([
+                            'id' => $case->id,
+                            'client_id' => $case->client_id,
+                            'case_name' => $case->case_name,
+                            'description' => $case->description,
+                            'status' => $case->status,
+                            'priority' => $case->priority,
+                            'progress' => $case->progress ?? 0,
+                        ]))">
+                        Edit
+                    </button>
                     <form action="{{ route('cases.destroy', $case->id) }}" method="POST" onsubmit="return confirm('Delete this case?')">
                         @csrf
                         @method('DELETE')
@@ -170,6 +184,64 @@
         </form>
     </div>
 </div>
+
+<div id="caseEditModal" class="module-modal-backdrop" aria-hidden="true">
+    <div class="module-modal-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="font-weight-bold mb-0">Edit Case</h4>
+            <button type="button" class="module-modal-close" onclick="closeCaseEditModal()">&times;</button>
+        </div>
+
+        <form id="caseEditForm" method="POST">
+            @csrf
+            @method('PUT')
+            <div class="form-group">
+                <label class="font-weight-bold small">Assign Client</label>
+                <select name="client_id" id="caseEditClient" class="form-control module-input" required>
+                    <option value="">Select existing client</option>
+                    @foreach ($clients as $client)
+                        <option value="{{ $client->id }}">{{ $client->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="font-weight-bold small">Case Title</label>
+                <input type="text" name="case_name" id="caseEditName" class="form-control module-input" required>
+            </div>
+            <div class="form-group">
+                <label class="font-weight-bold small">Detailed Description</label>
+                <textarea name="description" id="caseEditDescription" rows="3" class="form-control module-input"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label class="font-weight-bold small">Status</label>
+                    <select name="status" id="caseEditStatus" class="form-control module-input">
+                        <option value="Active">Active</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-6">
+                    <label class="font-weight-bold small">Priority</label>
+                    <select name="priority" id="caseEditPriority" class="form-control module-input">
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="font-weight-bold small">Progress (%)</label>
+                <input type="number" name="progress" min="0" max="100" id="caseEditProgress" class="form-control module-input">
+            </div>
+
+            <div class="module-modal-actions">
+                <button type="button" class="btn btn-light px-4" onclick="closeCaseEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary px-4">Update Case</button>
+            </div>
+        </form>
+    </div>
+</div>
 @endsection
 
 @section('modals')
@@ -184,6 +256,22 @@ function openCaseModal() {
 
 function closeCaseModal() {
     document.getElementById('caseModal').classList.remove('show');
+}
+
+function openCaseEditModal(caseItem) {
+    const form = document.getElementById('caseEditForm');
+    form.action = "{{ url('/cases') }}/" + caseItem.id;
+    document.getElementById('caseEditClient').value = caseItem.client_id || '';
+    document.getElementById('caseEditName').value = caseItem.case_name || '';
+    document.getElementById('caseEditDescription').value = caseItem.description || '';
+    document.getElementById('caseEditStatus').value = caseItem.status || 'Active';
+    document.getElementById('caseEditPriority').value = caseItem.priority || 'Medium';
+    document.getElementById('caseEditProgress').value = caseItem.progress || 0;
+    document.getElementById('caseEditModal').classList.add('show');
+}
+
+function closeCaseEditModal() {
+    document.getElementById('caseEditModal').classList.remove('show');
 }
 
 @if ($errors->any())
