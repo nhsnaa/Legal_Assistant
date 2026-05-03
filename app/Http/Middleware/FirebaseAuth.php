@@ -63,10 +63,24 @@ class FirebaseAuth
             }
         }
 
+        $workspaceSecuritySettings = $workspaceId
+            ? array_merge(
+                [
+                    'session_timeout' => 30,
+                    'password_policy' => 'strong',
+                ],
+                $database->getReference('settings/workspaces/' . $workspaceId . '/security')->getValue() ?? []
+            )
+            : [
+                'session_timeout' => 30,
+                'password_policy' => 'strong',
+            ];
+
         session([
             'workspace_id' => $workspaceId,
             'workspace_owner_id' => $workspaceOwnerId,
             'workspace_status' => $workspaceStatus,
+            'workspace_security_settings' => $workspaceSecuritySettings,
         ]);
 
         return $next($request);

@@ -109,6 +109,90 @@ class LoginController extends Controller
         return back()->withErrors(['email' => 'Invalid email or password.']);
     }
 
+    public function requestPasswordReset(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        try {
+            $database = app('firebase.database');
+            $users = $database->getReference('users')->getValue() ?? [];
+            $matchedUserId = null;
+            $matchedUser = null;
+
+            foreach ($users as $userId => $userData) {
+                if (strcasecmp($userData['email'] ?? '', $validated['email']) === 0) {
+                    $matchedUserId = $userId;
+                    $matchedUser = $userData;
+                    break;
+                }
+            }
+
+            if (!$matchedUserId || !$matchedUser) {
+                return back()->withErrors(['email' => 'No registered account was found for that email.']);
+            }
+
+            $workspaceOwnerId = ($matchedUser['workspace_status'] ?? 'active') === 'pending_invitation'
+                ? ($matchedUser['invited_workspace_owner_id'] ?? null)
+                : ($matchedUser['workspace_owner_id'] ?? $matchedUserId);
+
+            if (!$workspaceOwnerId || $workspaceOwnerId === $matchedUserId) {
+                return back()->withErrors([
+                    'email' => 'This account cannot be reset through workspace requests yet. Please contact the system administrator directly.',
+                ]);
+            }
+
+            $owner = $users[$workspaceOwnerId] ?? null;
+
+            if (!$owner) {
+                return back()->withErrors([
+                    'email' => 'The workspace owner for this account could not be found. Please contact the system administrator.',
+                ]);
+            }
+
+            $ownerNotificationsRef = $database->getReference('notifications/' . $workspaceOwnerId);
+            $existingNotifications = $ownerNotificationsRef->getValue() ?? [];
+
+            foreach ($existingNotifications as $notificationId => $notification) {
+                if (
+                    ($notification['type'] ?? null) === 'password_reset_request'
+                    && ($notification['requester_user_id'] ?? null) === $matchedUserId
+                    && empty($notification['resolved_at'])
+                ) {
+                    return back()->with('success', 'A password reset request has already been sent to your workspace owner.');
+                }
+            }
+
+            $requesterName = $matchedUser['name']
+                ?? trim(($matchedUser['first_name'] ?? '') . ' ' . ($matchedUser['last_name'] ?? ''))
+                ?: 'Workspace User';
+
+            $ownerNotificationsRef->push([
+                'title' => 'Password Reset Request',
+                'message' => $requesterName . ' requested a temporary password for their workspace account.',
+                'type' => 'password_reset_request',
+                'read' => false,
+                'created_at' => now()->toIso8601String(),
+                'requester_user_id' => $matchedUserId,
+                'requester_email' => $matchedUser['email'] ?? $validated['email'],
+                'requester_name' => $requesterName,
+                'workspace_id' => ($matchedUser['workspace_status'] ?? 'active') === 'pending_invitation'
+                    ? ($matchedUser['invited_workspace_id'] ?? null)
+                    : ($matchedUser['workspace_id'] ?? null),
+                'workspace_owner_id' => $workspaceOwnerId,
+            ]);
+
+            return back()->with('success', 'Your password reset request was sent to your workspace owner.');
+        } catch (\Throwable $e) {
+            error_log('Forgot Password Request Error: ' . $e->getMessage());
+
+            return back()->withErrors([
+                'email' => 'Unable to send the password reset request right now. Please try again later.',
+            ]);
+        }
+    }
+
     private function backfillWorkspaceData($database, string $workspaceId, string $workspaceOwnerId): void
     {
         foreach (['clients', 'cases', 'documents', 'hearings', 'time_entries'] as $node) {

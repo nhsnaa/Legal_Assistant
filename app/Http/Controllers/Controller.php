@@ -7,6 +7,23 @@ use Kreait\Laravel\Firebase\Facades\Firebase;
 
 abstract class Controller
 {
+    protected function defaultNotificationSettings(): array
+    {
+        return [
+            'deadline_reminders' => true,
+            'document_alerts' => true,
+            'time_entry_summary' => false,
+        ];
+    }
+
+    protected function defaultSecuritySettings(): array
+    {
+        return [
+            'session_timeout' => 30,
+            'password_policy' => 'strong',
+        ];
+    }
+
     protected function currentWorkspaceId(): ?string
     {
         return session('workspace_id') ?: session('firebase_user_id');
@@ -54,5 +71,28 @@ abstract class Controller
             'workspace_id' => $this->currentWorkspaceId(),
             'workspace_owner_id' => $this->currentWorkspaceOwnerId(),
         ]);
+    }
+
+    protected function currentWorkspaceSecuritySettings(): array
+    {
+        return array_merge(
+            $this->defaultSecuritySettings(),
+            session('workspace_security_settings', [])
+        );
+    }
+
+    protected function validatePasswordAgainstPolicy(string $password, string $policy): ?string
+    {
+        return match ($policy) {
+            'strict' => preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{10,}$/', $password)
+                ? null
+                : 'Strict password policy requires at least 10 characters with uppercase, lowercase, number, and symbol.',
+            'strong' => preg_match('/^(?=.*[A-Za-z])(?=.*\d).{8,}$/', $password)
+                ? null
+                : 'Strong password policy requires at least 8 characters with letters and numbers.',
+            default => strlen($password) >= 4
+                ? null
+                : 'Password must be at least 4 characters long.',
+        };
     }
 }

@@ -11,6 +11,7 @@
     $displayEmail = session('email', 'No Email');
     $showWorkspaceTimer = session('workspace_status') !== 'pending_invitation';
     $isPendingWorkspace = session('workspace_status') === 'pending_invitation';
+    $workspaceSessionTimeout = (int) session('workspace_security_settings.session_timeout', 30);
 @endphp
 
 <header class="topbar">
@@ -40,7 +41,7 @@
 
     <div class="topbar-right d-flex align-items-center">
         <div class="search-box mr-4 d-none d-md-block">
-            <input type="text" class="form-control-pill" id="globalSearchInput" placeholder="Search cases, clients, documents..." autocomplete="off">
+            <input type="text" class="form-control-pill" id="globalSearchInput" name="global_search" placeholder="Search cases, clients, documents..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true">
             <div class="search-results-dropdown d-none" id="globalSearchResults"></div>
         </div>
 
@@ -98,6 +99,9 @@
     </div>
 </header>
 
+<form action="{{ route('logout') }}" method="POST" id="autoLogoutForm" class="d-none">
+    @csrf
+</form>
 <div class="profile-menu-backdrop d-none" id="profileMenuBackdrop"></div>
 <div class="notification-panel-backdrop d-none" id="notificationPanelBackdrop"></div>
 <aside class="notification-panel d-none" id="notificationPanel" aria-hidden="true">
@@ -157,14 +161,18 @@ function toggleVisibility(inputId, iconId) {
     const userDropdown = document.getElementById('userDropdown');
     const profileDropdownWrapper = document.getElementById('profileDropdownWrapper') || userDropdown?.closest('.dropdown');
     const profileMenuBackdrop = document.getElementById('profileMenuBackdrop');
+    const autoLogoutForm = document.getElementById('autoLogoutForm');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     const pendingWorkspaceMode = @json($isPendingWorkspace);
+    const workspaceSessionTimeoutMinutes = @json($workspaceSessionTimeout);
     let elapsedTime = 0;
     let startTime = null;
     let timerInterval = null;
     let searchTimeoutId = null;
     let notificationsLoaded = false;
     let profileDropdownEventsBound = false;
+    let idleTimeoutId = null;
+    let idleTimeoutLocked = false;
 
     function formatTime(milliseconds) {
         const totalSeconds = Math.floor(milliseconds / 1000);
@@ -334,6 +342,8 @@ function toggleVisibility(inputId, iconId) {
                 return 'bi-person-plus';
             case 'workspace_invitation':
                 return 'bi-envelope-check';
+            case 'password_reset_request':
+                return 'bi-key';
             case 'document':
                 return 'bi-file-earmark-text';
             case 'schedule':
@@ -383,6 +393,7 @@ function toggleVisibility(inputId, iconId) {
                     class="${itemClasses.join(' ')}"
                     data-notification-id="${escapeHtml(item.id)}"
                     data-notification-link="${escapeHtml(item.link || '')}"
+                    data-notification-action-required="${item.action_required ? 'true' : 'false'}"
                 >
                     <span class="notification-item-icon">
                         <i class="bi ${getNotificationIcon(item.type)}"></i>
@@ -393,8 +404,14 @@ function toggleVisibility(inputId, iconId) {
                         <small>${escapeHtml(formatNotificationDate(item.created_at))}</small>
                         ${item.action_required ? `
                             <span class="notification-item-actions">
-                                <button type="button" class="notification-action-btn" data-notification-accept="${escapeHtml(item.id)}">
-                                    Accept Invitation
+                                <button
+                                    type="button"
+                                    class="notification-action-btn"
+                                    ${item.type === 'workspace_invitation'
+                                        ? `data-notification-accept="${escapeHtml(item.id)}"`
+                                        : `data-notification-reset="${escapeHtml(item.id)}"`}
+                                >
+                                    ${escapeHtml(item.action_label || 'Open')}
                                 </button>
                             </span>
                         ` : ''}
@@ -466,6 +483,40 @@ function toggleVisibility(inputId, iconId) {
         profileMenuBackdrop.classList.toggle('d-none', !shouldOpen);
         profileMenuBackdrop.classList.toggle('show', shouldOpen);
         document.body.classList.toggle('profile-menu-open', shouldOpen);
+    }
+
+    function triggerIdleLogout() {
+        if (idleTimeoutLocked || !autoLogoutForm) {
+            return;
+        }
+
+        idleTimeoutLocked = true;
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Session expired',
+                text: 'You were signed out after being inactive for too long.',
+                confirmButtonColor: '#0891b2',
+                allowOutsideClick: false,
+                allowEscapeKey: false
+            }).then(function () {
+                autoLogoutForm.submit();
+            });
+
+            return;
+        }
+
+        autoLogoutForm.submit();
+    }
+
+    function resetIdleLogoutTimer() {
+        if (!workspaceSessionTimeoutMinutes || workspaceSessionTimeoutMinutes < 1 || !autoLogoutForm) {
+            return;
+        }
+
+        clearTimeout(idleTimeoutId);
+        idleTimeoutId = setTimeout(triggerIdleLogout, workspaceSessionTimeoutMinutes * 60 * 1000);
     }
 
     function markNotificationRead(notificationId) {
@@ -640,6 +691,7 @@ function toggleVisibility(inputId, iconId) {
 
     notificationList?.addEventListener('click', function (event) {
         const acceptButton = event.target.closest('[data-notification-accept]');
+        const resetButton = event.target.closest('[data-notification-reset]');
 
         if (acceptButton) {
             const notificationId = acceptButton.getAttribute('data-notification-accept');
@@ -661,9 +713,140 @@ function toggleVisibility(inputId, iconId) {
             return;
         }
 
+        if (resetButton) {
+            const notificationId = resetButton.getAttribute('data-notification-reset');
+
+            if (!notificationId) {
+                return;
+            }
+
+            if (typeof Swal !== 'undefined') {
+                toggleNotificationPanel(false);
+
+                Swal.fire({
+                    title: 'Set Temporary Password',
+                    text: 'Create a temporary password for this workspace member.',
+                    html: `
+                        <div class="ila-swal-field">
+                            <label class="ila-swal-label" for="tempPasswordInput">Temporary Password</label>
+                            <div class="ila-swal-password-wrap">
+                                <input id="tempPasswordInput" type="password" class="swal2-input ila-swal-input" placeholder="Enter temporary password">
+                                <button type="button" class="ila-swal-password-toggle" id="tempPasswordToggle" aria-label="Show password">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonText: 'Save Password',
+                    confirmButtonColor: '#0891b2',
+                    showCancelButton: true,
+                    background: 'rgba(255, 255, 255, 0.97)',
+                    backdrop: 'rgba(15, 23, 42, 0.18)',
+                    customClass: {
+                        popup: 'ila-swal-popup',
+                        confirmButton: 'ila-swal-confirm',
+                        cancelButton: 'ila-swal-cancel',
+                    },
+                    focusConfirm: false,
+                    didOpen: function () {
+                        const passwordInput = document.getElementById('tempPasswordInput');
+                        const passwordToggle = document.getElementById('tempPasswordToggle');
+
+                        passwordInput?.focus();
+
+                        passwordToggle?.addEventListener('click', function () {
+                            if (!passwordInput) {
+                                return;
+                            }
+
+                            const shouldShow = passwordInput.type === 'password';
+                            passwordInput.type = shouldShow ? 'text' : 'password';
+                            this.setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+                            this.innerHTML = shouldShow
+                                ? '<i class="bi bi-eye-slash"></i>'
+                                : '<i class="bi bi-eye"></i>';
+                        });
+                    },
+                    preConfirm: function () {
+                        const value = document.getElementById('tempPasswordInput')?.value || '';
+
+                        if (!value || value.length < 4) {
+                            Swal.showValidationMessage('Temporary password must be at least 4 characters.');
+                            return false;
+                        }
+
+                        return value;
+                    }
+                }).then(function (result) {
+                    if (!result.isConfirmed || !result.value) {
+                        return;
+                    }
+
+                    fetch("{{ url('/notifications') }}/" + encodeURIComponent(notificationId) + "/reset-password", {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken || ''
+                        },
+                        body: JSON.stringify({
+                            temp_password: result.value
+                        })
+                    })
+                        .then(function (response) {
+                            return response.json().then(function (payload) {
+                                if (!response.ok) {
+                                    throw new Error(payload.message || 'Temporary password could not be saved.');
+                                }
+
+                                return payload;
+                            });
+                        })
+                        .then(function (payload) {
+                            return loadNotifications().then(function () {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Temporary Password Saved',
+                                    text: payload.message || 'Share the temporary password with the user.',
+                                    confirmButtonColor: '#0891b2',
+                                    background: 'rgba(255, 255, 255, 0.97)',
+                                    backdrop: 'rgba(15, 23, 42, 0.18)',
+                                    customClass: {
+                                        popup: 'ila-swal-popup',
+                                        confirmButton: 'ila-swal-confirm',
+                                    },
+                                });
+                            });
+                        })
+                        .catch(function (error) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Reset Failed',
+                                text: error.message || 'Temporary password could not be saved.',
+                                confirmButtonColor: '#0891b2',
+                                background: 'rgba(255, 255, 255, 0.97)',
+                                backdrop: 'rgba(15, 23, 42, 0.18)',
+                                customClass: {
+                                    popup: 'ila-swal-popup',
+                                    confirmButton: 'ila-swal-confirm',
+                                },
+                            });
+                        });
+                });
+
+                return;
+            }
+
+            return;
+        }
+
         const notificationItem = event.target.closest('.notification-item');
 
         if (!notificationItem) {
+            return;
+        }
+
+        if (notificationItem.getAttribute('data-notification-action-required') === 'true') {
             return;
         }
 
@@ -690,5 +873,13 @@ function toggleVisibility(inputId, iconId) {
 
     loadState();
     loadNotifications();
+
+    if (workspaceSessionTimeoutMinutes > 0 && autoLogoutForm) {
+        ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach(function (eventName) {
+            document.addEventListener(eventName, resetIdleLogoutTimer, { passive: true });
+        });
+
+        resetIdleLogoutTimer();
+    }
 })();
 </script>

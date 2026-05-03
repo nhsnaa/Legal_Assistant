@@ -9,6 +9,9 @@
     };
     $displayRole = session('user_role', 'staff');
     $displayEmail = session('email', 'No Email');
+    $showWorkspaceTimer = session('workspace_status') !== 'pending_invitation';
+    $isPendingWorkspace = session('workspace_status') === 'pending_invitation';
+    $workspaceSessionTimeout = (int) session('workspace_security_settings.session_timeout', 30);
 ?>
 
 <header class="topbar">
@@ -18,15 +21,22 @@
     </div>
 
     <div class="topbar-center d-flex align-items-center">
-        <div class="timer-wrapper mr-3">
-            <div class="timer-display" id="display">00:00:00</div>
-        </div>
-        <div class="timer-controls">
-            <button class="btn btn-sm btn-success px-3 mr-2" id="startStopBtn" onclick="toggleTimer()">
-                <i class="bi bi-play-fill mr-1"></i>Start
-            </button>
-            <button class="btn btn-sm btn-outline-secondary" onclick="resetTimer()">Reset</button>
-        </div>
+        <?php if($showWorkspaceTimer): ?>
+            <div class="timer-wrapper mr-3">
+                <div class="timer-display" id="display">00:00:00</div>
+            </div>
+            <div class="timer-controls">
+                <button class="btn btn-sm btn-success px-3 mr-2" id="startStopBtn" onclick="toggleTimer()">
+                    <i class="bi bi-play-fill mr-1"></i>Start
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="resetTimer()">Reset</button>
+            </div>
+        <?php else: ?>
+            <div class="pending-workspace-banner">
+                <i class="bi bi-envelope-exclamation mr-2"></i>
+                Awaiting workspace invitation
+            </div>
+        <?php endif; ?>
     </div>
 
     <div class="topbar-right d-flex align-items-center">
@@ -40,25 +50,9 @@
                 <i class="bi bi-bell"></i>
                 <span class="notification-dot d-none" id="notificationDot"></span>
             </button>
-
-            <div class="notification-dropdown d-none" id="notificationDropdown">
-                <div class="notification-dropdown-header">
-                    <div>
-                        <strong>Notifications</strong>
-                        <small>Workspace updates for your account</small>
-                    </div>
-                    <span class="notification-count-badge d-none" id="notificationCountBadge"></span>
-                </div>
-                <div class="notification-list" id="notificationList">
-                    <div class="notification-empty">
-                        <i class="bi bi-bell-slash"></i>
-                        <span>No notifications yet.</span>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <div class="dropdown">
+        <div class="dropdown" id="profileDropdownWrapper">
             <div class="user-avatar-circle" id="userDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="cursor: pointer;">
                 <?php echo e(strtoupper(substr($displayName, 0, 1))); ?>
 
@@ -108,6 +102,32 @@
     </div>
 </header>
 
+<form action="<?php echo e(route('logout')); ?>" method="POST" id="autoLogoutForm" class="d-none">
+    <?php echo csrf_field(); ?>
+</form>
+<div class="profile-menu-backdrop d-none" id="profileMenuBackdrop"></div>
+<div class="notification-panel-backdrop d-none" id="notificationPanelBackdrop"></div>
+<aside class="notification-panel d-none" id="notificationPanel" aria-hidden="true">
+    <div class="notification-panel-header">
+        <div>
+            <strong>Notifications</strong>
+            <small>Workspace updates for your account</small>
+        </div>
+        <div class="d-flex align-items-center">
+            <span class="notification-count-badge d-none mr-2" id="notificationCountBadge"></span>
+            <button type="button" class="notification-panel-close" id="notificationPanelClose" aria-label="Close notifications">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    </div>
+    <div class="notification-list" id="notificationList">
+        <div class="notification-empty">
+            <i class="bi bi-bell-slash"></i>
+            <span>No notifications yet.</span>
+        </div>
+    </div>
+</aside>
+
 <?php echo $__env->make('layouts.modals.change-password', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 
 <script>
@@ -135,16 +155,27 @@ function toggleVisibility(inputId, iconId) {
     const globalSearchInput = document.getElementById('globalSearchInput');
     const globalSearchResults = document.getElementById('globalSearchResults');
     const notificationTrigger = document.getElementById('notificationTrigger');
-    const notificationDropdown = document.getElementById('notificationDropdown');
+    const notificationPanel = document.getElementById('notificationPanel');
+    const notificationPanelBackdrop = document.getElementById('notificationPanelBackdrop');
+    const notificationPanelClose = document.getElementById('notificationPanelClose');
     const notificationList = document.getElementById('notificationList');
     const notificationDot = document.getElementById('notificationDot');
     const notificationCountBadge = document.getElementById('notificationCountBadge');
+    const userDropdown = document.getElementById('userDropdown');
+    const profileDropdownWrapper = document.getElementById('profileDropdownWrapper') || userDropdown?.closest('.dropdown');
+    const profileMenuBackdrop = document.getElementById('profileMenuBackdrop');
+    const autoLogoutForm = document.getElementById('autoLogoutForm');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const pendingWorkspaceMode = <?php echo json_encode($isPendingWorkspace, 15, 512) ?>;
+    const workspaceSessionTimeoutMinutes = <?php echo json_encode($workspaceSessionTimeout, 15, 512) ?>;
     let elapsedTime = 0;
     let startTime = null;
     let timerInterval = null;
     let searchTimeoutId = null;
     let notificationsLoaded = false;
+    let profileDropdownEventsBound = false;
+    let idleTimeoutId = null;
+    let idleTimeoutLocked = false;
 
     function formatTime(milliseconds) {
         const totalSeconds = Math.floor(milliseconds / 1000);
@@ -314,6 +345,8 @@ function toggleVisibility(inputId, iconId) {
                 return 'bi-person-plus';
             case 'workspace_invitation':
                 return 'bi-envelope-check';
+            case 'password_reset_request':
+                return 'bi-key';
             case 'document':
                 return 'bi-file-earmark-text';
             case 'schedule':
@@ -363,6 +396,7 @@ function toggleVisibility(inputId, iconId) {
                     class="${itemClasses.join(' ')}"
                     data-notification-id="${escapeHtml(item.id)}"
                     data-notification-link="${escapeHtml(item.link || '')}"
+                    data-notification-action-required="${item.action_required ? 'true' : 'false'}"
                 >
                     <span class="notification-item-icon">
                         <i class="bi ${getNotificationIcon(item.type)}"></i>
@@ -373,8 +407,14 @@ function toggleVisibility(inputId, iconId) {
                         <small>${escapeHtml(formatNotificationDate(item.created_at))}</small>
                         ${item.action_required ? `
                             <span class="notification-item-actions">
-                                <button type="button" class="notification-action-btn" data-notification-accept="${escapeHtml(item.id)}">
-                                    Accept Invitation
+                                <button
+                                    type="button"
+                                    class="notification-action-btn"
+                                    ${item.type === 'workspace_invitation'
+                                        ? `data-notification-accept="${escapeHtml(item.id)}"`
+                                        : `data-notification-reset="${escapeHtml(item.id)}"`}
+                                >
+                                    ${escapeHtml(item.action_label || 'Open')}
                                 </button>
                             </span>
                         ` : ''}
@@ -413,21 +453,73 @@ function toggleVisibility(inputId, iconId) {
             });
     }
 
-    function toggleNotificationDropdown(forceOpen) {
-        if (!notificationDropdown || !notificationTrigger) {
+    function toggleNotificationPanel(forceOpen) {
+        if (!notificationPanel || !notificationTrigger || !notificationPanelBackdrop) {
             return;
         }
 
         const shouldOpen = typeof forceOpen === 'boolean'
             ? forceOpen
-            : notificationDropdown.classList.contains('d-none');
+            : notificationPanel.classList.contains('d-none');
 
-        notificationDropdown.classList.toggle('d-none', !shouldOpen);
+        notificationPanel.classList.toggle('d-none', !shouldOpen);
+        notificationPanelBackdrop.classList.toggle('d-none', !shouldOpen);
+        notificationPanel.classList.toggle('show', shouldOpen);
+        notificationPanelBackdrop.classList.toggle('show', shouldOpen);
         notificationTrigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+        notificationPanel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
 
         if (shouldOpen && !notificationsLoaded) {
             loadNotifications();
         }
+    }
+
+    function toggleProfileBackdrop(forceOpen) {
+        if (!profileMenuBackdrop) {
+            return;
+        }
+
+        const shouldOpen = typeof forceOpen === 'boolean'
+            ? forceOpen
+            : profileMenuBackdrop.classList.contains('d-none');
+
+        profileMenuBackdrop.classList.toggle('d-none', !shouldOpen);
+        profileMenuBackdrop.classList.toggle('show', shouldOpen);
+        document.body.classList.toggle('profile-menu-open', shouldOpen);
+    }
+
+    function triggerIdleLogout() {
+        if (idleTimeoutLocked || !autoLogoutForm) {
+            return;
+        }
+
+        idleTimeoutLocked = true;
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Session expired',
+                text: 'You were signed out after being inactive for too long.',
+                confirmButtonColor: '#0891b2',
+                allowOutsideClick: false,
+                allowEscapeKey: false
+            }).then(function () {
+                autoLogoutForm.submit();
+            });
+
+            return;
+        }
+
+        autoLogoutForm.submit();
+    }
+
+    function resetIdleLogoutTimer() {
+        if (!workspaceSessionTimeoutMinutes || workspaceSessionTimeoutMinutes < 1 || !autoLogoutForm) {
+            return;
+        }
+
+        clearTimeout(idleTimeoutId);
+        idleTimeoutId = setTimeout(triggerIdleLogout, workspaceSessionTimeoutMinutes * 60 * 1000);
     }
 
     function markNotificationRead(notificationId) {
@@ -537,30 +629,72 @@ function toggleVisibility(inputId, iconId) {
     });
 
     document.addEventListener('click', function (event) {
-        if (!globalSearchInput || !globalSearchResults) {
-            return;
-        }
-
-        if (!globalSearchInput.closest('.search-box')?.contains(event.target)) {
+        if (globalSearchInput && globalSearchResults && !globalSearchInput.closest('.search-box')?.contains(event.target)) {
             hideSearchResults();
         }
 
-        if (notificationDropdown && notificationTrigger) {
-            const insideNotifications = notificationDropdown.contains(event.target)
+        if (notificationPanel && notificationTrigger && notificationPanelBackdrop) {
+            const insideNotifications = notificationPanel.contains(event.target)
                 || notificationTrigger.contains(event.target);
 
-            if (!insideNotifications) {
-                toggleNotificationDropdown(false);
+            if (!insideNotifications && !notificationPanel.classList.contains('d-none')) {
+                toggleNotificationPanel(false);
             }
         }
     });
 
-    notificationTrigger?.addEventListener('click', function () {
-        toggleNotificationDropdown();
+    notificationTrigger?.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        toggleNotificationPanel();
+    });
+
+    notificationTrigger?.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+    });
+
+    notificationPanelClose?.addEventListener('click', function () {
+        toggleNotificationPanel(false);
+    });
+
+    notificationPanelBackdrop?.addEventListener('click', function () {
+        toggleNotificationPanel(false);
+    });
+
+    function bindProfileDropdownEvents() {
+        if (profileDropdownEventsBound || typeof $ === 'undefined' || !profileDropdownWrapper) {
+            return;
+        }
+
+        $(profileDropdownWrapper).on('show.bs.dropdown', function () {
+            toggleProfileBackdrop(true);
+        });
+
+        $(profileDropdownWrapper).on('hidden.bs.dropdown', function () {
+            toggleProfileBackdrop(false);
+        });
+
+        profileDropdownEventsBound = true;
+    }
+
+    bindProfileDropdownEvents();
+
+    document.addEventListener('DOMContentLoaded', bindProfileDropdownEvents);
+    window.addEventListener('load', bindProfileDropdownEvents);
+
+    profileMenuBackdrop?.addEventListener('click', function () {
+        if (typeof $ !== 'undefined' && userDropdown) {
+            $(userDropdown).dropdown('toggle');
+            return;
+        }
+
+        toggleProfileBackdrop(false);
     });
 
     notificationList?.addEventListener('click', function (event) {
         const acceptButton = event.target.closest('[data-notification-accept]');
+        const resetButton = event.target.closest('[data-notification-reset]');
 
         if (acceptButton) {
             const notificationId = acceptButton.getAttribute('data-notification-accept');
@@ -582,9 +716,92 @@ function toggleVisibility(inputId, iconId) {
             return;
         }
 
+        if (resetButton) {
+            const notificationId = resetButton.getAttribute('data-notification-reset');
+
+            if (!notificationId) {
+                return;
+            }
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Set Temporary Password',
+                    text: 'Create a temporary password for this workspace member.',
+                    input: 'password',
+                    inputPlaceholder: 'Enter temporary password',
+                    confirmButtonText: 'Save Password',
+                    confirmButtonColor: '#0891b2',
+                    showCancelButton: true,
+                    inputAttributes: {
+                        autocapitalize: 'off',
+                        autocorrect: 'off',
+                    },
+                    preConfirm: function (value) {
+                        if (!value || value.length < 4) {
+                            Swal.showValidationMessage('Temporary password must be at least 4 characters.');
+                            return false;
+                        }
+
+                        return value;
+                    }
+                }).then(function (result) {
+                    if (!result.isConfirmed || !result.value) {
+                        return;
+                    }
+
+                    fetch("<?php echo e(url('/notifications')); ?>/" + encodeURIComponent(notificationId) + "/reset-password", {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken || ''
+                        },
+                        body: JSON.stringify({
+                            temp_password: result.value
+                        })
+                    })
+                        .then(function (response) {
+                            return response.json().then(function (payload) {
+                                if (!response.ok) {
+                                    throw new Error(payload.message || 'Temporary password could not be saved.');
+                                }
+
+                                return payload;
+                            });
+                        })
+                        .then(function (payload) {
+                            return loadNotifications().then(function () {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Temporary Password Saved',
+                                    text: payload.message || 'Share the temporary password with the user.',
+                                    confirmButtonColor: '#0891b2'
+                                });
+                            });
+                        })
+                        .catch(function (error) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Reset Failed',
+                                text: error.message || 'Temporary password could not be saved.',
+                                confirmButtonColor: '#0891b2'
+                            });
+                        });
+                });
+
+                return;
+            }
+
+            return;
+        }
+
         const notificationItem = event.target.closest('.notification-item');
 
         if (!notificationItem) {
+            return;
+        }
+
+        if (notificationItem.getAttribute('data-notification-action-required') === 'true') {
             return;
         }
 
@@ -611,6 +828,14 @@ function toggleVisibility(inputId, iconId) {
 
     loadState();
     loadNotifications();
+
+    if (workspaceSessionTimeoutMinutes > 0 && autoLogoutForm) {
+        ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'].forEach(function (eventName) {
+            document.addEventListener(eventName, resetIdleLogoutTimer, { passive: true });
+        });
+
+        resetIdleLogoutTimer();
+    }
 })();
 </script>
 <?php /**PATH C:\xampp\htdocs\ILA\resources\views\layouts\partials\topbar.blade.php ENDPATH**/ ?>

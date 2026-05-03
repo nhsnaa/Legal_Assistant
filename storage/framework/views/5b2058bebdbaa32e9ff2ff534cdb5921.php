@@ -89,6 +89,14 @@
                                         onclick="openClientEditModal(<?php echo \Illuminate\Support\Js::from(['id' => $client->id, 'name' => $client->name, 'email' => $client->email, 'phone' => $client->phone, 'status' => $client->status])->toHtml() ?>)">
                                         Edit
                                     </button>
+                                    <form action="<?php echo e(route('clients.archive', $client->id)); ?>" method="POST" onsubmit="return confirm('<?php echo e($client->status === 'Inactive' ? 'Restore this client?' : 'Archive this client?'); ?>')">
+                                        <?php echo csrf_field(); ?>
+                                        <?php echo method_field('PATCH'); ?>
+                                        <button type="submit" class="btn btn-sm btn-light">
+                                            <?php echo e($client->status === 'Inactive' ? 'Restore' : 'Archive'); ?>
+
+                                        </button>
+                                    </form>
                                     <form action="<?php echo e(route('clients.destroy', $client->id)); ?>" method="POST" onsubmit="return confirm('Delete this client?')">
                                         <?php echo csrf_field(); ?>
                                         <?php echo method_field('DELETE'); ?>

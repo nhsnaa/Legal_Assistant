@@ -29,6 +29,10 @@ body {
         linear-gradient(180deg, #fafdff 0%, var(--bg) 60%, #ffffff 100%);
 }
 
+body.auth-modal-open {
+    overflow: hidden;
+}
+
 .text-primary {
     color: var(--accent) !important;
 }
@@ -240,6 +244,26 @@ body {
 
 .auth-footer a {
     text-decoration: none !important;
+}
+
+.auth-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(7, 44, 61, 0.24);
+    backdrop-filter: blur(10px);
+}
+
+.auth-modal-backdrop.show {
+    display: flex;
+}
+
+.auth-modal-card {
+    width: min(520px, 100%);
 }
 
 @media (max-width: 991px) {

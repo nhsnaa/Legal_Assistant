@@ -34,6 +34,10 @@
                         <strong><?php echo e(optional($case->client)->name ?: 'Unassigned client'); ?></strong>
                     </div>
                     <div class="module-detail-item">
+                        <label>Case Type</label>
+                        <strong><?php echo e($case->case_type ?? 'Other'); ?></strong>
+                    </div>
+                    <div class="module-detail-item">
                         <label>Status</label>
                         <strong><?php echo e($case->status); ?></strong>
                     </div>

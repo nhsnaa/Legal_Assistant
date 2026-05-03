@@ -12,11 +12,11 @@
                     @csrf
                     <div class="form-group mb-4">
                         <label class="small text-muted mb-1">Email</label>
-                        <input type="email" class="form-control bg-light border" value="{{ session('email', 'No Email') }}" readonly style="border-radius: 8px; padding: 12px;">
+                        <input type="email" class="form-control bg-light border" name="account_email_display" value="{{ session('email', 'No Email') }}" readonly autocomplete="username" style="border-radius: 8px; padding: 12px;">
                     </div>
 
                     <div class="form-group mb-4 position-relative">
-                        <input type="password" class="form-control border @error('new_password') is-invalid @enderror" name="new_password" id="new_password" placeholder="New Password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
+                        <input type="password" class="form-control border @error('new_password') is-invalid @enderror" name="new_password" id="new_password" placeholder="New Password" autocomplete="new-password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
 
                         <span class="position-absolute d-flex align-items-center justify-content-center"
                             style="right: 15px; top: 0; bottom: 0; cursor: pointer; color: #aaa; width: 30px;"
@@ -29,7 +29,7 @@
                     </div>
 
                     <div class="form-group mb-4 position-relative">
-                        <input type="password" class="form-control border @error('new_password_confirmation') is-invalid @enderror" name="new_password_confirmation" id="confirm_password" placeholder="Confirm Password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
+                        <input type="password" class="form-control border @error('new_password_confirmation') is-invalid @enderror" name="new_password_confirmation" id="confirm_password" placeholder="Confirm Password" autocomplete="new-password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
 
                         <span class="position-absolute d-flex align-items-center justify-content-center"
                             style="right: 15px; top: 0; bottom: 0; cursor: pointer; color: #aaa; width: 30px;"

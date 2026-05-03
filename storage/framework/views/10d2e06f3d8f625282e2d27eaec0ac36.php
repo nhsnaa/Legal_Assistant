@@ -12,7 +12,7 @@
                     <?php echo csrf_field(); ?>
                     <div class="form-group mb-4">
                         <label class="small text-muted mb-1">Email</label>
-                        <input type="email" class="form-control bg-light border" value="<?php echo e(session('email', 'No Email')); ?>" readonly style="border-radius: 8px; padding: 12px;">
+                        <input type="email" class="form-control bg-light border" name="account_email_display" value="<?php echo e(session('email', 'No Email')); ?>" readonly autocomplete="username" style="border-radius: 8px; padding: 12px;">
                     </div>
 
                     <div class="form-group mb-4 position-relative">
@@ -23,7 +23,7 @@ if (isset($message)) { $__messageOriginal = $message; }
 $message = $__bag->first($__errorArgs[0]); ?> is-invalid <?php unset($message);
 if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
-unset($__errorArgs, $__bag); ?>" name="new_password" id="new_password" placeholder="New Password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
+unset($__errorArgs, $__bag); ?>" name="new_password" id="new_password" placeholder="New Password" autocomplete="new-password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
 
                         <span class="position-absolute d-flex align-items-center justify-content-center"
                             style="right: 15px; top: 0; bottom: 0; cursor: pointer; color: #aaa; width: 30px;"
@@ -50,7 +50,7 @@ if (isset($message)) { $__messageOriginal = $message; }
 $message = $__bag->first($__errorArgs[0]); ?> is-invalid <?php unset($message);
 if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
-unset($__errorArgs, $__bag); ?>" name="new_password_confirmation" id="confirm_password" placeholder="Confirm Password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
+unset($__errorArgs, $__bag); ?>" name="new_password_confirmation" id="confirm_password" placeholder="Confirm Password" autocomplete="new-password" style="border-radius: 8px; padding: 12px; height: 50px; padding-right: 45px;" required>
 
                         <span class="position-absolute d-flex align-items-center justify-content-center"
                             style="right: 15px; top: 0; bottom: 0; cursor: pointer; color: #aaa; width: 30px;"

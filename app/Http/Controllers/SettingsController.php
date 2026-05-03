@@ -17,10 +17,14 @@ class SettingsController extends Controller
         $profileSettings = $userId
             ? ($database->getReference('settings/profile/' . $userId)->getValue() ?? [])
             : [];
-        $documentRules = $database->getReference($this->currentWorkspaceSettingsPath('document_rules'))->getValue() ?? [
-            'max_upload_size' => 25,
-            'allowed_file_types' => ['PDF', 'DOCX'],
-        ];
+        $notificationSettings = array_merge(
+            $this->defaultNotificationSettings(),
+            $profileSettings['notification_preferences'] ?? []
+        );
+        $securitySettings = array_merge(
+            $this->defaultSecuritySettings(),
+            $database->getReference($this->currentWorkspaceSettingsPath('security'))->getValue() ?? []
+        );
         $workspaceUsers = collect($database->getReference('users')->getValue() ?? [])
             ->filter(function ($member, $id) use ($workspaceId, $userId) {
                 if ($id === $userId) {
@@ -53,7 +57,7 @@ class SettingsController extends Controller
 
         $canManageWorkspaceUsers = $userId === $workspaceOwnerId;
 
-        return view('settings', compact('user', 'documentRules', 'workspaceUsers', 'canManageWorkspaceUsers'));
+        return view('settings', compact('user', 'workspaceUsers', 'canManageWorkspaceUsers', 'notificationSettings', 'securitySettings'));
     }
 
     public function updateProfile(Request $request)
@@ -72,7 +76,7 @@ class SettingsController extends Controller
 
         $database = Firebase::database();
 
-        $database->getReference('settings/profile/' . $userId)->set([
+        $database->getReference('settings/profile/' . $userId)->update([
             'display_name' => $validated['display_name'],
             'firm_name' => $validated['firm_name'] ?? '',
             'office_address' => $validated['office_address'] ?? '',
@@ -94,21 +98,51 @@ class SettingsController extends Controller
         return redirect()->route('settings')->with('success', 'Profile and firm settings updated successfully.');
     }
 
-    public function updateDocumentRules(Request $request)
+    public function updateNotificationSettings(Request $request)
     {
         $validated = $request->validate([
-            'max_upload_size' => ['required', 'integer', 'in:25,50,100'],
-            'allowed_file_types' => ['required', 'array', 'min:1'],
-            'allowed_file_types.*' => ['string', 'in:PDF,DOCX,XLSX,JPG,PNG,TXT'],
+            'deadline_reminders' => ['required', 'boolean'],
+            'document_alerts' => ['required', 'boolean'],
+            'time_entry_summary' => ['required', 'boolean'],
         ]);
 
-        Firebase::database()->getReference($this->currentWorkspaceSettingsPath('document_rules'))->set([
-            'max_upload_size' => (int) $validated['max_upload_size'],
-            'allowed_file_types' => array_values($validated['allowed_file_types']),
+        $userId = session('firebase_user_id');
+
+        if (!$userId) {
+            return back()->withErrors(['error' => 'Please sign in again before updating notification settings.']);
+        }
+
+        Firebase::database()->getReference('settings/profile/' . $userId . '/notification_preferences')->set([
+            'deadline_reminders' => (bool) $validated['deadline_reminders'],
+            'document_alerts' => (bool) $validated['document_alerts'],
+            'time_entry_summary' => (bool) $validated['time_entry_summary'],
             'updated_at' => now()->toIso8601String(),
         ]);
 
-        return redirect()->route('settings')->with('success', 'Document rules updated successfully.');
+        return redirect()->route('settings')->with('success', 'Notification preferences updated successfully.');
+    }
+
+    public function updateSecuritySettings(Request $request)
+    {
+        $validated = $request->validate([
+            'session_timeout' => ['required', 'integer', 'in:15,30,60'],
+            'password_policy' => ['required', 'string', 'in:standard,strong,strict'],
+        ]);
+
+        Firebase::database()->getReference($this->currentWorkspaceSettingsPath('security'))->set([
+            'session_timeout' => (int) $validated['session_timeout'],
+            'password_policy' => $validated['password_policy'],
+            'updated_at' => now()->toIso8601String(),
+        ]);
+
+        session([
+            'workspace_security_settings' => [
+                'session_timeout' => (int) $validated['session_timeout'],
+                'password_policy' => $validated['password_policy'],
+            ],
+        ]);
+
+        return redirect()->route('settings')->with('success', 'Security settings updated successfully.');
     }
 
     public function storeStaff(Request $request)
@@ -130,6 +164,18 @@ class SettingsController extends Controller
         $emailExists = collect($existingUsers)->contains(function ($member) use ($validated) {
             return strcasecmp($member['email'] ?? '', $validated['email']) === 0;
         });
+
+        $passwordPolicyError = $this->validatePasswordAgainstPolicy(
+            $validated['password'],
+            $this->currentWorkspaceSecuritySettings()['password_policy'] ?? 'strong'
+        );
+
+        if ($passwordPolicyError) {
+            return redirect()
+                ->route('settings')
+                ->withInput()
+                ->withErrors(['password' => $passwordPolicyError]);
+        }
 
         if ($emailExists) {
             return redirect()
@@ -297,6 +343,15 @@ class SettingsController extends Controller
 
         if (!$userId) {
             return back()->withErrors(['error' => 'Please sign in again before updating your password.']);
+        }
+
+        $passwordPolicyError = $this->validatePasswordAgainstPolicy(
+            $request->new_password,
+            $this->currentWorkspaceSecuritySettings()['password_policy'] ?? 'strong'
+        );
+
+        if ($passwordPolicyError) {
+            return back()->withErrors(['new_password' => $passwordPolicyError]);
         }
 
         Firebase::database()->getReference('users/' . $userId)->update([

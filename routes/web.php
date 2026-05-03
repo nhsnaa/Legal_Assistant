@@ -21,10 +21,11 @@ Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
     Route::post('/login', [LoginController::class, 'store']);
     Route::post('/register', [RegisterController::class, 'store']);
+    Route::post('/forgot-password', [LoginController::class, 'requestPasswordReset'])->name('password.request');
 });
 
 Route::post('/logout', function () {
-    session()->forget(['firebase_user_id', 'user_role', 'user_name', 'workspace_id', 'workspace_owner_id', 'workspace_status', 'email', 'first_name']);
+    session()->forget(['firebase_user_id', 'user_role', 'user_name', 'workspace_id', 'workspace_owner_id', 'workspace_status', 'email', 'first_name', 'workspace_security_settings']);
     request()->session()->invalidate();
     request()->session()->regenerateToken();
     return redirect()->route('login');
@@ -37,13 +38,15 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/dashboard/time-entries', [DashboardController::class, 'storeTimeEntry'])->name('dashboard.time-entries.store');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile.update');
-    Route::post('/settings/document-rules', [SettingsController::class, 'updateDocumentRules'])->name('settings.document-rules.update');
+    Route::post('/settings/notifications', [SettingsController::class, 'updateNotificationSettings'])->name('settings.notifications.update');
+    Route::post('/settings/security', [SettingsController::class, 'updateSecuritySettings'])->name('settings.security.update');
     Route::post('/settings/staff', [SettingsController::class, 'storeStaff'])->name('settings.staff.store');
     Route::post('/settings/staff/invite', [SettingsController::class, 'inviteStaff'])->name('settings.staff.invite');
     Route::post('/settings/check-email', [SettingsController::class, 'checkEmail'])->name('settings.check-email');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
     Route::post('/notifications/accept/{id}', [NotificationController::class, 'acceptInvitation'])->name('notifications.accept');
+    Route::post('/notifications/{id}/reset-password', [NotificationController::class, 'resetPasswordRequest'])->name('notifications.reset-password');
     Route::delete('/settings/staff/{id}', [SettingsController::class, 'destroyStaff'])->name('settings.staff.destroy');
     Route::delete('/settings/account', [SettingsController::class, 'destroyAccount'])->name('settings.account.destroy');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('password.update');

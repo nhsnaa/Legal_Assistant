@@ -648,21 +648,6 @@ const chartLabels = <?php echo json_encode($chartLabels ?? [], 15, 512) ?>;
 const chartData = <?php echo json_encode($chartData ?? [], 15, 512) ?>;
 const recentTimeEntries = <?php echo json_encode($recentTimeEntryData ?? [], 15, 512) ?>;
 
-$('.dropdown').on('show.bs.dropdown', function () {
-    $('#content-area, #sidebar').css({
-        'filter': 'blur(10px)',
-        'pointer-events': 'none',
-        'transition': 'all 0.3s ease'
-    });
-});
-
-$('.dropdown').on('hidden.bs.dropdown', function () {
-    $('#content-area, #sidebar').css({
-        'filter': 'none',
-        'pointer-events': 'auto'
-    });
-});
-
 const ctx = document.getElementById('activityChart')?.getContext('2d');
 if (ctx) {
     new Chart(ctx, {

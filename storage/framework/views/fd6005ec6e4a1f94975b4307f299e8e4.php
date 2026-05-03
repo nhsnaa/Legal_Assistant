@@ -27,16 +27,13 @@
         <aside class="settings-sidebar">
             <span class="settings-kicker"><i class="bi bi-sliders"></i>System Setup</span>
             <h2 class="h3 font-weight-bold mb-2">Settings</h2>
-            <p class="mb-0">Configure the system rules behind clients, cases, documents, time tracking, and scheduling.</p>
+            <p class="mb-0">Manage the core workspace settings that are already meaningful in the live system.</p>
 
             <nav class="settings-nav">
                 <a href="#profile" class="active"><i class="bi bi-person-circle"></i> Profile & Firm</a>
                 <a href="#users-roles"><i class="bi bi-people"></i> Users & Roles</a>
-                <a href="#case"><i class="bi bi-briefcase"></i> Case Defaults</a>
-                <a href="#document"><i class="bi bi-folder2-open"></i> Document Rules</a>
-                <a href="#schedule"><i class="bi bi-calendar-event"></i> Time & Schedule</a>
                 <a href="#notification"><i class="bi bi-bell"></i> Notifications</a>
-                <a href="#security"><i class="bi bi-shield-lock"></i> Security</a>
+                <a href="#security"><i class="bi bi-shield-lock"></i> Security & Access</a>
             </nav>
         </aside>
 
@@ -44,11 +41,7 @@
             <section class="settings-header">
                 <span class="settings-kicker"><i class="bi bi-stars"></i>Workspace Configuration</span>
                 <h1 class="display-5 font-weight-bold mb-2">Intelligent Legal Assistant Settings</h1>
-                <p class="mb-0">This layout focuses on the settings that matter most for a legal workflow: firm identity, case configuration, document control, time tracking, scheduling, and access security.</p>
-                <div class="settings-header-actions">
-                    <a href="<?php echo e(route('dashboard')); ?>" class="settings-btn-primary"><i class="bi bi-arrow-left"></i>Back to Dashboard</a>
-                    <a href="#profile" class="settings-btn-secondary"><i class="bi bi-layout-text-window-reverse"></i>Review Sections</a>
-                </div>
+                <p class="mb-0">This page now stays focused on the settings that still matter for the real system: profile, workspace members, notifications, and security.</p>
             </section>
 
             <div class="settings-grid">
@@ -120,8 +113,12 @@
                     </div>
 
                     <div class="settings-actions">
-                        <button type="button" class="btn btn-info text-white" id="sendInviteBtn"><i class="bi bi-send mr-1"></i>Send Invitation</button>
-                        <button type="button" class="btn btn-light" onclick="openSettingsModal('createStaffModal')"><i class="bi bi-person-plus mr-1"></i>Create Staff Account</button>
+                        <?php if($canManageWorkspaceUsers): ?>
+                            <button type="button" class="btn btn-info text-white" id="sendInviteBtn"><i class="bi bi-send mr-1"></i>Send Invitation</button>
+                            <button type="button" class="btn btn-light" onclick="openSettingsModal('createStaffModal')"><i class="bi bi-person-plus mr-1"></i>Create Staff Account</button>
+                        <?php else: ?>
+                            <span class="settings-helper">Only the workspace owner can invite or create staff accounts.</span>
+                        <?php endif; ?>
                     </div>
 
                     <div class="settings-member-list">
@@ -140,15 +137,17 @@
                                         <span class="settings-chip">Full Access</span>
                                     <?php else: ?>
                                         <span class="settings-chip"><?php echo e(ucfirst($member->user_role)); ?></span>
-                                        <span class="settings-chip <?php echo e($member->workspace_status === 'pending' ? 'accent' : ''); ?>">
-                                            <?php echo e($member->workspace_status === 'pending' ? 'Pending Invitation' : 'Workspace Access'); ?>
+                                        <span class="settings-chip <?php echo e($member->workspace_status === 'pending_invitation' ? 'accent' : ''); ?>">
+                                            <?php echo e($member->workspace_status === 'pending_invitation' ? 'Pending Invitation' : 'Workspace Access'); ?>
 
                                         </span>
-                                        <form action="<?php echo e(route('settings.staff.destroy', $member->id)); ?>" method="POST" onsubmit="return confirm('Delete this staff account?');">
-                                            <?php echo csrf_field(); ?>
-                                            <?php echo method_field('DELETE'); ?>
-                                            <button type="submit" class="settings-inline-danger">Delete</button>
-                                        </form>
+                                        <?php if($canManageWorkspaceUsers): ?>
+                                            <form action="<?php echo e(route('settings.staff.destroy', $member->id)); ?>" method="POST" onsubmit="return confirm('Delete this staff account?');">
+                                                <?php echo csrf_field(); ?>
+                                                <?php echo method_field('DELETE'); ?>
+                                                <button type="submit" class="settings-inline-danger">Delete</button>
+                                            </form>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -164,201 +163,100 @@
                     </div>
                 </section>
 
-                <section class="settings-section" id="case">
-                    <div class="settings-section-header">
-                        <div>
-                            <h3 class="settings-section-title">Case Defaults</h3>
-                            <p class="settings-section-note mb-0">Controls how new matters are categorized and tracked.</p>
-                        </div>
-                        <span class="settings-section-tag">Operations</span>
-                    </div>
-
-                    <div class="settings-form-grid">
-                        <div class="settings-field">
-                            <label class="settings-label">Default Case Status</label>
-                            <select class="settings-select">
-                                <option>Active</option>
-                                <option>Pending</option>
-                                <option>Closed</option>
-                            </select>
-                        </div>
-                        <div class="settings-field">
-                            <label class="settings-label">Case Number Format</label>
-                            <input class="settings-input" type="text" placeholder="Enter preferred case number format">
-                        </div>
-                        <div class="settings-field full">
-                            <label class="settings-label">Matter Categories</label>
-                            <div class="settings-chip-row">
-                                <button type="button" class="settings-chip accent settings-chip-toggle" aria-pressed="true">Litigation</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Advisory</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Employment</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Corporate</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Family Law</button>
-                            </div>
-                        </div>
-                        <div class="settings-field full">
-                            <label class="settings-label">Priority Labels</label>
-                            <div class="settings-chip-row">
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Low</button>
-                                <button type="button" class="settings-chip accent settings-chip-toggle" aria-pressed="true">Medium</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">High</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Urgent</button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="settings-section" id="document">
-                    <div class="settings-section-header">
-                        <div>
-                            <h3 class="settings-section-title">Document Rules</h3>
-                            <p class="settings-section-note mb-0">Useful for keeping legal files consistent and easy to retrieve.</p>
-                        </div>
-                        <span class="settings-section-tag">Records</span>
-                    </div>
-
-                    <?php
-                        $allowedTypes = old('allowed_file_types', $documentRules['allowed_file_types'] ?? ['PDF', 'DOCX']);
-                    ?>
-                    <form class="settings-form-grid" action="<?php echo e(route('settings.document-rules.update')); ?>" method="POST">
-                        <?php echo csrf_field(); ?>
-                        <div class="settings-field">
-                            <label class="settings-label">Max Upload Size</label>
-                            <select class="settings-select" name="max_upload_size">
-                                <option value="25" <?php echo e((int) old('max_upload_size', $documentRules['max_upload_size'] ?? 25) === 25 ? 'selected' : ''); ?>>25 MB</option>
-                                <option value="50" <?php echo e((int) old('max_upload_size', $documentRules['max_upload_size'] ?? 25) === 50 ? 'selected' : ''); ?>>50 MB</option>
-                                <option value="100" <?php echo e((int) old('max_upload_size', $documentRules['max_upload_size'] ?? 25) === 100 ? 'selected' : ''); ?>>100 MB</option>
-                            </select>
-                        </div>
-                        <div class="settings-field full">
-                            <label class="settings-label">Allowed File Types</label>
-                            <div class="settings-chip-row">
-                                <?php $__currentLoopData = ['PDF', 'DOCX', 'XLSX', 'JPG', 'PNG', 'TXT']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $fileType): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                    <label class="settings-chip-wrap">
-                                        <input type="checkbox" name="allowed_file_types[]" value="<?php echo e($fileType); ?>" class="settings-chip-input" <?php echo e(in_array($fileType, $allowedTypes) ? 'checked' : ''); ?>>
-                                        <span class="settings-chip <?php echo e(in_array($fileType, $allowedTypes) ? 'accent' : ''); ?> settings-chip-toggle" aria-pressed="<?php echo e(in_array($fileType, $allowedTypes) ? 'true' : 'false'); ?>"><?php echo e($fileType); ?></span>
-                                    </label>
-                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-                            </div>
-                        </div>
-                        <div class="settings-actions">
-                            <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Save Document Rules</button>
-                        </div>
-                    </form>
-                </section>
-
-                <section class="settings-section" id="schedule">
-                    <div class="settings-section-header">
-                        <div>
-                            <h3 class="settings-section-title">Time & Schedule</h3>
-                            <p class="settings-section-note mb-0">Sets the defaults for billable work, hearings, meetings, and reminders.</p>
-                        </div>
-                        <span class="settings-section-tag">Calendar</span>
-                    </div>
-
-                    <div class="settings-form-grid">
-                        <div class="settings-field">
-                            <label class="settings-label">Default Time Unit</label>
-                            <select class="settings-select">
-                                <option>15 minutes</option>
-                                <option>30 minutes</option>
-                                <option>1 hour</option>
-                            </select>
-                        </div>
-                        <div class="settings-field">
-                            <label class="settings-label">Default Event Duration</label>
-                            <select class="settings-select">
-                                <option>1 hour</option>
-                                <option>2 hours</option>
-                                <option>Half day</option>
-                            </select>
-                        </div>
-                        <div class="settings-field">
-                            <label class="settings-label">Working Days</label>
-                            <input class="settings-input" type="text" placeholder="Enter working days">
-                        </div>
-                        <div class="settings-field">
-                            <label class="settings-label">Office Hours</label>
-                            <input class="settings-input" type="text" placeholder="Enter office hours">
-                        </div>
-                    </div>
-                </section>
-
                 <section class="settings-section" id="notification">
                     <div class="settings-section-header">
                         <div>
                             <h3 class="settings-section-title">Notifications</h3>
-                            <p class="settings-section-note mb-0">These are the most useful alerts for a legal assistant workflow.</p>
+                            <p class="settings-section-note mb-0">Choose which workspace alerts should stay visible in your in-app notification panel.</p>
                         </div>
                         <span class="settings-section-tag">Alerts</span>
                     </div>
 
-                    <div class="settings-switch-list">
-                        <div class="settings-switch">
-                            <div class="settings-switch-copy">
-                                <strong>Deadline Reminders</strong>
-                                <span>Notify staff before hearing dates, filing deadlines, and appointments.</span>
+                    <form action="<?php echo e(route('settings.notifications.update')); ?>" method="POST">
+                        <?php echo csrf_field(); ?>
+                        <div class="settings-switch-list">
+                            <div class="settings-switch">
+                                <div class="settings-switch-copy">
+                                    <strong>Deadline Reminders</strong>
+                                    <span>Show hearing, filing, and appointment reminders inside the notification panel.</span>
+                                </div>
+                                <input type="hidden" name="deadline_reminders" value="0">
+                                <input type="checkbox" class="settings-toggle-input d-none" id="deadlineRemindersToggle" name="deadline_reminders" value="1" <?php echo e(old('deadline_reminders', $notificationSettings['deadline_reminders'] ?? true) ? 'checked' : ''); ?>>
+                                <button type="button" class="settings-toggle <?php echo e(old('deadline_reminders', $notificationSettings['deadline_reminders'] ?? true) ? 'active' : ''); ?>" data-settings-toggle="deadlineRemindersToggle" aria-label="Toggle deadline reminders" aria-pressed="<?php echo e(old('deadline_reminders', $notificationSettings['deadline_reminders'] ?? true) ? 'true' : 'false'); ?>"></button>
                             </div>
-                            <button type="button" class="settings-toggle active" aria-label="Deadline reminders enabled" aria-pressed="true"></button>
-                        </div>
-                        <div class="settings-switch">
-                            <div class="settings-switch-copy">
-                                <strong>New Document Alerts</strong>
-                                <span>Alert assigned users when a new case document is uploaded.</span>
+                            <div class="settings-switch">
+                                <div class="settings-switch-copy">
+                                    <strong>New Document Alerts</strong>
+                                    <span>Show document upload notifications when case files are added to the workspace.</span>
+                                </div>
+                                <input type="hidden" name="document_alerts" value="0">
+                                <input type="checkbox" class="settings-toggle-input d-none" id="documentAlertsToggle" name="document_alerts" value="1" <?php echo e(old('document_alerts', $notificationSettings['document_alerts'] ?? true) ? 'checked' : ''); ?>>
+                                <button type="button" class="settings-toggle <?php echo e(old('document_alerts', $notificationSettings['document_alerts'] ?? true) ? 'active' : ''); ?>" data-settings-toggle="documentAlertsToggle" aria-label="Toggle new document alerts" aria-pressed="<?php echo e(old('document_alerts', $notificationSettings['document_alerts'] ?? true) ? 'true' : 'false'); ?>"></button>
                             </div>
-                            <button type="button" class="settings-toggle active" aria-label="New document alerts enabled" aria-pressed="true"></button>
-                        </div>
-                        <div class="settings-switch">
-                            <div class="settings-switch-copy">
-                                <strong>Time Entry Summary</strong>
-                                <span>Send end-of-day reminders for incomplete billable or work logs.</span>
+                            <div class="settings-switch">
+                                <div class="settings-switch-copy">
+                                    <strong>Time Entry Summary</strong>
+                                    <span>Show time-summary notifications when the system flags incomplete daily work logs.</span>
+                                </div>
+                                <input type="hidden" name="time_entry_summary" value="0">
+                                <input type="checkbox" class="settings-toggle-input d-none" id="timeEntrySummaryToggle" name="time_entry_summary" value="1" <?php echo e(old('time_entry_summary', $notificationSettings['time_entry_summary'] ?? false) ? 'checked' : ''); ?>>
+                                <button type="button" class="settings-toggle <?php echo e(old('time_entry_summary', $notificationSettings['time_entry_summary'] ?? false) ? 'active' : ''); ?>" data-settings-toggle="timeEntrySummaryToggle" aria-label="Toggle time entry summary" aria-pressed="<?php echo e(old('time_entry_summary', $notificationSettings['time_entry_summary'] ?? false) ? 'true' : 'false'); ?>"></button>
                             </div>
-                            <button type="button" class="settings-toggle" aria-label="Time entry summary disabled" aria-pressed="false"></button>
                         </div>
-                    </div>
+                        <div class="settings-actions">
+                            <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Save Notification Settings</button>
+                        </div>
+                    </form>
                 </section>
 
                 <section class="settings-section full" id="security">
                     <div class="settings-section-header">
                         <div>
                             <h3 class="settings-section-title">Security & Access</h3>
-                            <p class="settings-section-note mb-0">Important controls for protecting client confidentiality and internal records.</p>
+                            <p class="settings-section-note mb-0">These workspace-wide rules are saved and used for idle sign-out and password requirements.</p>
                         </div>
                         <span class="settings-section-tag">Protection</span>
                     </div>
 
-                    <div class="settings-form-grid">
+                    <form class="settings-form-grid" action="<?php echo e(route('settings.security.update')); ?>" method="POST">
+                        <?php echo csrf_field(); ?>
                         <div class="settings-field">
                             <label class="settings-label">Session Timeout</label>
-                            <select class="settings-select">
-                                <option>15 minutes</option>
-                                <option selected>30 minutes</option>
-                                <option>1 hour</option>
+                            <select class="settings-select" name="session_timeout">
+                                <option value="15" <?php echo e((int) old('session_timeout', $securitySettings['session_timeout'] ?? 30) === 15 ? 'selected' : ''); ?>>15 minutes</option>
+                                <option value="30" <?php echo e((int) old('session_timeout', $securitySettings['session_timeout'] ?? 30) === 30 ? 'selected' : ''); ?>>30 minutes</option>
+                                <option value="60" <?php echo e((int) old('session_timeout', $securitySettings['session_timeout'] ?? 30) === 60 ? 'selected' : ''); ?>>1 hour</option>
                             </select>
                         </div>
                         <div class="settings-field">
                             <label class="settings-label">Password Policy</label>
-                            <select class="settings-select">
-                                <option selected>Strong</option>
-                                <option>Standard</option>
-                                <option>Strict</option>
+                            <select class="settings-select" name="password_policy">
+                                <option value="standard" <?php echo e(old('password_policy', $securitySettings['password_policy'] ?? 'strong') === 'standard' ? 'selected' : ''); ?>>Standard</option>
+                                <option value="strong" <?php echo e(old('password_policy', $securitySettings['password_policy'] ?? 'strong') === 'strong' ? 'selected' : ''); ?>>Strong</option>
+                                <option value="strict" <?php echo e(old('password_policy', $securitySettings['password_policy'] ?? 'strong') === 'strict' ? 'selected' : ''); ?>>Strict</option>
                             </select>
                         </div>
                         <div class="settings-field full">
-                            <label class="settings-label">Role Permissions Summary</label>
-                            <div class="settings-chip-row">
-                                <button type="button" class="settings-chip accent settings-chip-toggle" aria-pressed="true">Admin: Full Access</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Lawyer: Cases, Clients, Documents, Schedule</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Clerk: Documents, Schedule</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Assistant: Limited Case Support</button>
+                            <label class="settings-label">What These Settings Do</label>
+                            <div class="settings-switch-list">
+                                <div class="settings-switch">
+                                    <div class="settings-switch-copy">
+                                        <strong>Idle session sign-out</strong>
+                                        <span>The selected timeout is used to automatically sign users out after inactivity.</span>
+                                    </div>
+                                </div>
+                                <div class="settings-switch">
+                                    <div class="settings-switch-copy">
+                                        <strong>Password enforcement</strong>
+                                        <span>The selected policy is applied when staff accounts are created and when users change their passwords.</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="settings-actions">
-                        <button type="button" class="btn btn-info text-white" data-demo-action="system settings saved"><i class="bi bi-check2-circle mr-1"></i>Save System Settings</button>
-                        <button type="button" class="btn btn-light" data-demo-action="permissions review opened"><i class="bi bi-shield-check mr-1"></i>Review Permissions</button>
-                    </div>
+                        <div class="settings-actions">
+                            <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Save Security Settings</button>
+                        </div>
+                    </form>
                 </section>
             </div>
         </main>
@@ -447,41 +345,42 @@ function hideInviteResults() {
     }
 }
 
-function renderInviteResults(matches, query) {
-    if (!inviteStaffResults) {
-        return;
-    }
-
-    if (!query) {
+async function checkEmailInFirebase(email) {
+    if (!email || !email.includes('@')) {
+        inviteStaffHelper.textContent = 'Type a valid email to check whether the account has already registered.';
         hideInviteResults();
-        inviteStaffHelper.textContent = 'Type a name or email to find an existing account.';
         return;
     }
 
-    if (!matches.length) {
-        inviteStaffResults.innerHTML = '<div class="settings-invite-empty">No existing account found.</div>';
-        inviteStaffResults.classList.remove('d-none');
-        inviteStaffHelper.textContent = 'No existing account found for this search.';
-        return;
+    try {
+        const response = await fetch("<?php echo e(route('settings.check-email')); ?>", {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({ email: email })
+        });
+
+        const data = await response.json();
+
+        if (data.registered) {
+            inviteStaffHelper.textContent = 'Email is registered. You can send an invitation.';
+        } else {
+            inviteStaffHelper.textContent = 'Email not registered yet. Ask them to register first or use "Create Staff Account".';
+        }
+        hideInviteResults();
+    } catch (error) {
+        console.error('Error checking email:', error);
+        inviteStaffHelper.textContent = 'Unable to verify email registration right now.';
+        hideInviteResults();
     }
-
-    inviteStaffResults.innerHTML = matches.map((member) => `
-        <button type="button" class="settings-invite-item" data-email="${member.email}" data-role="${member.user_role}">
-            <strong>${member.name}</strong>
-            <span>${member.email}</span>
-        </button>
-    `).join('');
-
-    inviteStaffResults.classList.remove('d-none');
-    inviteStaffHelper.textContent = matches.length + ' matching account' + (matches.length === 1 ? '' : 's') + ' found.';
 }
 
-document.querySelectorAll('[data-demo-action]').forEach((button) => {
-    button.addEventListener('click', () => {
-        const action = button.getAttribute('data-demo-action');
-        showSettingsToast(action.charAt(0).toUpperCase() + action.slice(1) + '.');
-    });
-});
+function renderInviteResults(matches, query) {
+    // Not used anymore
+}
 
 document.querySelectorAll('.settings-chip-toggle').forEach((chip) => {
     chip.addEventListener('click', () => {
@@ -501,9 +400,16 @@ document.querySelectorAll('.settings-chip-toggle').forEach((chip) => {
 
 document.querySelectorAll('.settings-toggle').forEach((toggle) => {
     toggle.addEventListener('click', () => {
-        const isActive = toggle.classList.toggle('active');
+        const targetInputId = toggle.getAttribute('data-settings-toggle');
+        const targetInput = targetInputId ? document.getElementById(targetInputId) : null;
+        const isActive = targetInput ? !targetInput.checked : !toggle.classList.contains('active');
+
+        if (targetInput) {
+            targetInput.checked = isActive;
+        }
+
+        toggle.classList.toggle('active', isActive);
         toggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        showSettingsToast((isActive ? 'Enabled: ' : 'Disabled: ') + toggle.closest('.settings-switch').querySelector('strong').textContent);
     });
 });
 
@@ -514,14 +420,16 @@ document.querySelectorAll('.settings-nav a').forEach((link) => {
     });
 });
 
-inviteStaffEmail?.addEventListener('input', () => {
-    const query = inviteStaffEmail.value.trim().toLowerCase();
-    const matches = workspaceUsers.filter((member) => {
-        const haystack = (member.name + ' ' + member.email).toLowerCase();
-        return query.length >= 1 && haystack.includes(query);
-    }).slice(0, 6);
+inviteStaffEmail?.addEventListener('blur', () => {
+    const email = inviteStaffEmail.value.trim();
+    checkEmailInFirebase(email);
+});
 
-    renderInviteResults(matches, query);
+inviteStaffEmail?.addEventListener('input', () => {
+    if (!inviteStaffEmail.value.trim()) {
+        inviteStaffHelper.textContent = 'Type an email to check registration.';
+        hideInviteResults();
+    }
 });
 
 inviteStaffResults?.addEventListener('click', (event) => {
@@ -548,8 +456,8 @@ document.getElementById('sendInviteBtn')?.addEventListener('click', () => {
 
     const existingMember = workspaceUsers.find((member) => member.email.toLowerCase() === email.toLowerCase());
 
-    if (!existingMember) {
-        showSettingsToast('No existing account found for that email.');
+    if (existingMember) {
+        showSettingsToast('User is already in the workspace.');
         return;
     }
 
@@ -575,8 +483,8 @@ document.getElementById('sendInviteBtn')?.addEventListener('click', () => {
             return payload;
         })
         .then((payload) => {
-            showSettingsToast(payload.message || ('Invitation sent to ' + existingMember.name + '.'));
-            inviteStaffHelper.textContent = 'Invitation sent. The account must accept it from the notification bell.';
+            showSettingsToast(payload.message || 'Invitation sent.');
+            inviteStaffHelper.textContent = 'Invitation sent. The user must accept it from the notification bell.';
         })
         .catch((error) => {
             showSettingsToast(error.message || 'Invitation could not be sent.');

@@ -76,7 +76,7 @@
                         <div class="form-group">
                             <div class="d-flex justify-content-between align-items-center">
                                 <label for="password" class="mb-2">Password</label>
-                                <button type="button" class="helper-link small border-0 bg-transparent p-0" onclick="showPasswordHelp()">Forgot password?</button>
+                                <button type="button" class="helper-link small border-0 bg-transparent p-0" onclick="openForgotPasswordModal()">Forgot password?</button>
                             </div>
                             <div class="password-field">
                                 <input type="password" id="password" name="password" class="form-control @error('password') is-invalid @enderror" placeholder="Enter your password" required>
@@ -102,6 +102,36 @@
         </div>
     </div>
 
+    <div class="auth-modal-backdrop" id="forgotPasswordModal" aria-hidden="true">
+        <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordModalLabel">
+            <div class="modal-content border-0" style="border-radius: 22px; background: rgba(255,255,255,0.96); backdrop-filter: blur(14px);">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <h5 class="modal-title font-weight-bold" id="forgotPasswordModalLabel">Request Password Reset</h5>
+                        <p class="text-muted mb-0 small">Your workspace owner will receive the request and set a temporary password for you.</p>
+                    </div>
+                    <button type="button" class="close" onclick="closeForgotPasswordModal()" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body pt-3">
+                    <form action="{{ route('password.request') }}" method="POST">
+                        @csrf
+                        <div class="form-group">
+                            <label for="forgot_email">Registered Email Address</label>
+                            <input type="email" id="forgot_email" name="email" class="form-control" placeholder="name@firm.com" value="{{ old('email') }}" required>
+                            <small class="form-text text-muted">This works for staff accounts inside a lawyer's workspace. Workspace owners still need manual help.</small>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-light mr-2" onclick="closeForgotPasswordModal()">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Send Request</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
     function togglePassword(inputId, button) {
         const input = document.getElementById(inputId);
@@ -120,9 +150,42 @@
         }
     }
 
-    function showPasswordHelp() {
-        alert('Password reset is not available yet. Please contact the system administrator or create a new account if appropriate.');
+    function openForgotPasswordModal() {
+        const modal = document.getElementById('forgotPasswordModal');
+
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('auth-modal-open');
     }
+
+    function closeForgotPasswordModal() {
+        const modal = document.getElementById('forgotPasswordModal');
+
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('auth-modal-open');
+    }
+
+    document.getElementById('forgotPasswordModal')?.addEventListener('click', function (event) {
+        if (event.target === this) {
+            closeForgotPasswordModal();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeForgotPasswordModal();
+        }
+    });
+
     </script>
 </body>
 </html>
