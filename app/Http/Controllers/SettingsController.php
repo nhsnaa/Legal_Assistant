@@ -17,7 +17,6 @@ class SettingsController extends Controller
         $documentRules = Firebase::database()->getReference('settings/document_rules')->getValue() ?? [
             'max_upload_size' => 25,
             'allowed_file_types' => ['PDF', 'DOCX'],
-            'file_naming_rule' => '',
         ];
 
         $user = (object) [
@@ -76,13 +75,11 @@ class SettingsController extends Controller
             'max_upload_size' => ['required', 'integer', 'in:25,50,100'],
             'allowed_file_types' => ['required', 'array', 'min:1'],
             'allowed_file_types.*' => ['string', 'in:PDF,DOCX,XLSX,JPG,PNG,TXT'],
-            'file_naming_rule' => ['nullable', 'string', 'max:255'],
         ]);
 
         Firebase::database()->getReference('settings/document_rules')->set([
             'max_upload_size' => (int) $validated['max_upload_size'],
             'allowed_file_types' => array_values($validated['allowed_file_types']),
-            'file_naming_rule' => $validated['file_naming_rule'] ?? '',
             'updated_at' => now()->toIso8601String(),
         ]);
 

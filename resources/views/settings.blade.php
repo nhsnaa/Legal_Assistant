@@ -221,15 +221,6 @@
                                 @endforeach
                             </div>
                         </div>
-                        <div class="settings-field full">
-                            <label class="settings-label">File Naming Rule</label>
-                            <select class="settings-select" name="file_naming_rule">
-                                <option value="" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === '' ? 'selected' : '' }}>Keep original document name</option>
-                                <option value="DATE_PREFIX" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === 'DATE_PREFIX' ? 'selected' : '' }}>Add date prefix</option>
-                                <option value="CLIENT_DOC" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === 'CLIENT_DOC' ? 'selected' : '' }}>Add CLIENT_ prefix</option>
-                                <option value="CASE_DOC" {{ old('file_naming_rule', $documentRules['file_naming_rule'] ?? '') === 'CASE_DOC' ? 'selected' : '' }}>Add CASE_ prefix</option>
-                            </select>
-                        </div>
                         <div class="settings-actions">
                             <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Save Document Rules</button>
                         </div>

@@ -22,7 +22,7 @@
     <div class="row">
         <div class="col-lg-7 mb-4">
             <div class="glass-card p-4 h-100">
-                <form action="{{ route('documents.update', $document) }}" method="POST">
+                <form action="{{ route('documents.update', $document->id) }}" method="POST">
                     @csrf
                     @method('PUT')
 
@@ -31,14 +31,45 @@
                         <input type="text" name="name" class="form-control module-input" value="{{ old('name', $document->name) }}" required>
                     </div>
 
-                    <div class="form-group">
-                        <label class="font-weight-bold small">Document Category</label>
-                        <select name="category" class="form-control module-input" required>
-                            <option value="Court Filing" {{ old('category', $document->category ?? '') === 'Court Filing' ? 'selected' : '' }}>Court Filing</option>
-                            <option value="Client Correspondence" {{ old('category', $document->category ?? '') === 'Client Correspondence' ? 'selected' : '' }}>Client Correspondence</option>
-                            <option value="Evidence" {{ old('category', $document->category ?? '') === 'Evidence' ? 'selected' : '' }}>Evidence</option>
-                            <option value="Contract" {{ old('category', $document->category ?? '') === 'Contract' ? 'selected' : '' }}>Contract</option>
-                        </select>
+                    <div class="module-document-form-grid mb-3">
+                        <div class="form-group mb-0">
+                            <label class="font-weight-bold small">Document Category</label>
+                            <select name="category" class="form-control module-input" required>
+                                <option value="Court Filing" {{ old('category', $document->category ?? '') === 'Court Filing' ? 'selected' : '' }}>Court Filing</option>
+                                <option value="Client Correspondence" {{ old('category', $document->category ?? '') === 'Client Correspondence' ? 'selected' : '' }}>Client Correspondence</option>
+                                <option value="Evidence" {{ old('category', $document->category ?? '') === 'Evidence' ? 'selected' : '' }}>Evidence</option>
+                                <option value="Contract" {{ old('category', $document->category ?? '') === 'Contract' ? 'selected' : '' }}>Contract</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group mb-0">
+                            <label class="font-weight-bold small">Document Belongs To</label>
+                            <select name="document_scope" id="editDocumentScope" class="form-control module-input" required>
+                                <option value="general" {{ old('document_scope', $document->scope ?? 'general') === 'general' ? 'selected' : '' }}>General / Personal Document</option>
+                                <option value="case" {{ old('document_scope', $document->scope ?? 'general') === 'case' ? 'selected' : '' }}>Existing Case</option>
+                                <option value="client" {{ old('document_scope', $document->scope ?? 'general') === 'client' ? 'selected' : '' }}>Existing Client</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group mb-0 d-none" id="editCaseSelectionGroup">
+                            <label class="font-weight-bold small">Linked Case</label>
+                            <select name="case_id" class="form-control module-input">
+                                <option value="">Select case</option>
+                                @foreach ($caseOptions as $caseOption)
+                                    <option value="{{ $caseOption->id }}" {{ old('case_id', $document->case_id ?? '') === $caseOption->id ? 'selected' : '' }}>{{ $caseOption->case_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="form-group mb-0 d-none" id="editClientSelectionGroup">
+                            <label class="font-weight-bold small">Linked Client</label>
+                            <select name="client_id" class="form-control module-input">
+                                <option value="">Select client</option>
+                                @foreach ($clientOptions as $clientOption)
+                                    <option value="{{ $clientOption->id }}" {{ old('client_id', $document->client_id ?? '') === $clientOption->id ? 'selected' : '' }}>{{ $clientOption->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
                     @if (($document->type ?? 'file') === 'link')
@@ -68,6 +99,18 @@
                         <p class="mb-0">{{ $document->category ?? 'Uncategorized' }}</p>
                     </div>
                     <div class="module-note-item">
+                        <strong>Linked To</strong>
+                        <p class="mb-0">
+                            @if (($document->scope ?? 'general') === 'case')
+                                Case: {{ $document->case_name ?? 'Unknown Case' }}
+                            @elseif (($document->scope ?? 'general') === 'client')
+                                Client: {{ $document->client_name ?? 'Unknown Client' }}
+                            @else
+                                General / Personal Document
+                            @endif
+                        </p>
+                    </div>
+                    <div class="module-note-item">
                         <strong>{{ ($document->type ?? 'file') === 'link' ? 'Document Type' : 'File Size' }}</strong>
                         <p class="mb-0">
                             @if (($document->type ?? 'file') === 'link')
@@ -79,7 +122,7 @@
                     </div>
                     <div class="module-note-item">
                         <strong>{{ ($document->type ?? 'file') === 'link' ? 'Open Link' : 'Download' }}</strong>
-                        <p class="mb-0"><a href="{{ route('documents.show', $document) }}" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">{{ ($document->type ?? 'file') === 'link' ? 'Open current link' : 'Open current file' }}</a></p>
+                        <p class="mb-0"><a href="{{ route('documents.show', $document->id) }}" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">{{ ($document->type ?? 'file') === 'link' ? 'Open current link' : 'Open current file' }}</a></p>
                     </div>
                 </div>
             </div>
@@ -90,4 +133,21 @@
 
 @section('modals')
     @include('layouts.modals.logout')
+@endsection
+
+@section('scripts')
+<script>
+const editDocumentScope = document.getElementById('editDocumentScope');
+const editCaseSelectionGroup = document.getElementById('editCaseSelectionGroup');
+const editClientSelectionGroup = document.getElementById('editClientSelectionGroup');
+
+function syncEditDocumentScope() {
+    const scope = editDocumentScope ? editDocumentScope.value : 'general';
+    editCaseSelectionGroup?.classList.toggle('d-none', scope !== 'case');
+    editClientSelectionGroup?.classList.toggle('d-none', scope !== 'client');
+}
+
+editDocumentScope?.addEventListener('change', syncEditDocumentScope);
+syncEditDocumentScope();
+</script>
 @endsection

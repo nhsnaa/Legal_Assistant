@@ -76,6 +76,10 @@ class DashboardController extends Controller
         $clientsRef = $rootData['clients'] ?? [];
         $clientsCount = count($clientsRef);
         $clients = collect($clientsRef)->map(fn($c, $id) => (object)['id' => $id, 'name' => $c['name']]);
+        $documentRules = $rootData['settings']['document_rules'] ?? [
+            'max_upload_size' => 25,
+            'allowed_file_types' => ['PDF', 'DOCX'],
+        ];
 
         $caseOptions = collect($casesRef)->map(fn($c, $id) => (object)[
             'id' => $id, 
@@ -105,7 +109,7 @@ class DashboardController extends Controller
         return view('dashboard', compact(
             'greeting', 'activeCases', 'chartLabels', 'chartData', 
             'hearings', 'recentDocuments', 'recentTimeEntryData', 
-            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'aiSuggestions', 'aiSummary'
+            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'documentRules', 'aiSuggestions', 'aiSummary'
         ));
     }
 

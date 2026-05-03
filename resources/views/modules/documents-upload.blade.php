@@ -23,7 +23,7 @@
         <form action="{{ route('documents.store') }}" method="POST" enctype="multipart/form-data" id="documentUploadForm">
             @csrf
 
-            <div class="row mb-4">
+            <div class="row mb-4 align-items-end">
                 <div class="col-lg-6">
                     <label class="font-weight-bold small">Document Category</label>
                     <select name="document_category" class="form-control module-input" required>
@@ -32,6 +32,38 @@
                         <option value="Evidence" {{ old('document_category') === 'Evidence' ? 'selected' : '' }}>Evidence</option>
                         <option value="Contract" {{ old('document_category') === 'Contract' ? 'selected' : '' }}>Contract</option>
                     </select>
+                </div>
+                <div class="col-lg-6 mt-3 mt-lg-0">
+                    <label class="font-weight-bold small">Document Belongs To</label>
+                    <select name="document_scope" id="documentScope" class="form-control module-input" required>
+                        <option value="general" {{ old('document_scope', 'general') === 'general' ? 'selected' : '' }}>General / Personal Document</option>
+                        <option value="case" {{ old('document_scope') === 'case' ? 'selected' : '' }}>Existing Case</option>
+                        <option value="client" {{ old('document_scope') === 'client' ? 'selected' : '' }}>Existing Client</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mb-4 align-items-end">
+                <div class="col-lg-6 d-none" id="caseSelectionGroup">
+                    <label class="font-weight-bold small">Linked Case</label>
+                    <select name="case_id" class="form-control module-input">
+                        <option value="">Select case</option>
+                        @foreach ($caseOptions as $caseOption)
+                            <option value="{{ $caseOption->id }}" {{ old('case_id') === $caseOption->id ? 'selected' : '' }}>{{ $caseOption->case_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-lg-6 d-none" id="clientSelectionGroup">
+                    <label class="font-weight-bold small">Linked Client</label>
+                    <select name="client_id" class="form-control module-input">
+                        <option value="">Select client</option>
+                        @foreach ($clientOptions as $clientOption)
+                            <option value="{{ $clientOption->id }}" {{ old('client_id') === $clientOption->id ? 'selected' : '' }}>{{ $clientOption->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 mt-3">
+                    <small class="text-muted d-block">When a case or client is selected, the saved document name will automatically become more descriptive.</small>
                 </div>
             </div>
 
@@ -92,6 +124,15 @@ const uploadInput = document.getElementById('documentsInput');
 const dropzone = document.getElementById('documentDropzone');
 const fileInfo = document.getElementById('documentFileInfo');
 const fileList = document.getElementById('documentFileList');
+const documentScope = document.getElementById('documentScope');
+const caseSelectionGroup = document.getElementById('caseSelectionGroup');
+const clientSelectionGroup = document.getElementById('clientSelectionGroup');
+
+function syncDocumentScope() {
+    const scope = documentScope ? documentScope.value : 'general';
+    caseSelectionGroup?.classList.toggle('d-none', scope !== 'case');
+    clientSelectionGroup?.classList.toggle('d-none', scope !== 'client');
+}
 
 function renderSelectedFiles(files) {
     if (!files.length) {
@@ -132,5 +173,8 @@ dropzone.addEventListener('drop', function (event) {
     uploadInput.files = event.dataTransfer.files;
     renderSelectedFiles(uploadInput.files);
 });
+
+documentScope?.addEventListener('change', syncDocumentScope);
+syncDocumentScope();
 </script>
 @endsection

@@ -40,6 +40,7 @@
                         <tr>
                             <th>Document Name</th>
                             <th>Category</th>
+                            <th>Linked To</th>
                             <th>Type</th>
                             <th>Original Name</th>
                             <th>Size</th>
@@ -52,6 +53,17 @@
                             <tr>
                                 <td class="font-weight-bold">{{ $document->name }}</td>
                                 <td>{{ $document->category ?? 'Uncategorized' }}</td>
+                                <td>
+                                    @if (($document->scope ?? 'general') === 'case')
+                                        <span class="module-badge module-badge-info">Case</span>
+                                        <div class="small text-muted mt-1">{{ $document->case_name ?? 'Unknown Case' }}</div>
+                                    @elseif (($document->scope ?? 'general') === 'client')
+                                        <span class="module-badge module-badge-muted">Client</span>
+                                        <div class="small text-muted mt-1">{{ $document->client_name ?? 'Unknown Client' }}</div>
+                                    @else
+                                        <span class="small text-muted">General / Personal</span>
+                                    @endif
+                                </td>
                                 <td>
                                     <span class="module-badge {{ ($document->type ?? 'file') === 'link' ? 'module-badge-info' : 'module-badge-muted' }}">
                                         {{ ($document->type ?? 'file') === 'link' ? 'Link' : 'File' }}

@@ -424,7 +424,7 @@
     </div>
 
     <div id="dashboardDocumentModal" class="module-modal-backdrop" aria-hidden="true">
-        <div class="module-modal-card">
+        <div class="module-modal-card module-modal-card-document">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 class="font-weight-bold mb-0">Add Document</h4>
                 <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardDocumentModal')">&times;</button>
@@ -432,33 +432,69 @@
 
             <form action="{{ route('documents.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
-                <div class="form-group">
-                    <label class="font-weight-bold small">Document Category</label>
-                    <select name="document_category" class="form-control module-input" required>
-                        <option value="Court Filing">Court Filing</option>
-                        <option value="Client Correspondence">Client Correspondence</option>
-                        <option value="Evidence">Evidence</option>
-                        <option value="Contract">Contract</option>
-                    </select>
+                <div class="module-document-form-grid">
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold small">Document Category</label>
+                        <select name="document_category" class="form-control module-input" required>
+                            <option value="Court Filing">Court Filing</option>
+                            <option value="Client Correspondence">Client Correspondence</option>
+                            <option value="Evidence">Evidence</option>
+                            <option value="Contract">Contract</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold small">Document Belongs To</label>
+                        <select name="document_scope" class="form-control module-input" id="dashboardDocumentScope" required>
+                            <option value="general">General / Personal Document</option>
+                            <option value="case">Existing Case</option>
+                            <option value="client">Existing Client</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-0 d-none" id="dashboardDocumentCaseGroup">
+                        <label class="font-weight-bold small">Linked Case</label>
+                        <select name="case_id" class="form-control module-input">
+                            <option value="">Select case</option>
+                            @foreach ($caseOptions as $caseOption)
+                                <option value="{{ $caseOption->id }}">{{ $caseOption->case_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group mb-0 d-none" id="dashboardDocumentClientGroup">
+                        <label class="font-weight-bold small">Linked Client</label>
+                        <select name="client_id" class="form-control module-input">
+                            <option value="">Select client</option>
+                            @foreach ($clients as $clientOption)
+                                <option value="{{ $clientOption->id }}">{{ $clientOption->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group mb-4">
                     <label class="font-weight-bold small">Select Files</label>
-                    <input type="file" name="documents[]" class="form-control module-input py-2" accept=".pdf,.doc,.docx,.txt" multiple>
-                    <small class="text-muted d-block mt-2">Allowed: PDF, DOC, DOCX, TXT. Maximum 10MB each.</small>
+                    @php
+                        $dashboardAllowedExtensions = collect($documentRules['allowed_file_types'] ?? ['PDF', 'DOCX'])
+                            ->map(fn ($type) => '.' . strtolower($type))
+                            ->values()
+                            ->all();
+                    @endphp
+                    <input type="file" name="documents[]" class="form-control module-input py-2" accept="{{ implode(',', $dashboardAllowedExtensions) }}" multiple>
+                    <small class="text-muted d-block mt-2">Allowed: {{ implode(', ', $documentRules['allowed_file_types'] ?? ['PDF', 'DOCX']) }}. Maximum {{ $documentRules['max_upload_size'] ?? 25 }}MB each.</small>
                 </div>
 
                 <div class="module-link-divider">
                     <span>or save a link</span>
                 </div>
 
-                <div class="form-group">
-                    <label class="font-weight-bold small">Link Title</label>
-                    <input type="text" name="link_name" class="form-control module-input" placeholder="Example: Shared draft in Google Drive">
-                </div>
-                <div class="form-group mb-4">
-                    <label class="font-weight-bold small">Document URL</label>
-                    <input type="url" name="link_url" class="form-control module-input" placeholder="https://drive.google.com/...">
-                    <small class="text-muted d-block mt-2">Use this when the team wants to keep working on the live document in Google Drive.</small>
+                <div class="module-document-form-grid module-document-form-grid-links">
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold small">Link Title</label>
+                        <input type="text" name="link_name" class="form-control module-input" placeholder="Example: Shared draft in Google Drive">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="font-weight-bold small">Document URL</label>
+                        <input type="url" name="link_url" class="form-control module-input" placeholder="https://drive.google.com/...">
+                        <small class="text-muted d-block mt-2">Use this when the team wants to keep working on the live document in Google Drive.</small>
+                    </div>
                 </div>
 
                 <div class="module-modal-actions">
@@ -665,8 +701,17 @@ const aiSuggestionList = document.getElementById('aiSuggestionList');
 const aiAssistantSummary = document.getElementById('aiAssistantSummary');
 const aiAssistantBadge = document.getElementById('aiAssistantBadge');
 const aiAssistantStatus = document.getElementById('aiAssistantStatus');
+const dashboardDocumentScope = document.getElementById('dashboardDocumentScope');
+const dashboardDocumentCaseGroup = document.getElementById('dashboardDocumentCaseGroup');
+const dashboardDocumentClientGroup = document.getElementById('dashboardDocumentClientGroup');
 const initialAiSuggestions = @json($aiSuggestions ?? []);
 const initialAiSummary = @json($aiSummary ?? '');
+
+function syncDashboardDocumentScope() {
+    const scope = dashboardDocumentScope ? dashboardDocumentScope.value : 'general';
+    dashboardDocumentCaseGroup?.classList.toggle('d-none', scope !== 'case');
+    dashboardDocumentClientGroup?.classList.toggle('d-none', scope !== 'client');
+}
 
 function formatDuration(milliseconds) {
     const totalSeconds = Math.max(1, Math.floor(milliseconds / 1000));
@@ -920,5 +965,8 @@ generateAiSuggestionsBtn?.addEventListener('click', function () {
             generateAiSuggestionsBtn.disabled = false;
         });
 });
+
+dashboardDocumentScope?.addEventListener('change', syncDashboardDocumentScope);
+syncDashboardDocumentScope();
 </script>
 @endsection

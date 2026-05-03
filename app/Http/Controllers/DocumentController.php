@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Kreait\Laravel\Firebase\Facades\Firebase;
 use Carbon\Carbon;
 
@@ -26,6 +27,7 @@ class DocumentController extends Controller
                 $document['id'] = $id;
                 $document['type'] = $document['type'] ?? 'file';
                 $document['category'] = $document['category'] ?? 'Uncategorized';
+                $document['scope'] = $document['scope'] ?? 'general';
                 $document['created_at'] = !empty($document['created_at'])
                     ? Carbon::parse($document['created_at'])
                     : null;
@@ -39,13 +41,27 @@ class DocumentController extends Controller
 
     public function create()
     {
+        $database = Firebase::database();
         $documentRules = Firebase::database()->getReference('settings/document_rules')->getValue() ?? [
             'max_upload_size' => 25,
             'allowed_file_types' => ['PDF', 'DOCX'],
-            'file_naming_rule' => '',
         ];
 
-        return view('modules.documents-upload', compact('documentRules'));
+        $caseOptions = collect($database->getReference('cases')->getValue() ?? [])
+            ->map(fn ($case, $id) => (object) [
+                'id' => $id,
+                'case_name' => $case['case_name'] ?? 'Untitled Case',
+            ])
+            ->values();
+
+        $clientOptions = collect($database->getReference('clients')->getValue() ?? [])
+            ->map(fn ($client, $id) => (object) [
+                'id' => $id,
+                'name' => $client['name'] ?? 'Unnamed Client',
+            ])
+            ->values();
+
+        return view('modules.documents-upload', compact('documentRules', 'caseOptions', 'clientOptions'));
     }
 
     public function store(Request $request)
@@ -54,13 +70,15 @@ class DocumentController extends Controller
         $documentRules = $database->getReference('settings/document_rules')->getValue() ?? [
             'max_upload_size' => 25,
             'allowed_file_types' => ['PDF', 'DOCX'],
-            'file_naming_rule' => '',
         ];
         $maxUploadKilobytes = ((int) ($documentRules['max_upload_size'] ?? 25)) * 1024;
 
         $request->validate([
             'documents.*' => ['nullable', 'file', 'max:' . $maxUploadKilobytes],
             'document_category' => ['required', 'string', 'in:Court Filing,Client Correspondence,Evidence,Contract'],
+            'document_scope' => ['required', 'string', 'in:general,case,client'],
+            'case_id' => ['nullable', 'string'],
+            'client_id' => ['nullable', 'string'],
             'link_url' => ['nullable', 'url'],
             'link_name' => ['nullable', 'string', 'max:255'],
         ]);
@@ -76,6 +94,16 @@ class DocumentController extends Controller
                 ->withErrors(['documents' => 'Please upload at least one file or provide a document link.']);
         }
 
+        $scope = $request->input('document_scope', 'general');
+        $linkedEntity = $this->resolveLinkedEntity($database, $scope, $request->input('case_id'), $request->input('client_id'));
+
+        if ($scope !== 'general' && !$linkedEntity) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['document_scope' => 'Please select a valid case or client for this document.']);
+        }
+
         foreach ($files as $file) {
             $normalizedType = $this->normalizeFileType($file->getMimeType(), $file->getClientOriginalExtension());
             $allowedTypes = $documentRules['allowed_file_types'] ?? ['PDF', 'DOCX'];
@@ -89,11 +117,20 @@ class DocumentController extends Controller
 
             $path = $file->store('documents');
             $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-            $documentName = $this->buildDocumentName($baseName, $documentRules['file_naming_rule'] ?? '');
+            $documentName = $this->buildDocumentName(
+                $baseName,
+                $scope,
+                $linkedEntity['name'] ?? null
+            );
 
             $database->getReference('documents')->push([
                 'type' => 'file',
                 'category' => $request->input('document_category'),
+                'scope' => $scope,
+                'case_id' => $linkedEntity['type'] === 'case' ? $linkedEntity['id'] : null,
+                'case_name' => $linkedEntity['type'] === 'case' ? $linkedEntity['name'] : null,
+                'client_id' => $linkedEntity['type'] === 'client' ? $linkedEntity['id'] : null,
+                'client_name' => $linkedEntity['type'] === 'client' ? $linkedEntity['name'] : null,
                 'name' => $documentName,
                 'file_path' => $path,
                 'original_name' => $file->getClientOriginalName(),
@@ -110,7 +147,16 @@ class DocumentController extends Controller
             $database->getReference('documents')->push([
                 'type' => 'link',
                 'category' => $request->input('document_category'),
-                'name' => $this->buildDocumentName($linkBaseName, $documentRules['file_naming_rule'] ?? ''),
+                'scope' => $scope,
+                'case_id' => $linkedEntity['type'] === 'case' ? $linkedEntity['id'] : null,
+                'case_name' => $linkedEntity['type'] === 'case' ? $linkedEntity['name'] : null,
+                'client_id' => $linkedEntity['type'] === 'client' ? $linkedEntity['id'] : null,
+                'client_name' => $linkedEntity['type'] === 'client' ? $linkedEntity['name'] : null,
+                'name' => $this->buildDocumentName(
+                    $linkBaseName,
+                    $scope,
+                    $linkedEntity['name'] ?? null
+                ),
                 'original_name' => $host,
                 'link_url' => $linkUrl,
                 'created_at' => now()->toIso8601String(),
@@ -141,12 +187,30 @@ class DocumentController extends Controller
 
     public function edit($id)
     {
+        $database = Firebase::database();
         $docData = Firebase::database()->getReference('documents/' . $id)->getValue();
         if (!$docData) { abort(404); }
 
         $document = (object) $docData;
         $document->id = $id;
-        return view('modules.documents-edit', compact('document'));
+        $document->category = $document->category ?? 'Uncategorized';
+        $document->scope = $document->scope ?? 'general';
+
+        $caseOptions = collect($database->getReference('cases')->getValue() ?? [])
+            ->map(fn ($case, $caseId) => (object) [
+                'id' => $caseId,
+                'case_name' => $case['case_name'] ?? 'Untitled Case',
+            ])
+            ->values();
+
+        $clientOptions = collect($database->getReference('clients')->getValue() ?? [])
+            ->map(fn ($client, $clientId) => (object) [
+                'id' => $clientId,
+                'name' => $client['name'] ?? 'Unnamed Client',
+            ])
+            ->values();
+
+        return view('modules.documents-edit', compact('document', 'caseOptions', 'clientOptions'));
     }
 
     public function update(Request $request, $id)
@@ -160,12 +224,34 @@ class DocumentController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'category' => ['required', 'string', 'in:Court Filing,Client Correspondence,Evidence,Contract'],
+            'document_scope' => ['required', 'string', 'in:general,case,client'],
+            'case_id' => ['nullable', 'string'],
+            'client_id' => ['nullable', 'string'],
             'link_url' => [($document['type'] ?? 'file') === 'link' ? 'required' : 'nullable', 'url'],
         ]);
+
+        $linkedEntity = $this->resolveLinkedEntity(
+            Firebase::database(),
+            $validated['document_scope'],
+            $validated['case_id'] ?? null,
+            $validated['client_id'] ?? null
+        );
+
+        if ($validated['document_scope'] !== 'general' && !$linkedEntity) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->withErrors(['document_scope' => 'Please select a valid case or client for this document.']);
+        }
 
         $payload = [
             'name' => $validated['name'],
             'category' => $validated['category'],
+            'scope' => $validated['document_scope'],
+            'case_id' => $linkedEntity['type'] === 'case' ? $linkedEntity['id'] : null,
+            'case_name' => $linkedEntity['type'] === 'case' ? $linkedEntity['name'] : null,
+            'client_id' => $linkedEntity['type'] === 'client' ? $linkedEntity['id'] : null,
+            'client_name' => $linkedEntity['type'] === 'client' ? $linkedEntity['name'] : null,
         ];
 
         if (($document['type'] ?? 'file') === 'link') {
@@ -199,15 +285,66 @@ class DocumentController extends Controller
         return strtoupper((string) $extension);
     }
 
-    private function buildDocumentName(string $baseName, string $namingRule): string
+    private function buildDocumentName(string $baseName, string $scope = 'general', ?string $linkedName = null): string
     {
         $cleanBaseName = trim($baseName) !== '' ? trim($baseName) : 'Document';
+        $linkedLabel = $linkedName ? Str::upper(Str::slug($linkedName, '_')) : null;
 
-        return match ($namingRule) {
-            'DATE_PREFIX' => now()->format('Ymd') . '_' . $cleanBaseName,
-            'CLIENT_DOC' => 'CLIENT_' . $cleanBaseName,
-            'CASE_DOC' => 'CASE_' . $cleanBaseName,
-            default => $cleanBaseName,
+        if ($scope === 'case' && $linkedLabel) {
+            return 'CASE_' . $linkedLabel . '_' . $cleanBaseName;
+        }
+
+        if ($scope === 'client' && $linkedLabel) {
+            return 'CLIENT_' . $linkedLabel . '_' . $cleanBaseName;
+        }
+
+        return $cleanBaseName;
+    }
+
+    private function resolveLinkedEntity($database, string $scope, ?string $caseId, ?string $clientId): ?array
+    {
+        return match ($scope) {
+            'case' => $this->findLinkedCase($database, $caseId),
+            'client' => $this->findLinkedClient($database, $clientId),
+            default => ['type' => 'general', 'id' => null, 'name' => null],
         };
+    }
+
+    private function findLinkedCase($database, ?string $caseId): ?array
+    {
+        if (!$caseId) {
+            return null;
+        }
+
+        $case = $database->getReference('cases/' . $caseId)->getValue();
+
+        if (!$case) {
+            return null;
+        }
+
+        return [
+            'type' => 'case',
+            'id' => $caseId,
+            'name' => $case['case_name'] ?? 'Untitled Case',
+        ];
+    }
+
+    private function findLinkedClient($database, ?string $clientId): ?array
+    {
+        if (!$clientId) {
+            return null;
+        }
+
+        $client = $database->getReference('clients/' . $clientId)->getValue();
+
+        if (!$client) {
+            return null;
+        }
+
+        return [
+            'type' => 'client',
+            'id' => $clientId,
+            'name' => $client['name'] ?? 'Unnamed Client',
+        ];
     }
 }
