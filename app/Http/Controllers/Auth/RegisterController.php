@@ -43,12 +43,20 @@ class RegisterController extends Controller
             $newUserRef = $database->getReference('users')->push($userData);
             $newUserId = $newUserRef->getKey();
 
-            $database->getReference('users/' . $newUserId)->update([
-                'workspace_id' => $newUserId,
-                'workspace_owner_id' => $newUserId,
-                'workspace_status' => 'active',
-                'workspace_joined_at' => now()->toIso8601String(),
-            ]);
+            if ($validated['userRole'] === 'lawyer') {
+                // Lawyers automatically own their workspace
+                $database->getReference('users/' . $newUserId)->update([
+                    'workspace_id' => $newUserId,
+                    'workspace_owner_id' => $newUserId,
+                    'workspace_status' => 'active',
+                    'workspace_joined_at' => now()->toIso8601String(),
+                ]);
+            } else {
+                // Staff need to be invited to join a workspace
+                $database->getReference('users/' . $newUserId)->update([
+                    'workspace_status' => 'pending_invitation',
+                ]);
+            }
 
             return redirect()->route('login')->with('success', 'Registration successful!');
 

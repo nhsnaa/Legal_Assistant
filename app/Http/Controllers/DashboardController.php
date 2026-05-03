@@ -13,6 +13,11 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        // Check if user is staff and pending invitation
+        if (session('workspace_status') === 'pending_invitation') {
+            return view('pending-invitation');
+        }
+
         $hour = now()->hour;
 
         $greeting = match(true) {

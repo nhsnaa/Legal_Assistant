@@ -41,6 +41,9 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/settings/staff', [SettingsController::class, 'storeStaff'])->name('settings.staff.store');
     Route::post('/settings/staff/invite', [SettingsController::class, 'inviteStaff'])->name('settings.staff.invite');
     Route::post('/settings/check-email', [SettingsController::class, 'checkEmail'])->name('settings.check-email');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/mark-read/{id}', [NotificationController::class, 'markAsRead'])->name('notifications.mark-read');
+    Route::post('/notifications/accept/{id}', [NotificationController::class, 'acceptInvitation'])->name('notifications.accept');
     Route::delete('/settings/staff/{id}', [SettingsController::class, 'destroyStaff'])->name('settings.staff.destroy');
     Route::delete('/settings/account', [SettingsController::class, 'destroyAccount'])->name('settings.account.destroy');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('password.update');
