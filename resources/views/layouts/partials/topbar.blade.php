@@ -51,7 +51,7 @@
             </button>
         </div>
 
-        <div class="dropdown">
+        <div class="dropdown" id="profileDropdownWrapper">
             <div class="user-avatar-circle" id="userDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="cursor: pointer;">
                 {{ strtoupper(substr($displayName, 0, 1)) }}
             </div>
@@ -98,6 +98,7 @@
     </div>
 </header>
 
+<div class="profile-menu-backdrop d-none" id="profileMenuBackdrop"></div>
 <div class="notification-panel-backdrop d-none" id="notificationPanelBackdrop"></div>
 <aside class="notification-panel d-none" id="notificationPanel" aria-hidden="true">
     <div class="notification-panel-header">
@@ -153,6 +154,9 @@ function toggleVisibility(inputId, iconId) {
     const notificationList = document.getElementById('notificationList');
     const notificationDot = document.getElementById('notificationDot');
     const notificationCountBadge = document.getElementById('notificationCountBadge');
+    const userDropdown = document.getElementById('userDropdown');
+    const profileDropdownWrapper = document.getElementById('profileDropdownWrapper') || userDropdown?.closest('.dropdown');
+    const profileMenuBackdrop = document.getElementById('profileMenuBackdrop');
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     const pendingWorkspaceMode = @json($isPendingWorkspace);
     let elapsedTime = 0;
@@ -160,6 +164,7 @@ function toggleVisibility(inputId, iconId) {
     let timerInterval = null;
     let searchTimeoutId = null;
     let notificationsLoaded = false;
+    let profileDropdownEventsBound = false;
 
     function formatTime(milliseconds) {
         const totalSeconds = Math.floor(milliseconds / 1000);
@@ -449,6 +454,20 @@ function toggleVisibility(inputId, iconId) {
         }
     }
 
+    function toggleProfileBackdrop(forceOpen) {
+        if (!profileMenuBackdrop) {
+            return;
+        }
+
+        const shouldOpen = typeof forceOpen === 'boolean'
+            ? forceOpen
+            : profileMenuBackdrop.classList.contains('d-none');
+
+        profileMenuBackdrop.classList.toggle('d-none', !shouldOpen);
+        profileMenuBackdrop.classList.toggle('show', shouldOpen);
+        document.body.classList.toggle('profile-menu-open', shouldOpen);
+    }
+
     function markNotificationRead(notificationId) {
         return fetch("{{ url('/notifications') }}/" + encodeURIComponent(notificationId) + "/read", {
             method: 'POST',
@@ -587,6 +606,36 @@ function toggleVisibility(inputId, iconId) {
 
     notificationPanelBackdrop?.addEventListener('click', function () {
         toggleNotificationPanel(false);
+    });
+
+    function bindProfileDropdownEvents() {
+        if (profileDropdownEventsBound || typeof $ === 'undefined' || !profileDropdownWrapper) {
+            return;
+        }
+
+        $(profileDropdownWrapper).on('show.bs.dropdown', function () {
+            toggleProfileBackdrop(true);
+        });
+
+        $(profileDropdownWrapper).on('hidden.bs.dropdown', function () {
+            toggleProfileBackdrop(false);
+        });
+
+        profileDropdownEventsBound = true;
+    }
+
+    bindProfileDropdownEvents();
+
+    document.addEventListener('DOMContentLoaded', bindProfileDropdownEvents);
+    window.addEventListener('load', bindProfileDropdownEvents);
+
+    profileMenuBackdrop?.addEventListener('click', function () {
+        if (typeof $ !== 'undefined' && userDropdown) {
+            $(userDropdown).dropdown('toggle');
+            return;
+        }
+
+        toggleProfileBackdrop(false);
     });
 
     notificationList?.addEventListener('click', function (event) {

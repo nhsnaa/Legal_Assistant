@@ -71,7 +71,7 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: 18px 0 40px rgba(15, 23, 42, 0.08);
-    transition: width 0.28s ease, padding 0.28s ease;
+    transition: width 0.28s ease, padding 0.28s ease, filter 0.3s ease;
 }
 
 .sidebar.collapsed {
@@ -188,6 +188,10 @@ body {
     backdrop-filter: blur(16px);
     background: rgba(255, 255, 255, 0.72);
     border-bottom: 1px solid rgba(219, 231, 240, 0.9);
+}
+
+body.profile-menu-open .topbar {
+    z-index: 1040;
 }
 
 .topbar-center {
@@ -322,6 +326,26 @@ body {
 
 .notification-panel-backdrop.show {
     opacity: 1;
+}
+
+.profile-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+    background: rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.profile-menu-backdrop.show {
+    opacity: 1;
+}
+
+body.profile-menu-open #content-area,
+body.profile-menu-open #sidebar {
+    filter: blur(10px);
+    pointer-events: none;
 }
 
 .notification-panel {
@@ -570,6 +594,7 @@ body {
 
 .content-body {
     padding: 2rem;
+    transition: filter 0.3s ease;
 }
 
 .content-body h6 {

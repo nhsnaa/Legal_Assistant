@@ -644,21 +644,6 @@ const chartLabels = @json($chartLabels ?? []);
 const chartData = @json($chartData ?? []);
 const recentTimeEntries = @json($recentTimeEntryData ?? []);
 
-$('.dropdown').on('show.bs.dropdown', function () {
-    $('#content-area, #sidebar').css({
-        'filter': 'blur(10px)',
-        'pointer-events': 'none',
-        'transition': 'all 0.3s ease'
-    });
-});
-
-$('.dropdown').on('hidden.bs.dropdown', function () {
-    $('#content-area, #sidebar').css({
-        'filter': 'none',
-        'pointer-events': 'auto'
-    });
-});
-
 const ctx = document.getElementById('activityChart')?.getContext('2d');
 if (ctx) {
     new Chart(ctx, {
