@@ -22,7 +22,7 @@ class DocumentController extends Controller
 
     public function index()
     {
-        $documents = collect(Firebase::database()->getReference('documents')->getValue() ?? [])
+        $documents = $this->workspaceCollection('documents')
             ->map(function ($document, $id) {
                 $document['id'] = $id;
                 $document['type'] = $document['type'] ?? 'file';
@@ -42,19 +42,19 @@ class DocumentController extends Controller
     public function create()
     {
         $database = Firebase::database();
-        $documentRules = Firebase::database()->getReference('settings/document_rules')->getValue() ?? [
+        $documentRules = Firebase::database()->getReference($this->currentWorkspaceSettingsPath('document_rules'))->getValue() ?? [
             'max_upload_size' => 25,
             'allowed_file_types' => ['PDF', 'DOCX'],
         ];
 
-        $caseOptions = collect($database->getReference('cases')->getValue() ?? [])
+        $caseOptions = $this->workspaceCollection('cases')
             ->map(fn ($case, $id) => (object) [
                 'id' => $id,
                 'case_name' => $case['case_name'] ?? 'Untitled Case',
             ])
             ->values();
 
-        $clientOptions = collect($database->getReference('clients')->getValue() ?? [])
+        $clientOptions = $this->workspaceCollection('clients')
             ->map(fn ($client, $id) => (object) [
                 'id' => $id,
                 'name' => $client['name'] ?? 'Unnamed Client',
@@ -67,7 +67,7 @@ class DocumentController extends Controller
     public function store(Request $request)
     {
         $database = Firebase::database();
-        $documentRules = $database->getReference('settings/document_rules')->getValue() ?? [
+        $documentRules = $database->getReference($this->currentWorkspaceSettingsPath('document_rules'))->getValue() ?? [
             'max_upload_size' => 25,
             'allowed_file_types' => ['PDF', 'DOCX'],
         ];
@@ -123,7 +123,7 @@ class DocumentController extends Controller
                 $linkedEntity['name'] ?? null
             );
 
-            $database->getReference('documents')->push([
+            $database->getReference('documents')->push($this->workspacePayload([
                 'type' => 'file',
                 'category' => $request->input('document_category'),
                 'scope' => $scope,
@@ -137,14 +137,14 @@ class DocumentController extends Controller
                 'mime_type' => $file->getMimeType(),
                 'size' => $file->getSize(),
                 'created_at' => now()->toIso8601String(),
-            ]);
+            ]));
         }
 
         if ($linkUrl !== '') {
             $host = parse_url($linkUrl, PHP_URL_HOST) ?: 'External Link';
             $linkBaseName = $linkName !== '' ? $linkName : $host;
 
-            $database->getReference('documents')->push([
+            $database->getReference('documents')->push($this->workspacePayload([
                 'type' => 'link',
                 'category' => $request->input('document_category'),
                 'scope' => $scope,
@@ -160,7 +160,7 @@ class DocumentController extends Controller
                 'original_name' => $host,
                 'link_url' => $linkUrl,
                 'created_at' => now()->toIso8601String(),
-            ]);
+            ]));
         }
 
         return redirect()->route('documents.index')->with('success', 'Document records saved successfully.');
@@ -168,7 +168,7 @@ class DocumentController extends Controller
 
     public function show($id)
     {
-        $document = Firebase::database()->getReference('documents/' . $id)->getValue();
+        $document = $this->findWorkspaceRecord('documents', $id);
 
         if (!$document) {
             abort(404, 'Document not found.');
@@ -188,7 +188,7 @@ class DocumentController extends Controller
     public function edit($id)
     {
         $database = Firebase::database();
-        $docData = Firebase::database()->getReference('documents/' . $id)->getValue();
+        $docData = $this->findWorkspaceRecord('documents', $id);
         if (!$docData) { abort(404); }
 
         $document = (object) $docData;
@@ -196,14 +196,14 @@ class DocumentController extends Controller
         $document->category = $document->category ?? 'Uncategorized';
         $document->scope = $document->scope ?? 'general';
 
-        $caseOptions = collect($database->getReference('cases')->getValue() ?? [])
+        $caseOptions = $this->workspaceCollection('cases')
             ->map(fn ($case, $caseId) => (object) [
                 'id' => $caseId,
                 'case_name' => $case['case_name'] ?? 'Untitled Case',
             ])
             ->values();
 
-        $clientOptions = collect($database->getReference('clients')->getValue() ?? [])
+        $clientOptions = $this->workspaceCollection('clients')
             ->map(fn ($client, $clientId) => (object) [
                 'id' => $clientId,
                 'name' => $client['name'] ?? 'Unnamed Client',
@@ -215,7 +215,7 @@ class DocumentController extends Controller
 
     public function update(Request $request, $id)
     {
-        $document = Firebase::database()->getReference('documents/' . $id)->getValue();
+        $document = $this->findWorkspaceRecord('documents', $id);
 
         if (!$document) {
             abort(404);
@@ -266,7 +266,11 @@ class DocumentController extends Controller
     public function destroy($id)
     {
         $ref = Firebase::database()->getReference('documents/' . $id);
-        $doc = $ref->getValue();
+        $doc = $this->findWorkspaceRecord('documents', $id);
+
+        if (!$doc) {
+            return redirect()->back()->with('error', 'Document not found.');
+        }
 
         if (isset($doc['file_path'])) {
             Storage::delete($doc['file_path']);
@@ -316,7 +320,7 @@ class DocumentController extends Controller
             return null;
         }
 
-        $case = $database->getReference('cases/' . $caseId)->getValue();
+        $case = $this->findWorkspaceRecord('cases', $caseId);
 
         if (!$case) {
             return null;
@@ -335,7 +339,7 @@ class DocumentController extends Controller
             return null;
         }
 
-        $client = $database->getReference('clients/' . $clientId)->getValue();
+        $client = $this->findWorkspaceRecord('clients', $clientId);
 
         if (!$client) {
             return null;

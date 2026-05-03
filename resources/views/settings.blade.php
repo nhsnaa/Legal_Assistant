@@ -11,6 +11,18 @@
     $settingsDisplayName = $user->first_name ?: ($user->name ?? 'User');
     $settingsRole = $user->user_role ?? 'Counselor';
 @endphp
+@php
+    $workspaceUsersJson = $workspaceUsers->map(function ($member) {
+        return [
+            'id' => $member->id,
+            'name' => $member->name,
+            'email' => $member->email,
+            'user_role' => $member->user_role,
+            'workspace_status' => $member->workspace_status,
+            'is_owner' => $member->is_owner,
+        ];
+    })->values()->all();
+@endphp
 <div class="settings-page">
     <div class="settings-toast" id="settingsToast" aria-live="polite"></div>
     <div class="settings-shell">
@@ -76,7 +88,6 @@
                         </div>
                         <div class="settings-actions">
                             <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Save Profile</button>
-                            <button type="button" class="btn btn-light" data-demo-action="logo upload opened"><i class="bi bi-image mr-1"></i>Upload Logo</button>
                         </div>
                     </form>
                 </section>
@@ -93,54 +104,64 @@
                     <div class="settings-form-grid">
                         <div class="settings-field">
                             <label class="settings-label">Invite Staff by Email</label>
-                            <input class="settings-input" type="email" placeholder="assistant@firm.com">
+                            <div class="settings-invite-wrap">
+                                <input class="settings-input" type="email" id="inviteStaffEmail" placeholder="assistant@firm.com" autocomplete="off">
+                                <div class="settings-invite-results d-none" id="inviteStaffResults"></div>
+                            </div>
+                            <small class="settings-helper" id="inviteStaffHelper">Type a name or email to find an existing account.</small>
                         </div>
                         <div class="settings-field">
                             <label class="settings-label">Assign Role</label>
-                            <select class="settings-select">
-                                <option>Staff</option>
-                                <option>Lawyer</option>
-                                <option>Clerk</option>
-                                <option>Assistant</option>
+                            <select class="settings-select" id="inviteStaffRole">
+                                <option value="staff">Staff</option>
+                                <option value="lawyer">Lawyer</option>
+                                <option value="clerk">Clerk</option>
+                                <option value="assistant">Assistant</option>
                             </select>
-                        </div>
-                        <div class="settings-field full">
-                            <label class="settings-label">Access Scope</label>
-                            <div class="settings-chip-row">
-                                <button type="button" class="settings-chip accent settings-chip-toggle" aria-pressed="true">Clients</button>
-                                <button type="button" class="settings-chip accent settings-chip-toggle" aria-pressed="true">Cases</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Documents</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Schedule</button>
-                                <button type="button" class="settings-chip settings-chip-toggle" aria-pressed="false">Billing Review</button>
-                            </div>
                         </div>
                     </div>
 
                     <div class="settings-actions">
-                        <button type="button" class="btn btn-info text-white" data-demo-action="staff invitation sent"><i class="bi bi-send mr-1"></i>Send Invitation</button>
-                        <button type="button" class="btn btn-light" data-demo-action="staff account form opened"><i class="bi bi-person-plus mr-1"></i>Create Staff Account</button>
+                        <button type="button" class="btn btn-info text-white" id="sendInviteBtn"><i class="bi bi-send mr-1"></i>Send Invitation</button>
+                        <button type="button" class="btn btn-light" onclick="openSettingsModal('createStaffModal')"><i class="bi bi-person-plus mr-1"></i>Create Staff Account</button>
                     </div>
 
                     <div class="settings-member-list">
-                        <div class="settings-member-card">
-                            <div class="settings-member-id">
-                                <div class="settings-member-avatar">{{ strtoupper(substr($settingsDisplayName, 0, 1)) }}</div>
-                                <div>
-                                    <strong>{{ $settingsDisplayName }}</strong>
-                                    <span>{{ $settingsRole }} | {{ $user->email }}</span>
+                        @foreach ($workspaceUsers as $member)
+                            <div class="settings-member-card">
+                                <div class="settings-member-id">
+                                    <div class="settings-member-avatar">{{ strtoupper(substr($member->name ?: 'U', 0, 1)) }}</div>
+                                    <div>
+                                        <strong>{{ $member->name ?: 'Unnamed User' }}</strong>
+                                        <span>{{ ucfirst($member->user_role) }} | {{ $member->email }}</span>
+                                    </div>
+                                </div>
+                                <div class="settings-member-meta">
+                                    @if ($member->is_owner)
+                                        <span class="settings-chip accent">Workspace Owner</span>
+                                        <span class="settings-chip">Full Access</span>
+                                    @else
+                                        <span class="settings-chip">{{ ucfirst($member->user_role) }}</span>
+                                        <span class="settings-chip {{ $member->workspace_status === 'pending' ? 'accent' : '' }}">
+                                            {{ $member->workspace_status === 'pending' ? 'Pending Invitation' : 'Workspace Access' }}
+                                        </span>
+                                        <form action="{{ route('settings.staff.destroy', $member->id) }}" method="POST" onsubmit="return confirm('Delete this staff account?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="settings-inline-danger">Delete</button>
+                                        </form>
+                                    @endif
                                 </div>
                             </div>
-                            <div class="settings-member-meta">
-                                <span class="settings-chip accent">Workspace Owner</span>
-                                <span class="settings-chip">Full Access</span>
-                            </div>
-                        </div>
+                        @endforeach
 
-                        <div class="settings-empty-state">
-                            <i class="bi bi-people"></i>
-                            <strong>No additional staff added yet</strong>
-                            <p>Use the invite form above when you are ready to add staff accounts into this workspace.</p>
-                        </div>
+                        @if ($workspaceUsers->count() === 1)
+                            <div class="settings-empty-state">
+                                <i class="bi bi-people"></i>
+                                <strong>No additional staff added yet</strong>
+                                <p>Use the create staff account button when you are ready to add more team members into this workspace.</p>
+                            </div>
+                        @endif
                     </div>
                 </section>
 
@@ -346,9 +367,63 @@
 </div>
 @endsection
 
+@section('modals')
+@include('layouts.modals.logout')
+<div id="createStaffModal" class="settings-modal-backdrop" aria-hidden="true">
+    <div class="settings-modal-card">
+        <div class="settings-modal-header">
+            <div>
+                <span class="settings-kicker"><i class="bi bi-person-plus"></i>Team Access</span>
+                <h4 class="font-weight-bold mb-1 mt-3">Create Staff Account</h4>
+                <p class="text-muted mb-0">Add a staff member directly into the workspace with a role and login credentials.</p>
+            </div>
+            <button type="button" class="settings-modal-close" onclick="closeSettingsModal('createStaffModal')">&times;</button>
+        </div>
+
+        <form action="{{ route('settings.staff.store') }}" method="POST" class="settings-form-grid">
+            @csrf
+            <input type="hidden" name="form_context" value="staff_account">
+            <div class="settings-field full">
+                <label class="settings-label">Full Name</label>
+                <input type="text" class="settings-input" name="name" value="{{ old('name') }}" required>
+            </div>
+            <div class="settings-field">
+                <label class="settings-label">Email Address</label>
+                <input type="email" class="settings-input" name="email" value="{{ old('email') }}" required>
+            </div>
+            <div class="settings-field">
+                <label class="settings-label">Assign Role</label>
+                <select class="settings-select" name="role">
+                    <option value="staff" {{ old('role') === 'staff' ? 'selected' : '' }}>Staff</option>
+                    <option value="lawyer" {{ old('role') === 'lawyer' ? 'selected' : '' }}>Lawyer</option>
+                    <option value="clerk" {{ old('role') === 'clerk' ? 'selected' : '' }}>Clerk</option>
+                    <option value="assistant" {{ old('role') === 'assistant' ? 'selected' : '' }}>Assistant</option>
+                </select>
+            </div>
+            <div class="settings-field full">
+                <label class="settings-label">Temporary Password</label>
+                <input type="password" class="settings-input" name="password" required>
+                <small class="settings-helper">Use a temporary password for now. The staff member can change it later from the profile menu.</small>
+            </div>
+            <div class="settings-actions">
+                <button type="button" class="btn btn-light" onclick="closeSettingsModal('createStaffModal')">Cancel</button>
+                <button type="submit" class="btn btn-info text-white"><i class="bi bi-check2-circle mr-1"></i>Create Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endsection
+
 @section('scripts')
 <script>
 const settingsToast = document.getElementById('settingsToast');
+const workspaceUsers = @json($workspaceUsersJson);
+const inviteStaffEmail = document.getElementById('inviteStaffEmail');
+const inviteStaffResults = document.getElementById('inviteStaffResults');
+const inviteStaffHelper = document.getElementById('inviteStaffHelper');
+const inviteStaffRole = document.getElementById('inviteStaffRole');
+
+let emailRegistered = false;
 
 function showSettingsToast(message) {
     settingsToast.textContent = message;
@@ -358,6 +433,62 @@ function showSettingsToast(message) {
     showSettingsToast.timeoutId = setTimeout(() => {
         settingsToast.classList.remove('show');
     }, 2200);
+}
+
+function openSettingsModal(modalId) {
+    document.getElementById(modalId)?.classList.add('show');
+}
+
+function closeSettingsModal(modalId) {
+    document.getElementById(modalId)?.classList.remove('show');
+}
+
+function hideInviteResults() {
+    inviteStaffResults?.classList.add('d-none');
+    if (inviteStaffResults) {
+        inviteStaffResults.innerHTML = '';
+    }
+}
+
+async function checkEmailInFirebase(email) {
+    if (!email || !email.includes('@')) {
+        emailRegistered = false;
+        inviteStaffHelper.textContent = 'Type a valid email to check registration.';
+        hideInviteResults();
+        return;
+    }
+
+    try {
+        const response = await fetch("{{ route('settings.check-email') }}", {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({ email: email })
+        });
+
+        const data = await response.json();
+
+        if (data.registered) {
+            emailRegistered = true;
+            inviteStaffHelper.textContent = 'Email is registered. You can send an invitation.';
+        } else {
+            emailRegistered = false;
+            inviteStaffHelper.textContent = 'Email not registered. Use "Create Staff Account" instead.';
+        }
+        hideInviteResults();
+    } catch (error) {
+        console.error('Error checking email:', error);
+        emailRegistered = false;
+        inviteStaffHelper.textContent = 'Error checking email registration.';
+        hideInviteResults();
+    }
+}
+
+function renderInviteResults(matches, query) {
+    // Not used anymore
 }
 
 document.querySelectorAll('[data-demo-action]').forEach((button) => {
@@ -397,5 +528,96 @@ document.querySelectorAll('.settings-nav a').forEach((link) => {
         link.classList.add('active');
     });
 });
+
+inviteStaffEmail?.addEventListener('blur', () => {
+    const email = inviteStaffEmail.value.trim();
+    checkEmailInFirebase(email);
+});
+
+inviteStaffEmail?.addEventListener('input', () => {
+    if (!inviteStaffEmail.value.trim()) {
+        inviteStaffHelper.textContent = 'Type an email to check registration.';
+        hideInviteResults();
+        emailRegistered = false;
+    }
+});
+
+inviteStaffResults?.addEventListener('click', (event) => {
+    const item = event.target.closest('.settings-invite-item');
+
+    if (!item || !inviteStaffEmail || !inviteStaffRole) {
+        return;
+    }
+
+    inviteStaffEmail.value = item.dataset.email || '';
+    inviteStaffRole.value = item.dataset.role || 'staff';
+    hideInviteResults();
+    inviteStaffHelper.textContent = 'Existing account selected from the workspace directory.';
+});
+
+document.getElementById('sendInviteBtn')?.addEventListener('click', () => {
+    const email = inviteStaffEmail?.value.trim() || '';
+    const role = inviteStaffRole?.value || 'staff';
+
+    if (!email) {
+        showSettingsToast('Enter an email first.');
+        return;
+    }
+
+    if (!emailRegistered) {
+        showSettingsToast('Email not registered. Use "Create Staff Account" instead.');
+        return;
+    }
+
+    const existingMember = workspaceUsers.find((member) => member.email.toLowerCase() === email.toLowerCase());
+
+    if (existingMember) {
+        showSettingsToast('User is already in the workspace.');
+        return;
+    }
+
+    fetch("{{ route('settings.staff.invite') }}", {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name=\"csrf-token\"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify({
+            email: email,
+            role: role
+        })
+    })
+        .then(async (response) => {
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(payload.message || 'Invitation could not be sent.');
+            }
+
+            return payload;
+        })
+        .then((payload) => {
+            showSettingsToast(payload.message || 'Invitation sent.');
+            inviteStaffHelper.textContent = 'Invitation sent. The user must accept it from the notification bell.';
+        })
+        .catch((error) => {
+            showSettingsToast(error.message || 'Invitation could not be sent.');
+        });
+});
+
+document.addEventListener('click', (event) => {
+    if (!inviteStaffEmail || !inviteStaffResults) {
+        return;
+    }
+
+    if (!event.target.closest('.settings-invite-wrap')) {
+        hideInviteResults();
+    }
+});
+
+@if (old('form_context') === 'staff_account')
+openSettingsModal('createStaffModal');
+@endif
 </script>
 @endsection

@@ -35,6 +35,29 @@
             <div class="search-results-dropdown d-none" id="globalSearchResults"></div>
         </div>
 
+        <div class="notification-menu mr-3">
+            <button type="button" class="notification-trigger" id="notificationTrigger" aria-label="Notifications" aria-expanded="false">
+                <i class="bi bi-bell"></i>
+                <span class="notification-dot d-none" id="notificationDot"></span>
+            </button>
+
+            <div class="notification-dropdown d-none" id="notificationDropdown">
+                <div class="notification-dropdown-header">
+                    <div>
+                        <strong>Notifications</strong>
+                        <small>Workspace updates for your account</small>
+                    </div>
+                    <span class="notification-count-badge d-none" id="notificationCountBadge"></span>
+                </div>
+                <div class="notification-list" id="notificationList">
+                    <div class="notification-empty">
+                        <i class="bi bi-bell-slash"></i>
+                        <span>No notifications yet.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="dropdown">
             <div class="user-avatar-circle" id="userDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="cursor: pointer;">
                 {{ strtoupper(substr($displayName, 0, 1)) }}
@@ -55,17 +78,6 @@
                 </a>
 
                 <div class="py-2">
-                    <div class="dropdown-item d-flex align-items-center py-2 px-3">
-                        <i class="bi bi-globe mr-3 text-muted"></i>
-                        Language
-                        <div class="ml-auto">
-                            <a href="?lang=en" class="badge badge-light border-0 {{ app()->getLocale() == 'en' ? 'badge-primary' : '' }}">EN</a>
-                            <a href="?lang=ms" class="badge badge-light border-0 {{ app()->getLocale() == 'ms' ? 'badge-primary' : '' }}">BM</a>
-                        </div>
-                    </div>
-
-                    <div class="dropdown-divider"></div>
-
                     <a class="dropdown-item d-flex align-items-center py-2 px-3" href="{{ route('settings') }}">
                         <i class="bi bi-gear mr-3 text-muted"></i> Settings
                     </a>
@@ -73,6 +85,14 @@
                     <a class="dropdown-item d-flex align-items-center py-2 px-3" href="#" data-toggle="modal" data-target="#changePasswordModal">
                         <i class="bi bi-shield-lock mr-3 text-muted"></i> Change Password
                     </a>
+
+                    <form action="{{ route('settings.account.destroy') }}" method="POST" onsubmit="return confirm('Delete this account? This action cannot be undone.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="dropdown-item d-flex align-items-center py-2 px-3 text-warning border-0 bg-transparent w-100">
+                            <i class="bi bi-person-x mr-3"></i> Delete Account
+                        </button>
+                    </form>
 
                     <div class="dropdown-divider"></div>
 
@@ -111,10 +131,17 @@ function toggleVisibility(inputId, iconId) {
     const startStopBtn = document.getElementById('startStopBtn');
     const globalSearchInput = document.getElementById('globalSearchInput');
     const globalSearchResults = document.getElementById('globalSearchResults');
+    const notificationTrigger = document.getElementById('notificationTrigger');
+    const notificationDropdown = document.getElementById('notificationDropdown');
+    const notificationList = document.getElementById('notificationList');
+    const notificationDot = document.getElementById('notificationDot');
+    const notificationCountBadge = document.getElementById('notificationCountBadge');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     let elapsedTime = 0;
     let startTime = null;
     let timerInterval = null;
     let searchTimeoutId = null;
+    let notificationsLoaded = false;
 
     function formatTime(milliseconds) {
         const totalSeconds = Math.floor(milliseconds / 1000);
@@ -250,6 +277,206 @@ function toggleVisibility(inputId, iconId) {
         globalSearchResults.innerHTML = '';
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function formatNotificationDate(value) {
+        if (!value) {
+            return 'Just now';
+        }
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return 'Just now';
+        }
+
+        return new Intl.DateTimeFormat(undefined, {
+            day: 'numeric',
+            month: 'short',
+            hour: 'numeric',
+            minute: '2-digit'
+        }).format(date);
+    }
+
+    function getNotificationIcon(type) {
+        switch (type) {
+            case 'account':
+                return 'bi-person-plus';
+            case 'workspace_invitation':
+                return 'bi-envelope-check';
+            case 'document':
+                return 'bi-file-earmark-text';
+            case 'schedule':
+                return 'bi-calendar-event';
+            default:
+                return 'bi-info-circle';
+        }
+    }
+
+    function updateNotificationIndicators(unreadCount) {
+        if (notificationDot) {
+            notificationDot.classList.toggle('d-none', unreadCount < 1);
+        }
+
+        if (notificationCountBadge) {
+            notificationCountBadge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+            notificationCountBadge.classList.toggle('d-none', unreadCount < 1);
+        }
+    }
+
+    function renderNotifications(items, unreadCount) {
+        if (!notificationList) {
+            return;
+        }
+
+        updateNotificationIndicators(unreadCount);
+
+        if (!items.length) {
+            notificationList.innerHTML = `
+                <div class="notification-empty">
+                    <i class="bi bi-bell-slash"></i>
+                    <span>No notifications yet.</span>
+                </div>
+            `;
+            return;
+        }
+
+        notificationList.innerHTML = items.map(function (item) {
+            const itemClasses = ['notification-item'];
+
+            if (!item.read) {
+                itemClasses.push('is-unread');
+            }
+
+            return `
+                <div
+                    class="${itemClasses.join(' ')}"
+                    data-notification-id="${escapeHtml(item.id)}"
+                    data-notification-link="${escapeHtml(item.link || '')}"
+                >
+                    <span class="notification-item-icon">
+                        <i class="bi ${getNotificationIcon(item.type)}"></i>
+                    </span>
+                    <span class="notification-item-copy">
+                        <strong>${escapeHtml(item.title)}</strong>
+                        <span>${escapeHtml(item.message)}</span>
+                        <small>${escapeHtml(formatNotificationDate(item.created_at))}</small>
+                        ${item.action_required ? `
+                            <span class="notification-item-actions">
+                                <button type="button" class="notification-action-btn" data-notification-accept="${escapeHtml(item.id)}">
+                                    Accept Invitation
+                                </button>
+                            </span>
+                        ` : ''}
+                    </span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function loadNotifications() {
+        return fetch("{{ route('notifications.index') }}", {
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Notification fetch failed');
+                }
+
+                return response.json();
+            })
+            .then(function (payload) {
+                renderNotifications(payload.notifications || [], payload.unread_count || 0);
+                notificationsLoaded = true;
+            })
+            .catch(function () {
+                if (notificationList) {
+                    notificationList.innerHTML = `
+                        <div class="notification-empty">
+                            <i class="bi bi-exclamation-circle"></i>
+                            <span>Notifications are unavailable right now.</span>
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function toggleNotificationDropdown(forceOpen) {
+        if (!notificationDropdown || !notificationTrigger) {
+            return;
+        }
+
+        const shouldOpen = typeof forceOpen === 'boolean'
+            ? forceOpen
+            : notificationDropdown.classList.contains('d-none');
+
+        notificationDropdown.classList.toggle('d-none', !shouldOpen);
+        notificationTrigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+
+        if (shouldOpen && !notificationsLoaded) {
+            loadNotifications();
+        }
+    }
+
+    function markNotificationRead(notificationId) {
+        return fetch("{{ url('/notifications') }}/" + encodeURIComponent(notificationId) + "/read", {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken || ''
+            },
+            body: JSON.stringify({})
+        }).then(function () {
+            return loadNotifications();
+        });
+    }
+
+    function acceptNotificationInvitation(notificationId) {
+        return fetch("{{ url('/notifications') }}/" + encodeURIComponent(notificationId) + "/accept", {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken || ''
+            },
+            body: JSON.stringify({})
+        })
+            .then(function (response) {
+                return response.json().then(function (payload) {
+                    if (!response.ok) {
+                        throw new Error(payload.message || 'Invitation could not be accepted.');
+                    }
+
+                    return payload;
+                });
+            })
+            .then(function (payload) {
+                return loadNotifications().then(function () {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Invitation Accepted',
+                            text: payload.message || 'You are now part of the workspace.',
+                            timer: 2400,
+                            showConfirmButton: false,
+                            background: 'rgba(255, 255, 255, 0.96)',
+                            backdrop: 'rgba(8, 145, 178, 0.12)'
+                        });
+                    }
+                });
+            });
+    }
+
     function renderSearchResults(items) {
         if (!globalSearchResults) {
             return;
@@ -314,8 +541,72 @@ function toggleVisibility(inputId, iconId) {
         if (!globalSearchInput.closest('.search-box')?.contains(event.target)) {
             hideSearchResults();
         }
+
+        if (notificationDropdown && notificationTrigger) {
+            const insideNotifications = notificationDropdown.contains(event.target)
+                || notificationTrigger.contains(event.target);
+
+            if (!insideNotifications) {
+                toggleNotificationDropdown(false);
+            }
+        }
+    });
+
+    notificationTrigger?.addEventListener('click', function () {
+        toggleNotificationDropdown();
+    });
+
+    notificationList?.addEventListener('click', function (event) {
+        const acceptButton = event.target.closest('[data-notification-accept]');
+
+        if (acceptButton) {
+            const notificationId = acceptButton.getAttribute('data-notification-accept');
+
+            if (!notificationId) {
+                return;
+            }
+
+            acceptNotificationInvitation(notificationId).catch(function (error) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invitation Error',
+                        text: error.message || 'Invitation could not be accepted.',
+                        confirmButtonColor: '#0891b2'
+                    });
+                }
+            });
+            return;
+        }
+
+        const notificationItem = event.target.closest('.notification-item');
+
+        if (!notificationItem) {
+            return;
+        }
+
+        const notificationId = notificationItem.getAttribute('data-notification-id');
+        const notificationLink = notificationItem.getAttribute('data-notification-link');
+
+        const navigate = function () {
+            if (notificationLink) {
+                window.location.href = notificationLink;
+            }
+        };
+
+        if (!notificationId) {
+            navigate();
+            return;
+        }
+
+        markNotificationRead(notificationId)
+            .catch(function () {
+                return null;
+            })
+            .finally(navigate);
     });
 
     loadState();
+    loadNotifications();
 })();
 </script>

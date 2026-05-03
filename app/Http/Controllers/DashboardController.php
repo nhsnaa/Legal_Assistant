@@ -13,7 +13,6 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $database = Firebase::database();
         $hour = now()->hour;
 
         $greeting = match(true) {
@@ -22,11 +21,8 @@ class DashboardController extends Controller
             default => 'Good Evening'
         };
 
-        // Fetch the dashboard data in a single Firebase read to reduce page-load latency.
-        $rootData = $database->getReference()->getValue() ?? [];
-
         // 1. Fetch Cases & Count Active
-        $casesRef = $rootData['cases'] ?? [];
+        $casesRef = $this->workspaceCollection('cases')->all();
         $activeCases = count(array_filter($casesRef, fn($c) => ($c['status'] ?? '') === 'Active'));
 
         // 2. Chart Logic (Last 7 Days)
@@ -47,18 +43,18 @@ class DashboardController extends Controller
         }
 
         // 3. Fetch Hearings (Limit 5) without requiring a Firebase index
-        $hearingsRef = $rootData['hearings'] ?? [];
+        $hearingsRef = $this->workspaceCollection('hearings')->all();
         $hearings = collect($hearingsRef)
             ->sortBy('hearing_time')
             ->take(5);
 
         // 4. Fetch Recent Documents (Limit 4) without Firebase query requirements
-        $docsRef = $rootData['documents'] ?? [];
+        $docsRef = $this->workspaceCollection('documents')->all();
         $recentDocuments = collect($docsRef)->reverse()->take(4);
         $documentsCount = count($docsRef);
 
         // 5. Recent Time Entries
-        $timeRef = $rootData['time_entries'] ?? [];
+        $timeRef = $this->workspaceCollection('time_entries')->all();
         $recentTimeEntryData = collect($timeRef)->map(function ($entry, $key) {
             return [
                 'id' => $key,
@@ -73,10 +69,10 @@ class DashboardController extends Controller
         })->reverse()->take(8)->values()->all();
 
         // 6. Clients & Case Options
-        $clientsRef = $rootData['clients'] ?? [];
+        $clientsRef = $this->workspaceCollection('clients')->all();
         $clientsCount = count($clientsRef);
         $clients = collect($clientsRef)->map(fn($c, $id) => (object)['id' => $id, 'name' => $c['name']]);
-        $documentRules = $rootData['settings']['document_rules'] ?? [
+        $documentRules = Firebase::database()->getReference($this->currentWorkspaceSettingsPath('document_rules'))->getValue() ?? [
             'max_upload_size' => 25,
             'allowed_file_types' => ['PDF', 'DOCX'],
         ];
@@ -115,17 +111,15 @@ class DashboardController extends Controller
 
     public function generateAiSuggestions()
     {
-        $rootData = Firebase::database()->getReference()->getValue() ?? [];
-
-        $hearings = collect($rootData['hearings'] ?? [])
+        $hearings = $this->workspaceCollection('hearings')
             ->filter(fn ($hearing) => !empty($hearing['hearing_time']))
             ->sortBy('hearing_time')
             ->take(3)
             ->values();
 
-        $activeCases = count(array_filter($rootData['cases'] ?? [], fn ($case) => ($case['status'] ?? '') === 'Active'));
-        $documentsCount = count($rootData['documents'] ?? []);
-        $billableEntriesCount = collect($rootData['time_entries'] ?? [])
+        $activeCases = $this->workspaceCollection('cases')->filter(fn ($case) => ($case['status'] ?? '') === 'Active')->count();
+        $documentsCount = $this->workspaceCollection('documents')->count();
+        $billableEntriesCount = $this->workspaceCollection('time_entries')
             ->filter(fn ($entry) => !empty($entry['billable']))
             ->count();
 
@@ -258,9 +252,9 @@ class DashboardController extends Controller
         $hours = max(round(($validated['duration_ms'] / 3600000), 2), 0.01);
         
         // Get Case Name for display
-        $case = $database->getReference('cases/' . $validated['case_id'])->getValue();
+        $case = $this->findWorkspaceRecord('cases', $validated['case_id']);
 
-        $newData = [
+        $newData = $this->workspacePayload([
             'case_id' => $validated['case_id'],
             'case_name' => $case['case_name'] ?? 'General',
             'work_date' => date('Y-m-d', strtotime($validated['stopped_at'])),
@@ -269,7 +263,7 @@ class DashboardController extends Controller
             'billable' => (bool) $validated['billable'],
             'description' => $validated['description'],
             'created_at' => now()->toIso8601String(),
-        ];
+        ]);
 
         $newPostKey = $database->getReference('time_entries')->push($newData)->getKey();
 

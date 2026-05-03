@@ -9,10 +9,9 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        $database = Firebase::database();
         $filter = $request->query('filter', 'all');
         
-        $allClients = collect($database->getReference('clients')->getValue() ?? [])
+        $allClients = $this->workspaceCollection('clients')
             ->map(function ($client, $id) {
                 return (object) array_merge($client, ['id' => $id]);
             });
@@ -41,7 +40,7 @@ class ClientController extends Controller
             'status' => ['required', 'in:Active,Inactive'],
         ]);
 
-        Firebase::database()->getReference('clients')->push($validated);
+        Firebase::database()->getReference('clients')->push($this->workspacePayload($validated));
         return redirect()->back()->with('success', 'Client added.');
     }
 
@@ -54,13 +53,13 @@ class ClientController extends Controller
             'status' => ['required', 'in:Active,Inactive'],
         ]);
 
-        $clientRef = Firebase::database()->getReference('clients/' . $id);
+        $client = $this->findWorkspaceRecord('clients', $id);
 
-        if (!$clientRef->getValue()) {
+        if (!$client) {
             return redirect()->route('clients.index')->with('error', 'Client not found.');
         }
 
-        $clientRef->update($validated);
+        Firebase::database()->getReference('clients/' . $id)->update($validated);
 
         return redirect()->route('clients.index')->with('success', 'Client updated successfully.');
     }
@@ -68,14 +67,14 @@ class ClientController extends Controller
     public function show($id)
     {
         $database = Firebase::database();
-        $clientData = $database->getReference('clients/' . $id)->getValue();
+        $clientData = $this->findWorkspaceRecord('clients', $id);
 
         if (!$clientData) {
             abort(404);
         }
 
         $client = (object) array_merge($clientData, ['id' => $id]);
-        $linkedCases = collect($database->getReference('cases')->getValue() ?? [])
+        $linkedCases = $this->workspaceCollection('cases')
             ->filter(fn ($case) => ($case['client_id'] ?? null) === $id)
             ->map(function ($case, $caseId) {
                 return (object) array_merge($case, ['id' => $caseId]);
@@ -87,6 +86,10 @@ class ClientController extends Controller
 
     public function destroy($id)
     {
+        if (!$this->findWorkspaceRecord('clients', $id)) {
+            return redirect()->route('clients.index')->with('error', 'Client not found.');
+        }
+
         Firebase::database()->getReference('clients/' . $id)->remove();
         return redirect()->route('clients.index')->with('success', 'Client deleted.');
     }

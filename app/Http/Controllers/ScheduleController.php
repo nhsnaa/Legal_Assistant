@@ -10,14 +10,13 @@ class ScheduleController extends Controller
 {
     public function index(Request $request)
     {
-        $database = Firebase::database();
         $monthInput = $request->query('month');
         $selectedMonth = $monthInput ? Carbon::createFromFormat('Y-m', $monthInput) : now();
 
         $calendarStart = $selectedMonth->copy()->startOfMonth()->startOfWeek();
         $calendarEnd = $selectedMonth->copy()->endOfMonth()->endOfWeek();
 
-        $hearings = collect($database->getReference('hearings')->getValue() ?? [])
+        $hearings = $this->workspaceCollection('hearings')
             ->map(function ($hearing, $id) {
                 $hearing['id'] = $id;
                 $hearing['hearing_time'] = !empty($hearing['hearing_time'])
@@ -26,7 +25,7 @@ class ScheduleController extends Controller
                 return (object) $hearing;
             });
 
-        $timeEntries = collect($database->getReference('time_entries')->getValue() ?? [])
+        $timeEntries = $this->workspaceCollection('time_entries')
             ->map(function ($entry, $id) {
                 $entry['id'] = $id;
                 $entry['work_date'] = !empty($entry['work_date'])
@@ -39,7 +38,7 @@ class ScheduleController extends Controller
             ->take(8)
             ->values();
 
-        $caseOptions = collect($database->getReference('cases')->getValue() ?? [])
+        $caseOptions = $this->workspaceCollection('cases')
             ->map(function($case, $id) {
                 $case['id'] = $id;
                 return (object)$case;
@@ -83,12 +82,16 @@ class ScheduleController extends Controller
         $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
         $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
 
-        Firebase::database()->getReference('hearings')->push($validated);
+        Firebase::database()->getReference('hearings')->push($this->workspacePayload($validated));
         return redirect()->back()->with('success', 'Event scheduled.');
     }
 
     public function destroyEvent($id)
     {
+        if (!$this->findWorkspaceRecord('hearings', $id)) {
+            return redirect()->route('schedule')->with('error', 'Schedule task not found.');
+        }
+
         Firebase::database()->getReference('hearings/' . $id)->remove();
 
         return redirect()
@@ -106,15 +109,13 @@ class ScheduleController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $eventRef = Firebase::database()->getReference('hearings/' . $id);
-
-        if (!$eventRef->getValue()) {
+        if (!$this->findWorkspaceRecord('hearings', $id)) {
             return redirect()->route('schedule')->with('error', 'Schedule task not found.');
         }
 
         $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
         $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
-        $eventRef->update($validated);
+        Firebase::database()->getReference('hearings/' . $id)->update($validated);
 
         return redirect()->route('schedule')->with('success', 'Schedule task updated successfully.');
     }
@@ -130,9 +131,9 @@ class ScheduleController extends Controller
             'description' => ['required', 'string'],
         ]);
 
-        $case = Firebase::database()->getReference('cases/' . $validated['case_id'])->getValue() ?? [];
+        $case = $this->findWorkspaceRecord('cases', $validated['case_id']) ?? [];
 
-        Firebase::database()->getReference('time_entries')->push([
+        Firebase::database()->getReference('time_entries')->push($this->workspacePayload([
             'case_id' => $validated['case_id'],
             'case_name' => $case['case_name'] ?? 'General',
             'work_date' => Carbon::parse($validated['work_date'])->toDateString(),
@@ -141,7 +142,7 @@ class ScheduleController extends Controller
             'billable' => filter_var($validated['billable'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'description' => $validated['description'],
             'created_at' => now()->toIso8601String(),
-        ]);
+        ]));
 
         $returnTarget = $request->input('return_to');
 
@@ -158,6 +159,10 @@ class ScheduleController extends Controller
 
     public function destroyTimeEntry($id)
     {
+        if (!$this->findWorkspaceRecord('time_entries', $id)) {
+            return redirect()->route('schedule', ['tab' => 'time'])->with('error', 'Time entry not found.');
+        }
+
         Firebase::database()->getReference('time_entries/' . $id)->remove();
 
         return redirect()
@@ -176,15 +181,13 @@ class ScheduleController extends Controller
             'description' => ['required', 'string'],
         ]);
 
-        $entryRef = Firebase::database()->getReference('time_entries/' . $id);
-
-        if (!$entryRef->getValue()) {
+        if (!$this->findWorkspaceRecord('time_entries', $id)) {
             return redirect()->route('schedule', ['tab' => 'time'])->with('error', 'Time entry not found.');
         }
 
-        $case = Firebase::database()->getReference('cases/' . $validated['case_id'])->getValue() ?? [];
+        $case = $this->findWorkspaceRecord('cases', $validated['case_id']) ?? [];
 
-        $entryRef->update([
+        Firebase::database()->getReference('time_entries/' . $id)->update([
             'case_id' => $validated['case_id'],
             'case_name' => $case['case_name'] ?? 'General',
             'work_date' => Carbon::parse($validated['work_date'])->toDateString(),

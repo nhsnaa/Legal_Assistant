@@ -10,17 +10,16 @@ class CaseController extends Controller
 {
     public function index(Request $request)
     {
-        $database = Firebase::database();
         $filter = $request->query('filter', 'all');
 
-        $clients = collect($database->getReference('clients')->getValue() ?? [])->map(function ($client, $id) {
+        $clients = $this->workspaceCollection('clients')->map(function ($client, $id) {
             $client['id'] = $id;
             return (object) $client;
         });
 
         $clientMap = $clients->keyBy('id');
 
-        $allCases = collect($database->getReference('cases')->getValue() ?? [])->map(function ($case, $id) use ($clientMap) {
+        $allCases = $this->workspaceCollection('cases')->map(function ($case, $id) use ($clientMap) {
             $case['id'] = $id;
             $case['client'] = $clientMap->get($case['client_id'] ?? null);
             return (object) $case;
@@ -44,7 +43,6 @@ class CaseController extends Controller
 
     public function store(Request $request)
     {
-        $database = Firebase::database();
         $validated = $request->validate([
             'client_id' => ['required', 'string'],
             'case_name' => ['required', 'string', 'max:255'],
@@ -55,7 +53,7 @@ class CaseController extends Controller
         ]);
 
         $validated['created_at'] = now()->toIso8601String();
-        $database->getReference('cases')->push($validated);
+        Firebase::database()->getReference('cases')->push($this->workspacePayload($validated));
 
         return redirect()->back()->with('success', 'Case created successfully.');
     }
@@ -64,7 +62,7 @@ class CaseController extends Controller
 public function show($id)
 {
     $database = Firebase::database();
-    $caseData = $database->getReference('cases/' . $id)->getValue();
+    $caseData = $this->findWorkspaceRecord('cases', $id);
 
     if (!$caseData) { abort(404); }
 
@@ -72,10 +70,10 @@ public function show($id)
     $case->id = $id;
     $case->created_at = !empty($caseData['created_at']) ? Carbon::parse($caseData['created_at']) : null;
     // Link client info for the "Case Snapshot" sidebar
-    $clients = $database->getReference('clients')->getValue() ?? [];
+    $clients = $this->workspaceCollection('clients')->all();
     $case->client = (object) ($clients[$case->client_id] ?? ['name' => 'Unknown', 'email' => '-', 'phone' => '-']);
 
-    $case->timeEntries = collect($database->getReference('time_entries')->getValue() ?? [])
+    $case->timeEntries = $this->workspaceCollection('time_entries')
         ->filter(fn ($entry) => ($entry['case_id'] ?? null) === $id)
         ->values();
 
@@ -84,9 +82,7 @@ public function show($id)
 
     public function update(Request $request, $id)
     {
-        $database = Firebase::database();
-        $caseRef = $database->getReference('cases/' . $id);
-        $existing = $caseRef->getValue();
+        $existing = $this->findWorkspaceRecord('cases', $id);
 
         if (!$existing) {
             return redirect()->route('cases.index')->with('error', 'Case not found.');
@@ -101,17 +97,15 @@ public function show($id)
             'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
-        $caseRef->update($validated);
+        Firebase::database()->getReference('cases/' . $id)->update($validated);
 
         return redirect()->route('cases.index')->with('success', 'Case updated successfully.');
     }
 
     public function destroy($id)
     {
-        $database = Firebase::database();
-        $caseRef = $database->getReference('cases/' . $id);
-        if ($caseRef->getValue()) {
-            $caseRef->remove();
+        if ($this->findWorkspaceRecord('cases', $id)) {
+            Firebase::database()->getReference('cases/' . $id)->remove();
             return redirect()->route('cases.index')->with('success', 'Case deleted successfully.');
         }
         return redirect()->route('cases.index')->with('error', 'Case not found.');

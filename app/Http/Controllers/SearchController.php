@@ -17,11 +17,10 @@ class SearchController extends Controller
             ]);
         }
 
-        $database = Firebase::database();
         $needle = mb_strtolower($query);
         $results = collect();
 
-        $clients = collect($database->getReference('clients')->getValue() ?? [])
+        $clients = $this->workspaceCollection('clients')
             ->map(function ($client, $id) use ($needle) {
                 $name = $client['name'] ?? 'Unnamed Client';
                 $email = $client['email'] ?? '';
@@ -40,7 +39,7 @@ class SearchController extends Controller
             ->filter()
             ->take(4);
 
-        $cases = collect($database->getReference('cases')->getValue() ?? [])
+        $cases = $this->workspaceCollection('cases')
             ->map(function ($case, $id) use ($needle) {
                 $title = $case['case_name'] ?? 'Untitled Case';
                 $description = $case['description'] ?? '';
@@ -59,7 +58,7 @@ class SearchController extends Controller
             ->filter()
             ->take(4);
 
-        $documents = collect($database->getReference('documents')->getValue() ?? [])
+        $documents = $this->workspaceCollection('documents')
             ->map(function ($document, $id) use ($needle) {
                 $name = $document['name'] ?? 'Untitled Document';
                 $original = $document['original_name'] ?? '';

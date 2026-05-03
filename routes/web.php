@@ -6,6 +6,7 @@ use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SettingsController;
@@ -23,7 +24,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::post('/logout', function () {
-    session()->forget(['firebase_user_id', 'user_role', 'user_name']);
+    session()->forget(['firebase_user_id', 'user_role', 'user_name', 'workspace_id', 'workspace_owner_id', 'workspace_status', 'email', 'first_name']);
     request()->session()->invalidate();
     request()->session()->regenerateToken();
     return redirect()->route('login');
@@ -37,6 +38,11 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile.update');
     Route::post('/settings/document-rules', [SettingsController::class, 'updateDocumentRules'])->name('settings.document-rules.update');
+    Route::post('/settings/staff', [SettingsController::class, 'storeStaff'])->name('settings.staff.store');
+    Route::post('/settings/staff/invite', [SettingsController::class, 'inviteStaff'])->name('settings.staff.invite');
+    Route::post('/settings/check-email', [SettingsController::class, 'checkEmail'])->name('settings.check-email');
+    Route::delete('/settings/staff/{id}', [SettingsController::class, 'destroyStaff'])->name('settings.staff.destroy');
+    Route::delete('/settings/account', [SettingsController::class, 'destroyAccount'])->name('settings.account.destroy');
     Route::post('/settings/password', [SettingsController::class, 'updatePassword'])->name('password.update');
 
     // Clients - Using {id} for Firebase Key
@@ -73,4 +79,9 @@ Route::middleware('firebase.auth')->group(function () {
 
     // Search
     Route::get('/search', [SearchController::class, 'index'])->name('search.index');
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/{id}/accept', [NotificationController::class, 'acceptInvitation'])->name('notifications.accept');
 });

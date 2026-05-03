@@ -61,12 +61,29 @@ class LoginController extends Controller
 
             // Verify password against the hashed version in Firebase
             if (Hash::check($credentials['password'], $userData['password'])) {
+                $workspaceId = $userData['workspace_id'] ?? $userId;
+                $workspaceOwnerId = $userData['workspace_owner_id'] ?? $workspaceId;
+                $workspaceStatus = $userData['workspace_status'] ?? 'active';
+
+                $database->getReference('users/' . $userId)->update([
+                    'workspace_id' => $workspaceId,
+                    'workspace_owner_id' => $workspaceOwnerId,
+                    'workspace_status' => $workspaceStatus,
+                ]);
+
+                if ($workspaceOwnerId === $userId) {
+                    $this->backfillWorkspaceData($database, $workspaceId, $workspaceOwnerId);
+                }
+
                 // Manual session persistence for Vercel 'cookie' driver
                 Session::put('firebase_user_id', $userId);
                 Session::put('user_role', $userData['user_role']);
                 Session::put('first_name', $userData['first_name'] ?? null);
                 Session::put('user_name', $userData['name'] ?? 'User');
                 Session::put('email', $userData['email'] ?? $credentials['email']);
+                Session::put('workspace_id', $workspaceId);
+                Session::put('workspace_owner_id', $workspaceOwnerId);
+                Session::put('workspace_status', $workspaceStatus);
                 Session::save(); 
 
                 return redirect()->route('dashboard');
@@ -84,5 +101,31 @@ class LoginController extends Controller
         }
 
         return back()->withErrors(['email' => 'Invalid email or password.']);
+    }
+
+    private function backfillWorkspaceData($database, string $workspaceId, string $workspaceOwnerId): void
+    {
+        foreach (['clients', 'cases', 'documents', 'hearings', 'time_entries'] as $node) {
+            $records = $database->getReference($node)->getValue() ?? [];
+
+            foreach ($records as $recordId => $record) {
+                if (!empty($record['workspace_id'])) {
+                    continue;
+                }
+
+                $database->getReference($node . '/' . $recordId)->update([
+                    'workspace_id' => $workspaceId,
+                    'workspace_owner_id' => $workspaceOwnerId,
+                ]);
+            }
+        }
+
+        if (!($database->getReference('settings/workspaces/' . $workspaceId . '/document_rules')->getValue())) {
+            $legacyRules = $database->getReference('settings/document_rules')->getValue();
+
+            if ($legacyRules) {
+                $database->getReference('settings/workspaces/' . $workspaceId . '/document_rules')->set($legacyRules);
+            }
+        }
     }
 }

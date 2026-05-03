@@ -40,7 +40,15 @@ class RegisterController extends Controller
             ];
 
             // Pushing to the 'users' reference in Realtime Database
-            $database->getReference('users')->push($userData);
+            $newUserRef = $database->getReference('users')->push($userData);
+            $newUserId = $newUserRef->getKey();
+
+            $database->getReference('users/' . $newUserId)->update([
+                'workspace_id' => $newUserId,
+                'workspace_owner_id' => $newUserId,
+                'workspace_status' => 'active',
+                'workspace_joined_at' => now()->toIso8601String(),
+            ]);
 
             return redirect()->route('login')->with('success', 'Registration successful!');
 
