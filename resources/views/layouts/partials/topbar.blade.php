@@ -31,7 +31,8 @@
 
     <div class="topbar-right d-flex align-items-center">
         <div class="search-box mr-4 d-none d-md-block">
-            <input type="text" class="form-control-pill" placeholder="Search cases, clients, documents...">
+            <input type="text" class="form-control-pill" id="globalSearchInput" placeholder="Search cases, clients, documents..." autocomplete="off">
+            <div class="search-results-dropdown d-none" id="globalSearchResults"></div>
         </div>
 
         <div class="dropdown">
@@ -108,9 +109,12 @@ function toggleVisibility(inputId, iconId) {
     const STORAGE_KEY = 'ilaActiveTimer';
     const display = document.getElementById('display');
     const startStopBtn = document.getElementById('startStopBtn');
+    const globalSearchInput = document.getElementById('globalSearchInput');
+    const globalSearchResults = document.getElementById('globalSearchResults');
     let elapsedTime = 0;
     let startTime = null;
     let timerInterval = null;
+    let searchTimeoutId = null;
 
     function formatTime(milliseconds) {
         const totalSeconds = Math.floor(milliseconds / 1000);
@@ -234,6 +238,81 @@ function toggleVisibility(inputId, iconId) {
         if (event.key === STORAGE_KEY) {
             stopInterval();
             loadState();
+        }
+    });
+
+    function hideSearchResults() {
+        if (!globalSearchResults) {
+            return;
+        }
+
+        globalSearchResults.classList.add('d-none');
+        globalSearchResults.innerHTML = '';
+    }
+
+    function renderSearchResults(items) {
+        if (!globalSearchResults) {
+            return;
+        }
+
+        if (!items.length) {
+            globalSearchResults.innerHTML = '<div class="search-results-empty">No matching records found.</div>';
+            globalSearchResults.classList.remove('d-none');
+            return;
+        }
+
+        globalSearchResults.innerHTML = items.map(function (item) {
+            return `
+                <a href="${item.url}" class="search-result-item">
+                    <span class="search-result-type">${item.type}</span>
+                    <strong>${item.title}</strong>
+                    <small>${item.meta || ''}</small>
+                </a>
+            `;
+        }).join('');
+
+        globalSearchResults.classList.remove('d-none');
+    }
+
+    globalSearchInput?.addEventListener('input', function () {
+        const query = this.value.trim();
+
+        clearTimeout(searchTimeoutId);
+
+        if (query.length < 2) {
+            hideSearchResults();
+            return;
+        }
+
+        searchTimeoutId = setTimeout(function () {
+            fetch("{{ route('search.index') }}?q=" + encodeURIComponent(query), {
+                headers: {
+                    'Accept': 'application/json',
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Search failed');
+                    }
+
+                    return response.json();
+                })
+                .then(function (payload) {
+                    renderSearchResults(payload.results || []);
+                })
+                .catch(function () {
+                    renderSearchResults([]);
+                });
+        }, 220);
+    });
+
+    document.addEventListener('click', function (event) {
+        if (!globalSearchInput || !globalSearchResults) {
+            return;
+        }
+
+        if (!globalSearchInput.closest('.search-box')?.contains(event.target)) {
+            hideSearchResults();
         }
     });
 

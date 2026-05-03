@@ -74,12 +74,13 @@ class ScheduleController extends Controller
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'case_name' => ['required', 'string'],
+            'case_name' => ['nullable', 'string'],
             'hearing_time' => ['required', 'date'],
             'status' => ['required', 'in:Scheduled,Confirmed,Pending'],
             'notes' => ['nullable', 'string'],
         ]);
 
+        $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
         $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
 
         Firebase::database()->getReference('hearings')->push($validated);
@@ -99,7 +100,7 @@ class ScheduleController extends Controller
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'case_name' => ['required', 'string'],
+            'case_name' => ['nullable', 'string'],
             'hearing_time' => ['required', 'date'],
             'status' => ['required', 'in:Scheduled,Confirmed,Pending'],
             'notes' => ['nullable', 'string'],
@@ -111,6 +112,7 @@ class ScheduleController extends Controller
             return redirect()->route('schedule')->with('error', 'Schedule task not found.');
         }
 
+        $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
         $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
         $eventRef->update($validated);
 

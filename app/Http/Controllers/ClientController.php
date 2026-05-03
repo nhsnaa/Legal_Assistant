@@ -65,6 +65,26 @@ class ClientController extends Controller
         return redirect()->route('clients.index')->with('success', 'Client updated successfully.');
     }
 
+    public function show($id)
+    {
+        $database = Firebase::database();
+        $clientData = $database->getReference('clients/' . $id)->getValue();
+
+        if (!$clientData) {
+            abort(404);
+        }
+
+        $client = (object) array_merge($clientData, ['id' => $id]);
+        $linkedCases = collect($database->getReference('cases')->getValue() ?? [])
+            ->filter(fn ($case) => ($case['client_id'] ?? null) === $id)
+            ->map(function ($case, $caseId) {
+                return (object) array_merge($case, ['id' => $caseId]);
+            })
+            ->values();
+
+        return view('modules.client-show', compact('client', 'linkedCases'));
+    }
+
     public function destroy($id)
     {
         Firebase::database()->getReference('clients/' . $id)->remove();

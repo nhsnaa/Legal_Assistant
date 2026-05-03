@@ -589,12 +589,13 @@
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Related Case</label>
-                    <select name="case_name" class="form-control module-input" required>
-                        <option value="">Select case</option>
+                    <select name="case_name" class="form-control module-input">
+                        <option value="">General task / no case</option>
                         @foreach ($caseOptions as $caseOption)
                             <option value="{{ $caseOption->case_name }}">{{ $caseOption->case_name }}</option>
                         @endforeach
                     </select>
+                    <small class="text-muted d-block mt-2">Optional for meetings, admin work, or general office reminders.</small>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Date & Time</label>

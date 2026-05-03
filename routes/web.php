@@ -6,6 +6,7 @@ use App\Http\Controllers\CaseController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ScheduleController;
 use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,7 @@ Route::middleware('firebase.auth')->group(function () {
 
     // Clients - Using {id} for Firebase Key
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+    Route::get('/clients/{id}', [ClientController::class, 'show'])->name('clients.show');
     Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
     Route::put('/clients/{id}', [ClientController::class, 'update'])->name('clients.update');
     Route::delete('/clients/{id}', [ClientController::class, 'destroy'])->name('clients.destroy');
@@ -68,4 +70,7 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/documents/{id}/edit', [DocumentController::class, 'edit'])->name('documents.edit');
     Route::put('/documents/{id}', [DocumentController::class, 'update'])->name('documents.update');
     Route::delete('/documents/{id}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+
+    // Search
+    Route::get('/search', [SearchController::class, 'index'])->name('search.index');
 });
