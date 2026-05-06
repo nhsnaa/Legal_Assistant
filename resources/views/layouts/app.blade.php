@@ -99,5 +99,39 @@
 </script>
 
 @yield('scripts')
+
+<script type="text/javascript">
+  (function(d, t) {
+      var v = d.createElement(t), s = d.getElementsByTagName(t)[0];
+      v.onload = function() {
+        window.voiceflow.chat.load({
+          verify: { projectID: '69f9de68eeb8f50e7cfd253b' },
+          url: 'https://general-runtime.voiceflow.com',
+          versionID: 'production',
+          assistant: {
+            title: 'ILA Assistant',
+            color: '#148599',
+            /* This full palette stops the "Blue Hover" bug */
+            palette: {
+                50: '#f0f9fa',
+                100: '#dcf1f4',
+                200: '#bee3e9',
+                300: '#93ccd6',
+                400: '#5ea7b7',
+                500: '#148599', // Main Teal
+                600: '#116d7d', // Professional Hover (Darker Teal)
+                700: '#0e5663',
+                800: '#0c4852',
+                900: '#0a3a43'
+            }
+          }
+        });
+      };
+      v.src = 'https://cdn.voiceflow.com/widget-next/bundle.mjs';
+      v.type = 'text/javascript';
+      s.parentNode.insertBefore(v, s);
+  })(document, 'script');
+</script>
+
 </body>
 </html>
