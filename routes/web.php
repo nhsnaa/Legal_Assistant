@@ -35,6 +35,7 @@ Route::middleware('firebase.auth')->group(function () {
     // Dashboard & Settings
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/dashboard/ai-suggestions', [DashboardController::class, 'generateAiSuggestions'])->name('dashboard.ai-suggestions');
+    Route::post('/dashboard/ai-suggestions/apply', [DashboardController::class, 'applyAiSuggestionsToSchedule'])->name('dashboard.ai-suggestions.apply');
     Route::post('/dashboard/time-entries', [DashboardController::class, 'storeTimeEntry'])->name('dashboard.time-entries.store');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile.update');

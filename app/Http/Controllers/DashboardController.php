@@ -141,7 +141,7 @@ class DashboardController extends Controller
             return response()->json([
                 'source' => 'prototype',
                 'configured' => false,
-                'message' => 'GEMINI_API_KEY is not configured yet, so the assistant is using the local planning prototype.',
+                'message' => 'GEMINI_API_KEY is not configured yet, so the assistant is using the local scheduling prototype.',
                 'summary' => $prototypePlan['summary'],
                 'suggestions' => $prototypePlan['suggestions'],
             ]);
@@ -153,7 +153,7 @@ class DashboardController extends Controller
                 'system_instruction' => [
                     'parts' => [
                         [
-                            'text' => 'You are a legal workflow planning assistant. Generate a practical day plan for a small legal office. Keep suggestions specific, calm, and professional. Return only valid JSON.',
+                            'text' => 'You are a legal workflow scheduling assistant. Generate a practical daily schedule for a small legal office. Keep suggestions specific, calm, and professional. Return only valid JSON.',
                         ],
                     ],
                 ],
@@ -161,7 +161,7 @@ class DashboardController extends Controller
                     [
                         'parts' => [
                             [
-                                'text' => 'Build a suggested work plan from this dashboard data and return JSON in this shape: {"summary":"...","suggestions":[{"slot":"...","title":"...","timing":"...","detail":"...","reason":"..."}]}. Dashboard data: ' . json_encode([
+                                'text' => 'Build an automated daily schedule from this dashboard data and return JSON in this shape: {"summary":"...","suggestions":[{"slot":"...","title":"...","timing":"...","detail":"...","reason":"..."}]}. Dashboard data: ' . json_encode([
                                     'generated_at' => now()->toIso8601String(),
                                     'upcoming_hearings' => $hearings->map(function ($hearing) {
                                         return [
@@ -224,7 +224,7 @@ class DashboardController extends Controller
             return response()->json([
                 'source' => 'gemini',
                 'configured' => true,
-                'message' => 'Live suggestions generated through the Gemini API.',
+                'message' => 'Live automated schedule generated through the Gemini API.',
                 'summary' => $aiPlan['summary'] ?? $prototypePlan['summary'],
                 'suggestions' => collect($aiPlan['suggestions'] ?? [])->take(3)->values()->all(),
             ]);
@@ -234,7 +234,7 @@ class DashboardController extends Controller
             return response()->json([
                 'source' => 'prototype',
                 'configured' => false,
-                'message' => 'Live AI could not be reached, so the assistant is using the local planning prototype instead.',
+                'message' => 'Live AI could not be reached, so the assistant is using the local scheduling prototype instead.',
                 'summary' => $prototypePlan['summary'],
                 'suggestions' => $prototypePlan['suggestions'],
             ]);
@@ -278,29 +278,101 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function applyAiSuggestionsToSchedule(Request $request)
+    {
+        $validated = $request->validate([
+            'suggestions' => ['required', 'array', 'min:1'],
+            'suggestions.*.slot' => ['nullable', 'string', 'max:255'],
+            'suggestions.*.title' => ['required', 'string', 'max:255'],
+            'suggestions.*.timing' => ['nullable', 'string', 'max:255'],
+            'suggestions.*.detail' => ['nullable', 'string'],
+            'suggestions.*.reason' => ['nullable', 'string'],
+        ]);
+
+        $database = Firebase::database();
+        $existingHearings = $this->workspaceCollection('hearings');
+        $slotTimeMap = [
+            'Morning Priority' => '09:00',
+            'Midday Focus' => '11:30',
+            'Afternoon Follow-up' => '14:30',
+            'End-of-day Wrap-up' => '17:00',
+            'Suggested Starting Point' => '10:00',
+        ];
+
+        $created = 0;
+        $skipped = 0;
+        $today = now()->toDateString();
+
+        foreach ($validated['suggestions'] as $suggestion) {
+            $slot = $suggestion['slot'] ?? 'Suggested Block';
+            $time = $slotTimeMap[$slot] ?? '10:00';
+            $hearingTime = Carbon::parse($today . ' ' . $time)->toIso8601String();
+            $title = trim($suggestion['title']);
+            $detail = trim((string) ($suggestion['detail'] ?? ''));
+            $reason = trim((string) ($suggestion['reason'] ?? ''));
+
+            $isDuplicate = $existingHearings->contains(function ($hearing) use ($title, $hearingTime) {
+                return ($hearing['title'] ?? '') === $title
+                    && ($hearing['hearing_time'] ?? '') === $hearingTime;
+            });
+
+            if ($isDuplicate) {
+                $skipped++;
+                continue;
+            }
+
+            $notes = collect([
+                'AI automated schedule block',
+                $detail !== '' ? 'Plan: ' . $detail : null,
+                $reason !== '' ? 'Scheduling note: ' . $reason : null,
+            ])->filter()->implode("\n");
+
+            $database->getReference('hearings')->push($this->workspacePayload([
+                'title' => $title,
+                'case_name' => 'General Task',
+                'hearing_time' => $hearingTime,
+                'status' => 'Scheduled',
+                'notes' => $notes,
+                'created_from_ai_schedule' => true,
+                'ai_slot' => $slot,
+            ]));
+
+            $created++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'created' => $created,
+            'skipped' => $skipped,
+            'message' => $created > 0
+                ? 'AI schedule applied to the calendar.'
+                : 'No new schedule blocks were added because matching tasks already exist for today.',
+        ]);
+    }
+
     private function buildPrototypeAiPlan($upcomingHearings, int $activeCases, int $documentsCount, int $billableEntriesCount): array
     {
         $suggestions = [];
-        $summary = 'Generate a suggested day plan based on the latest legal workload in the system.';
+        $summary = 'Generate an automated schedule for today based on the latest legal workload in the system.';
 
         if ($upcomingHearings->isNotEmpty()) {
             $nextHearing = $upcomingHearings->first();
             $hearingTime = Carbon::parse($nextHearing['hearing_time']);
             $suggestions[] = [
                 'slot' => 'Morning Priority',
-                'title' => 'Prepare the next hearing first',
+                'title' => 'Reserve the first block for hearing preparation',
                 'timing' => $hearingTime->isToday() ? 'Due today' : 'Upcoming hearing',
                 'detail' => 'Focus on "' . ($nextHearing['title'] ?? $nextHearing['case_name'] ?? 'Untitled Case') . '" before ' . $hearingTime->format('d M, g:i A') . '.',
                 'reason' => 'Court-related work is the highest-risk item to leave until later in the day.',
             ];
 
-            $summary = 'The dashboard found a hearing-based priority, so the assistant is recommending court preparation first.';
+            $summary = 'The assistant found a hearing-based priority, so it is scheduling court preparation first.';
         }
 
         if ($activeCases > 0) {
             $suggestions[] = [
                 'slot' => 'Midday Focus',
-                'title' => 'Review active matters in focused blocks',
+                'title' => 'Schedule a focused active-case work block',
                 'timing' => 'Deep work block',
                 'detail' => 'You currently have ' . $activeCases . ' active case' . ($activeCases === 1 ? '' : 's') . '. Group follow-up, research, and drafting into one focused session.',
                 'reason' => 'Clustering case review reduces context switching and helps legal drafting move faster.',
@@ -310,7 +382,7 @@ class DashboardController extends Controller
         if ($documentsCount > 0) {
             $suggestions[] = [
                 'slot' => 'Afternoon Follow-up',
-                'title' => 'Set aside time for document handling',
+                'title' => 'Schedule a document review and filing block',
                 'timing' => 'Document window',
                 'detail' => 'With ' . $documentsCount . ' stored document' . ($documentsCount === 1 ? '' : 's') . ', reserve a short review window for uploads, checking, or filing.',
                 'reason' => 'Documents are easier to batch together after the main case priority is under control.',
@@ -320,7 +392,7 @@ class DashboardController extends Controller
         if ($billableEntriesCount > 0) {
             $suggestions[] = [
                 'slot' => 'End-of-day Wrap-up',
-                'title' => 'Close the day by confirming billable logs',
+                'title' => 'Reserve a wrap-up block for billable review',
                 'timing' => 'End-of-day check',
                 'detail' => 'You already have ' . $billableEntriesCount . ' billable time entr' . ($billableEntriesCount === 1 ? 'y' : 'ies') . '. Use the last slot of the day to verify time records are complete.',
                 'reason' => 'Time records are easiest to verify after the day’s work has been completed.',

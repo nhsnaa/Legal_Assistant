@@ -63,22 +63,25 @@
             <div class="glass-card ai-assistant-card mb-4">
                 <div class="d-flex justify-content-between align-items-start flex-wrap mb-4">
                     <div>
-                        <span class="module-kicker">AI Planning Assistant</span>
-                        <h5 class="font-weight-bold mb-1 mt-3">Suggested day plan</h5>
-                        <p class="text-muted mb-0" id="aiAssistantSummary">{{ $aiSummary ?? 'A smart daily summary based on current hearings, active cases, documents, and recorded work.' }}</p>
+                        <span class="module-kicker">AI Automated Scheduling</span>
+                        <h5 class="font-weight-bold mb-1 mt-3">Suggested schedule for today</h5>
+                        <p class="text-muted mb-0" id="aiAssistantSummary">{{ $aiSummary ?? 'An automated scheduling summary based on hearings, active cases, documents, and recorded legal work.' }}</p>
                     </div>
                     <div class="d-flex align-items-center flex-wrap gap-2">
                         <span class="ai-assistant-badge mr-2" id="aiAssistantBadge"><i class="bi bi-stars mr-2"></i>Prototype</span>
                         <button type="button" class="btn btn-primary btn-sm" id="generateAiSuggestionsBtn">
-                            <i class="bi bi-magic mr-1"></i>Generate Suggestions
+                            <i class="bi bi-magic mr-1"></i>Generate Schedule
+                        </button>
+                        <button type="button" class="btn btn-ai-apply btn-sm d-none" id="applyAiSuggestionsBtn">
+                            <i class="bi bi-calendar-plus mr-1"></i>Apply to Schedule
                         </button>
                     </div>
                 </div>
 
                 <div class="ai-assistant-empty" id="aiAssistantEmptyState">
-                    <i class="bi bi-stars"></i>
-                    <strong>Ready to plan your day</strong>
-                    <p class="mb-0">Generate a suggested task list based on your current hearings, cases, documents, and work logs.</p>
+                    <i class="bi bi-calendar2-week"></i>
+                    <strong>Ready to build today's schedule</strong>
+                    <p class="mb-0">Generate an AI-assisted schedule based on your hearings, active matters, documents, and recorded work priorities.</p>
                 </div>
 
                 <div class="ai-assistant-status d-none" id="aiAssistantStatus"></div>
@@ -96,14 +99,14 @@
                                     <span class="ai-suggestion-timing">{{ $suggestion['timing'] }}</span>
                                 </div>
                                 <p class="mb-1">{{ $suggestion['detail'] }}</p>
-                                <small class="ai-suggestion-reason">Why this matters: {{ $suggestion['reason'] ?? 'It helps structure the day with clearer priorities.' }}</small>
+                                <small class="ai-suggestion-reason">Scheduling note: {{ $suggestion['reason'] ?? 'It helps structure the day with clearer priorities.' }}</small>
                             </div>
                         </div>
                     @empty
                         <div class="time-log-empty">
-                            <i class="bi bi-stars"></i>
-                            <strong>No AI suggestions yet</strong>
-                            <p>As more cases, hearings, and time records are added, the assistant can generate a more useful daily plan.</p>
+                            <i class="bi bi-calendar2-week"></i>
+                            <strong>No AI schedule yet</strong>
+                            <p>As more cases, hearings, and time records are added, the assistant can generate a more useful daily schedule.</p>
                         </div>
                     @endforelse
                 </div>
@@ -678,10 +681,13 @@ const timeEntryNotes = document.getElementById('timeEntryNotes');
 const saveTimeBtn = document.getElementById('saveTimeBtn');
 const dashboardTimeEntryUrl = @json(route('dashboard.time-entries.store'));
 const dashboardAiSuggestionsUrl = @json(route('dashboard.ai-suggestions'));
+const dashboardApplyAiScheduleUrl = @json(route('dashboard.ai-suggestions.apply'));
 const csrfToken = @json(csrf_token());
+const aiScheduleStorageKey = @json('ilaAiSchedule:' . session('firebase_user_id'));
 let dashboardTimeEntries = Array.isArray(recentTimeEntries) ? recentTimeEntries.slice() : [];
 let pendingTimeEntry = null;
 const generateAiSuggestionsBtn = document.getElementById('generateAiSuggestionsBtn');
+const applyAiSuggestionsBtn = document.getElementById('applyAiSuggestionsBtn');
 const aiAssistantEmptyState = document.getElementById('aiAssistantEmptyState');
 const aiSuggestionList = document.getElementById('aiSuggestionList');
 const aiAssistantSummary = document.getElementById('aiAssistantSummary');
@@ -692,6 +698,49 @@ const dashboardDocumentCaseGroup = document.getElementById('dashboardDocumentCas
 const dashboardDocumentClientGroup = document.getElementById('dashboardDocumentClientGroup');
 const initialAiSuggestions = @json($aiSuggestions ?? []);
 const initialAiSummary = @json($aiSummary ?? '');
+let currentAiSuggestions = Array.isArray(initialAiSuggestions) ? initialAiSuggestions.slice() : [];
+
+function persistAiScheduleState(summary, suggestions, source, message) {
+    try {
+        sessionStorage.setItem(aiScheduleStorageKey, JSON.stringify({
+            summary: summary || '',
+            suggestions: Array.isArray(suggestions) ? suggestions : [],
+            source: source || 'prototype',
+            message: message || '',
+        }));
+    } catch (error) {
+        // Ignore storage failures quietly.
+    }
+}
+
+function clearAiScheduleState() {
+    try {
+        sessionStorage.removeItem(aiScheduleStorageKey);
+    } catch (error) {
+        // Ignore storage failures quietly.
+    }
+}
+
+function restoreAiScheduleState() {
+    try {
+        const raw = sessionStorage.getItem(aiScheduleStorageKey);
+
+        if (!raw) {
+            return false;
+        }
+
+        const parsed = JSON.parse(raw);
+
+        if (!parsed || !Array.isArray(parsed.suggestions) || !parsed.suggestions.length) {
+            return false;
+        }
+
+        renderAiSuggestions(parsed.summary || initialAiSummary, parsed.suggestions, parsed.source || 'prototype', parsed.message || '');
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
 
 function syncDashboardDocumentScope() {
     const scope = dashboardDocumentScope ? dashboardDocumentScope.value : 'general';
@@ -743,26 +792,28 @@ function renderAiSuggestions(summary, suggestions, source, message) {
         aiAssistantStatus.classList.remove('d-none', 'is-live', 'is-fallback');
         aiAssistantStatus.classList.add(source === 'gemini' ? 'is-live' : 'is-fallback');
         aiAssistantStatus.innerHTML = source === 'gemini'
-            ? '<i class="bi bi-check-circle-fill mr-2"></i>' + escapeHtml(message || 'Live AI suggestions loaded successfully.')
-            : '<i class="bi bi-info-circle-fill mr-2"></i>' + escapeHtml(message || 'Live AI is unavailable right now, so the local planner is being used.');
+            ? '<i class="bi bi-check-circle-fill mr-2"></i>' + escapeHtml(message || 'Live AI schedule generated successfully.')
+            : '<i class="bi bi-info-circle-fill mr-2"></i>' + escapeHtml(message || 'Live AI scheduling is unavailable right now, so the local planner is being used.');
     }
 
     const items = Array.isArray(suggestions) ? suggestions : [];
+    currentAiSuggestions = items.slice();
 
     if (!items.length) {
         aiSuggestionList.innerHTML = `
             <div class="time-log-empty">
-                <i class="bi bi-stars"></i>
-                <strong>No AI suggestions yet</strong>
-                <p>${escapeHtml(message || 'The assistant could not generate suggestions right now.')}</p>
+                <i class="bi bi-calendar2-week"></i>
+                <strong>No AI schedule yet</strong>
+                <p>${escapeHtml(message || 'The assistant could not generate a schedule right now.')}</p>
             </div>
         `;
+        applyAiSuggestionsBtn?.classList.add('d-none');
     } else {
         aiSuggestionList.innerHTML = items.map(function (suggestion) {
             return `
                 <div class="ai-suggestion-item">
                     <div class="ai-suggestion-icon">
-                        <i class="bi bi-magic"></i>
+                        <i class="bi bi-calendar-check"></i>
                     </div>
                     <div class="ai-suggestion-copy">
                         <span class="ai-suggestion-slot">${escapeHtml(suggestion.slot || 'Suggested Block')}</span>
@@ -771,15 +822,17 @@ function renderAiSuggestions(summary, suggestions, source, message) {
                             <span class="ai-suggestion-timing">${escapeHtml(suggestion.timing || 'Today')}</span>
                         </div>
                         <p class="mb-1">${escapeHtml(suggestion.detail || '')}</p>
-                        <small class="ai-suggestion-reason">Why this matters: ${escapeHtml(suggestion.reason || 'It helps structure the day with clearer priorities.')}</small>
+                        <small class="ai-suggestion-reason">Scheduling note: ${escapeHtml(suggestion.reason || 'It helps structure the day with clearer priorities.')}</small>
                     </div>
                 </div>
             `;
         }).join('');
+        applyAiSuggestionsBtn?.classList.remove('d-none');
     }
 
     aiAssistantEmptyState?.classList.add('d-none');
     aiSuggestionList?.classList.remove('d-none');
+    persistAiScheduleState(summary, items, source, message);
 }
 
 function renderTimeLogs() {
@@ -921,6 +974,7 @@ timeEntryForm?.addEventListener('submit', async function (event) {
 
 timeLogFilter?.addEventListener('change', renderTimeLogs);
 renderTimeLogs();
+restoreAiScheduleState();
 
 generateAiSuggestionsBtn?.addEventListener('click', function () {
     generateAiSuggestionsBtn.disabled = true;
@@ -949,6 +1003,62 @@ generateAiSuggestionsBtn?.addEventListener('click', function () {
             renderAiSuggestions(initialAiSummary, initialAiSuggestions, 'prototype', 'Live AI could not be reached, so the local planner is being used.');
             generateAiSuggestionsBtn.innerHTML = '<i class="bi bi-arrow-repeat mr-1"></i>Try Again';
             generateAiSuggestionsBtn.disabled = false;
+        });
+});
+
+applyAiSuggestionsBtn?.addEventListener('click', function () {
+    if (!Array.isArray(currentAiSuggestions) || !currentAiSuggestions.length) {
+        return;
+    }
+
+    const originalHtml = applyAiSuggestionsBtn.innerHTML;
+    applyAiSuggestionsBtn.disabled = true;
+    applyAiSuggestionsBtn.innerHTML = '<span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>Applying...';
+
+    fetch(dashboardApplyAiScheduleUrl, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({
+            suggestions: currentAiSuggestions
+        })
+    })
+        .then(function (response) {
+            return response.json().then(function (payload) {
+                if (!response.ok) {
+                    throw new Error(payload.message || 'Unable to apply the AI schedule right now.');
+                }
+
+                return payload;
+            });
+        })
+        .then(function (payload) {
+            clearAiScheduleState();
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Schedule Applied',
+                    text: payload.message + (payload.skipped ? ' ' + payload.skipped + ' duplicate block(s) were skipped.' : ''),
+                    confirmButtonColor: '#0891b2'
+                });
+            }
+        })
+        .catch(function (error) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Apply Failed',
+                    text: error.message || 'Unable to apply the AI schedule right now.',
+                    confirmButtonColor: '#0891b2'
+                });
+            }
+        })
+        .finally(function () {
+            applyAiSuggestionsBtn.disabled = false;
+            applyAiSuggestionsBtn.innerHTML = originalHtml;
         });
 });
 
