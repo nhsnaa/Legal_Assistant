@@ -53,8 +53,17 @@ class CaseController extends Controller
             'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
-        $validated['created_at'] = now()->toIso8601String();
-        Firebase::database()->getReference('cases')->push($this->workspacePayload($validated));
+        $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
+
+        Firebase::database()->getReference('cases')->push($this->workspacePayload(array_merge($validated, [
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+            'created_by_id' => $actor['id'],
+            'created_by_name' => $actor['name'],
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
+        ])));
 
         return redirect()->back()->with('success', 'Case created successfully.');
     }
@@ -70,6 +79,7 @@ public function show($id)
     $case = (object) $caseData;
     $case->id = $id;
     $case->created_at = !empty($caseData['created_at']) ? Carbon::parse($caseData['created_at']) : null;
+    $case->updated_at = !empty($caseData['updated_at']) ? Carbon::parse($caseData['updated_at']) : null;
     // Link client info for the "Case Snapshot" sidebar
     $clients = $this->workspaceCollection('clients')->all();
     $case->client = (object) ($clients[$case->client_id] ?? ['name' => 'Unknown', 'email' => '-', 'phone' => '-']);
@@ -99,7 +109,13 @@ public function show($id)
             'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
-        Firebase::database()->getReference('cases/' . $id)->update($validated);
+        $actor = $this->currentActorMetadata();
+
+        Firebase::database()->getReference('cases/' . $id)->update(array_merge($validated, [
+            'updated_at' => now()->toIso8601String(),
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
+        ]));
 
         return redirect()->route('cases.index')->with('success', 'Case updated successfully.');
     }
@@ -122,9 +138,13 @@ public function show($id)
         }
 
         $nextStatus = ($case['status'] ?? 'Active') === 'Closed' ? 'Active' : 'Closed';
+        $actor = $this->currentActorMetadata();
 
         Firebase::database()->getReference('cases/' . $id)->update([
             'status' => $nextStatus,
+            'updated_at' => now()->toIso8601String(),
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
         ]);
 
         return redirect()->route('cases.index')->with(

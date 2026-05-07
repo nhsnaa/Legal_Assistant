@@ -7,6 +7,17 @@ use Kreait\Laravel\Firebase\Facades\Firebase;
 
 abstract class Controller
 {
+    protected function currentActorMetadata(): array
+    {
+        return [
+            'id' => session('firebase_user_id'),
+            'name' => session('user_name')
+                ?: session('first_name')
+                ?: session('user_email')
+                ?: 'Workspace User',
+        ];
+    }
+
     protected function defaultNotificationSettings(): array
     {
         return [

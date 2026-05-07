@@ -47,6 +47,22 @@
                         <label>Phone Number</label>
                         <strong>{{ $client->phone }}</strong>
                     </div>
+                    <div class="module-detail-item">
+                        <label>Created By</label>
+                        <strong>{{ $client->created_by_name ?? 'Not recorded' }}</strong>
+                    </div>
+                    <div class="module-detail-item">
+                        <label>Last Updated By</label>
+                        <strong>{{ $client->updated_by_name ?? 'Not recorded' }}</strong>
+                    </div>
+                    <div class="module-detail-item">
+                        <label>Created On</label>
+                        <strong>{{ $client->created_at?->format('d M Y, h:i A') ?? 'Not recorded' }}</strong>
+                    </div>
+                    <div class="module-detail-item">
+                        <label>Last Updated</label>
+                        <strong>{{ $client->updated_at?->format('d M Y, h:i A') ?? 'Not recorded' }}</strong>
+                    </div>
                 </div>
             </div>
         </div>

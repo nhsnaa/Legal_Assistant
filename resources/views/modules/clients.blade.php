@@ -81,7 +81,17 @@
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-light"
-                                        onclick="openClientViewModal(@js(['id' => $client->id, 'name' => $client->name, 'email' => $client->email, 'phone' => $client->phone, 'status' => $client->status]))">
+                                        onclick="openClientViewModal(@js([
+                                            'id' => $client->id,
+                                            'name' => $client->name,
+                                            'email' => $client->email,
+                                            'phone' => $client->phone,
+                                            'status' => $client->status,
+                                            'created_by_name' => $client->created_by_name ?? null,
+                                            'updated_by_name' => $client->updated_by_name ?? null,
+                                            'created_at_label' => $client->created_at_label,
+                                            'updated_at_label' => $client->updated_at_label,
+                                        ]))">
                                         View
                                     </button>
                                     <button
@@ -181,6 +191,22 @@
                 <label>Phone Number</label>
                 <strong id="clientViewPhone">-</strong>
             </div>
+            <div class="module-detail-item">
+                <label>Created By</label>
+                <strong id="clientViewCreatedBy">-</strong>
+            </div>
+            <div class="module-detail-item">
+                <label>Last Updated By</label>
+                <strong id="clientViewUpdatedBy">-</strong>
+            </div>
+            <div class="module-detail-item">
+                <label>Created On</label>
+                <strong id="clientViewCreatedAt">-</strong>
+            </div>
+            <div class="module-detail-item">
+                <label>Last Updated</label>
+                <strong id="clientViewUpdatedAt">-</strong>
+            </div>
         </div>
 
         <div class="module-modal-actions">
@@ -248,6 +274,10 @@ function openClientViewModal(client) {
     document.getElementById('clientViewEmail').textContent = client.email;
     document.getElementById('clientViewPhone').textContent = client.phone;
     document.getElementById('clientViewStatus').textContent = client.status;
+    document.getElementById('clientViewCreatedBy').textContent = client.created_by_name || 'Not recorded';
+    document.getElementById('clientViewUpdatedBy').textContent = client.updated_by_name || 'Not recorded';
+    document.getElementById('clientViewCreatedAt').textContent = client.created_at_label || 'Not recorded';
+    document.getElementById('clientViewUpdatedAt').textContent = client.updated_at_label || 'Not recorded';
     document.getElementById('clientViewModal').classList.add('show');
 }
 

@@ -53,7 +53,19 @@
                     </div>
                     <div class="module-detail-item">
                         <label>Created</label>
-                        <strong>{{ $case->created_at?->format('d M Y, h:i A') }}</strong>
+                        <strong>{{ $case->created_at?->format('d M Y, h:i A') ?? 'Not recorded' }}</strong>
+                    </div>
+                    <div class="module-detail-item">
+                        <label>Created By</label>
+                        <strong>{{ $case->created_by_name ?? 'Not recorded' }}</strong>
+                    </div>
+                    <div class="module-detail-item">
+                        <label>Last Updated</label>
+                        <strong>{{ $case->updated_at?->format('d M Y, h:i A') ?? 'Not recorded' }}</strong>
+                    </div>
+                    <div class="module-detail-item">
+                        <label>Last Updated By</label>
+                        <strong>{{ $case->updated_by_name ?? 'Not recorded' }}</strong>
                     </div>
                     <div class="module-detail-item full">
                         <label>Description</label>
