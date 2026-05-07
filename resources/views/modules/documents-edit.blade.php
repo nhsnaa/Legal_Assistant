@@ -124,6 +124,22 @@
                         <strong>{{ ($document->type ?? 'file') === 'link' ? 'Open Link' : 'Download' }}</strong>
                         <p class="mb-0"><a href="{{ route('documents.show', $document->id) }}" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">{{ ($document->type ?? 'file') === 'link' ? 'Open current link' : 'Open current file' }}</a></p>
                     </div>
+                    <div class="module-note-item">
+                        <strong>Created By</strong>
+                        <p class="mb-0">{{ $document->created_by_name ?? 'Not recorded' }}</p>
+                    </div>
+                    <div class="module-note-item">
+                        <strong>Created On</strong>
+                        <p class="mb-0">{{ $document->created_at?->format('d M Y, h:i A') ?? 'Not recorded' }}</p>
+                    </div>
+                    <div class="module-note-item">
+                        <strong>Last Updated By</strong>
+                        <p class="mb-0">{{ $document->updated_by_name ?? 'Not recorded' }}</p>
+                    </div>
+                    <div class="module-note-item">
+                        <strong>Last Updated</strong>
+                        <p class="mb-0">{{ $document->updated_at?->format('d M Y, h:i A') ?? 'Not recorded' }}</p>
+                    </div>
                 </div>
             </div>
         </div>

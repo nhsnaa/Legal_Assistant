@@ -70,6 +70,10 @@
                                             'status' => $event->status,
                                             'notes' => $event->notes ?? '',
                                             'hearing_time' => $event->hearing_time->toIso8601String(),
+                                            'created_by_name' => $event->created_by_name ?? null,
+                                            'updated_by_name' => $event->updated_by_name ?? null,
+                                            'created_at' => $event->created_at?->toIso8601String(),
+                                            'updated_at' => $event->updated_at?->toIso8601String(),
                                         ]))">
                                             <strong>{{ $event->title ?: $event->case_name }}</strong>
                                             <span>{{ $event->hearing_time->format('g:i A') }}</span>
@@ -113,6 +117,10 @@
                                             'status' => $hearing->status,
                                             'notes' => $hearing->notes ?? '',
                                             'hearing_time' => $hearing->hearing_time->toIso8601String(),
+                                            'created_by_name' => $hearing->created_by_name ?? null,
+                                            'updated_by_name' => $hearing->updated_by_name ?? null,
+                                            'created_at' => $hearing->created_at?->toIso8601String(),
+                                            'updated_at' => $hearing->updated_at?->toIso8601String(),
                                         ]))">View</button>
                                         <button type="button" class="btn btn-sm btn-light" onclick="openEventEditModal(@js([
                                             'id' => $hearing->id,
@@ -192,6 +200,10 @@
                                                     'activity' => $entry->activity ?? 'General Work',
                                                     'billable' => !empty($entry->billable),
                                                     'description' => $entry->description,
+                                                    'created_by_name' => $entry->created_by_name ?? null,
+                                                    'updated_by_name' => $entry->updated_by_name ?? null,
+                                                    'created_at' => $entry->created_at?->toIso8601String(),
+                                                    'updated_at' => $entry->updated_at?->toIso8601String(),
                                                 ]))">View</button>
                                                 <button type="button" class="btn btn-sm btn-light" onclick="openTimeEditModal(@js([
                                                     'id' => $entry->id,
@@ -382,6 +394,22 @@
                     <label>Notes</label>
                     <p class="mb-0" id="scheduleEventViewNotes">-</p>
                 </div>
+                <div class="module-detail-item">
+                    <label>Created By</label>
+                    <strong id="scheduleEventViewCreatedBy">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Last Updated By</label>
+                    <strong id="scheduleEventViewUpdatedBy">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Created On</label>
+                    <strong id="scheduleEventViewCreatedAt">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Last Updated</label>
+                    <strong id="scheduleEventViewUpdatedAt">-</strong>
+                </div>
             </div>
             <div class="module-modal-actions">
                 <button type="button" class="btn btn-light px-4" onclick="closeScheduleModal('scheduleEventViewModal')">Close</button>
@@ -467,6 +495,22 @@
                     <label>Description</label>
                     <p class="mb-0" id="scheduleTimeViewDescription">-</p>
                 </div>
+                <div class="module-detail-item">
+                    <label>Created By</label>
+                    <strong id="scheduleTimeViewCreatedBy">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Last Updated By</label>
+                    <strong id="scheduleTimeViewUpdatedBy">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Created On</label>
+                    <strong id="scheduleTimeViewCreatedAt">-</strong>
+                </div>
+                <div class="module-detail-item">
+                    <label>Last Updated</label>
+                    <strong id="scheduleTimeViewUpdatedAt">-</strong>
+                </div>
             </div>
             <div class="module-modal-actions">
                 <button type="button" class="btn btn-light px-4" onclick="closeScheduleModal('scheduleTimeViewModal')">Close</button>
@@ -551,6 +595,10 @@
             'status' => $hearing->status,
             'notes' => $hearing->notes ?? '',
             'hearing_time' => $hearing->hearing_time->toIso8601String(),
+            'created_by_name' => $hearing->created_by_name ?? null,
+            'updated_by_name' => $hearing->updated_by_name ?? null,
+            'created_at' => $hearing->created_at?->toIso8601String(),
+            'updated_at' => $hearing->updated_at?->toIso8601String(),
         ];
     })->values()->all();
 @endphp
@@ -571,6 +619,10 @@ function openEventViewModal(eventItem) {
     document.getElementById('scheduleEventViewCase').textContent = eventItem.case_name || '-';
     document.getElementById('scheduleEventViewTime').textContent = new Date(eventItem.hearing_time).toLocaleString();
     document.getElementById('scheduleEventViewNotes').textContent = eventItem.notes || 'No notes added.';
+    document.getElementById('scheduleEventViewCreatedBy').textContent = eventItem.created_by_name || 'Not recorded';
+    document.getElementById('scheduleEventViewUpdatedBy').textContent = eventItem.updated_by_name || 'Not recorded';
+    document.getElementById('scheduleEventViewCreatedAt').textContent = eventItem.created_at ? new Date(eventItem.created_at).toLocaleString() : 'Not recorded';
+    document.getElementById('scheduleEventViewUpdatedAt').textContent = eventItem.updated_at ? new Date(eventItem.updated_at).toLocaleString() : 'Not recorded';
     openScheduleModal('scheduleEventViewModal');
 }
 
@@ -604,6 +656,10 @@ function openTimeViewModal(entry) {
     document.getElementById('scheduleTimeViewBilling').textContent = entry.billable ? 'Billable' : 'Non-Billable';
     document.getElementById('scheduleTimeViewActivity').textContent = entry.activity || 'General Work';
     document.getElementById('scheduleTimeViewDescription').textContent = entry.description || 'No description added.';
+    document.getElementById('scheduleTimeViewCreatedBy').textContent = entry.created_by_name || 'Not recorded';
+    document.getElementById('scheduleTimeViewUpdatedBy').textContent = entry.updated_by_name || 'Not recorded';
+    document.getElementById('scheduleTimeViewCreatedAt').textContent = entry.created_at ? new Date(entry.created_at).toLocaleString() : 'Not recorded';
+    document.getElementById('scheduleTimeViewUpdatedAt').textContent = entry.updated_at ? new Date(entry.updated_at).toLocaleString() : 'Not recorded';
     openScheduleModal('scheduleTimeViewModal');
 }
 

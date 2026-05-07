@@ -31,6 +31,9 @@ class DocumentController extends Controller
                 $document['created_at'] = !empty($document['created_at'])
                     ? Carbon::parse($document['created_at'])
                     : null;
+                $document['updated_at'] = !empty($document['updated_at'])
+                    ? Carbon::parse($document['updated_at'])
+                    : null;
                 return (object) $document;
             })
             ->reverse()
@@ -104,6 +107,9 @@ class DocumentController extends Controller
                 ->withErrors(['document_scope' => 'Please select a valid case or client for this document.']);
         }
 
+        $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
+
         foreach ($files as $file) {
             $normalizedType = $this->normalizeFileType($file->getMimeType(), $file->getClientOriginalExtension());
             $allowedTypes = $documentRules['allowed_file_types'] ?? ['PDF', 'DOCX'];
@@ -136,7 +142,12 @@ class DocumentController extends Controller
                 'original_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getMimeType(),
                 'size' => $file->getSize(),
-                'created_at' => now()->toIso8601String(),
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+                'created_by_id' => $actor['id'],
+                'created_by_name' => $actor['name'],
+                'updated_by_id' => $actor['id'],
+                'updated_by_name' => $actor['name'],
             ]));
         }
 
@@ -159,7 +170,12 @@ class DocumentController extends Controller
                 ),
                 'original_name' => $host,
                 'link_url' => $linkUrl,
-                'created_at' => now()->toIso8601String(),
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+                'created_by_id' => $actor['id'],
+                'created_by_name' => $actor['name'],
+                'updated_by_id' => $actor['id'],
+                'updated_by_name' => $actor['name'],
             ]));
         }
 
@@ -195,6 +211,8 @@ class DocumentController extends Controller
         $document->id = $id;
         $document->category = $document->category ?? 'Uncategorized';
         $document->scope = $document->scope ?? 'general';
+        $document->created_at = !empty($docData['created_at']) ? Carbon::parse($docData['created_at']) : null;
+        $document->updated_at = !empty($docData['updated_at']) ? Carbon::parse($docData['updated_at']) : null;
 
         $caseOptions = $this->workspaceCollection('cases')
             ->map(fn ($case, $caseId) => (object) [
@@ -244,6 +262,8 @@ class DocumentController extends Controller
                 ->withErrors(['document_scope' => 'Please select a valid case or client for this document.']);
         }
 
+        $actor = $this->currentActorMetadata();
+
         $payload = [
             'name' => $validated['name'],
             'category' => $validated['category'],
@@ -252,6 +272,9 @@ class DocumentController extends Controller
             'case_name' => $linkedEntity['type'] === 'case' ? $linkedEntity['name'] : null,
             'client_id' => $linkedEntity['type'] === 'client' ? $linkedEntity['id'] : null,
             'client_name' => $linkedEntity['type'] === 'client' ? $linkedEntity['name'] : null,
+            'updated_at' => now()->toIso8601String(),
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
         ];
 
         if (($document['type'] ?? 'file') === 'link') {

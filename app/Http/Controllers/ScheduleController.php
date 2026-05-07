@@ -22,6 +22,12 @@ class ScheduleController extends Controller
                 $hearing['hearing_time'] = !empty($hearing['hearing_time'])
                     ? Carbon::parse($hearing['hearing_time'])
                     : now();
+                $hearing['created_at'] = !empty($hearing['created_at'])
+                    ? Carbon::parse($hearing['created_at'])
+                    : null;
+                $hearing['updated_at'] = !empty($hearing['updated_at'])
+                    ? Carbon::parse($hearing['updated_at'])
+                    : null;
                 return (object) $hearing;
             });
 
@@ -31,6 +37,12 @@ class ScheduleController extends Controller
                 $entry['work_date'] = !empty($entry['work_date'])
                     ? Carbon::parse($entry['work_date'])
                     : now();
+                $entry['created_at'] = !empty($entry['created_at'])
+                    ? Carbon::parse($entry['created_at'])
+                    : null;
+                $entry['updated_at'] = !empty($entry['updated_at'])
+                    ? Carbon::parse($entry['updated_at'])
+                    : null;
                 $entry['case'] = (object) ['case_name' => $entry['case_name'] ?? 'General'];
                 return (object) $entry;
             })
@@ -81,8 +93,17 @@ class ScheduleController extends Controller
 
         $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
         $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
+        $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
 
-        Firebase::database()->getReference('hearings')->push($this->workspacePayload($validated));
+        Firebase::database()->getReference('hearings')->push($this->workspacePayload(array_merge($validated, [
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+            'created_by_id' => $actor['id'],
+            'created_by_name' => $actor['name'],
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
+        ])));
         return redirect()->back()->with('success', 'Event scheduled.');
     }
 
@@ -115,7 +136,13 @@ class ScheduleController extends Controller
 
         $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
         $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
-        Firebase::database()->getReference('hearings/' . $id)->update($validated);
+        $actor = $this->currentActorMetadata();
+
+        Firebase::database()->getReference('hearings/' . $id)->update(array_merge($validated, [
+            'updated_at' => now()->toIso8601String(),
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
+        ]));
 
         return redirect()->route('schedule')->with('success', 'Schedule task updated successfully.');
     }
@@ -132,6 +159,8 @@ class ScheduleController extends Controller
         ]);
 
         $case = $this->findWorkspaceRecord('cases', $validated['case_id']) ?? [];
+        $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
 
         Firebase::database()->getReference('time_entries')->push($this->workspacePayload([
             'case_id' => $validated['case_id'],
@@ -141,7 +170,12 @@ class ScheduleController extends Controller
             'activity' => $validated['activity'] ?? 'General Work',
             'billable' => filter_var($validated['billable'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'description' => $validated['description'],
-            'created_at' => now()->toIso8601String(),
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+            'created_by_id' => $actor['id'],
+            'created_by_name' => $actor['name'],
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
         ]));
 
         $returnTarget = $request->input('return_to');
@@ -186,6 +220,7 @@ class ScheduleController extends Controller
         }
 
         $case = $this->findWorkspaceRecord('cases', $validated['case_id']) ?? [];
+        $actor = $this->currentActorMetadata();
 
         Firebase::database()->getReference('time_entries/' . $id)->update([
             'case_id' => $validated['case_id'],
@@ -195,6 +230,9 @@ class ScheduleController extends Controller
             'activity' => $validated['activity'] ?? 'General Work',
             'billable' => filter_var($validated['billable'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'description' => $validated['description'],
+            'updated_at' => now()->toIso8601String(),
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
         ]);
 
         return redirect()
