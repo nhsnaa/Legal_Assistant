@@ -60,6 +60,7 @@ class ClientController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ])));
+        $this->logActivity('client', 'Client', 'created', $validated['name']);
 
         return redirect()->back()->with('success', 'Client added.');
     }
@@ -86,6 +87,7 @@ class ClientController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]));
+        $this->logActivity('client', 'Client', 'updated', $validated['name']);
 
         return redirect()->route('clients.index')->with('success', 'Client updated successfully.');
     }
@@ -114,10 +116,13 @@ class ClientController extends Controller
 
     public function destroy($id)
     {
-        if (!$this->findWorkspaceRecord('clients', $id)) {
+        $clientData = $this->findWorkspaceRecord('clients', $id);
+
+        if (!$clientData) {
             return redirect()->route('clients.index')->with('error', 'Client not found.');
         }
 
+        $this->logActivity('client', 'Client', 'deleted', $clientData['name'] ?? 'Untitled Client');
         Firebase::database()->getReference('clients/' . $id)->remove();
         return redirect()->route('clients.index')->with('success', 'Client deleted.');
     }
@@ -139,6 +144,12 @@ class ClientController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]);
+        $this->logActivity(
+            'client',
+            'Client',
+            $nextStatus === 'Inactive' ? 'archived' : 'restored',
+            $client['name'] ?? 'Untitled Client'
+        );
 
         return redirect()->route('clients.index')->with(
             'success',

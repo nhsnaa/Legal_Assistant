@@ -189,6 +189,46 @@
         <div class="col-xl-4 col-lg-5">
             <div class="glass-card p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h6 class="font-weight-bold mb-0">Recent Activity</h6>
+                    @if(($recentActivityCount ?? 0) > 5)
+                        <button type="button" class="btn btn-sm btn-link font-weight-bold p-0" onclick="openDashboardModal('dashboardActivityModal')">View More</button>
+                    @else
+                        <span class="text-muted tiny uppercase">Latest 5</span>
+                    @endif
+                </div>
+
+                <div class="activity-feed-list">
+                    @forelse($recentActivities as $activity)
+                        <div class="activity-feed-item">
+                            <div class="activity-feed-icon activity-feed-icon-{{ $activity['module'] }}">
+                                <i class="
+                                    @switch($activity['module'])
+                                        @case('client') bi bi-person-lines-fill @break
+                                        @case('case') bi bi-briefcase-fill @break
+                                        @case('document') bi bi-file-earmark-text-fill @break
+                                        @case('schedule') bi bi-calendar-check-fill @break
+                                        @default bi bi-stopwatch-fill
+                                    @endswitch
+                                "></i>
+                            </div>
+                            <div class="activity-feed-copy">
+                                <strong>{{ $activity['actor'] }} {{ $activity['action'] }} {{ $activity['label'] }}:</strong>
+                                <p>{{ $activity['subject'] }}</p>
+                                <span>{{ $activity['time_label'] }}</span>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="time-log-empty">
+                            <i class="bi bi-activity"></i>
+                            <strong>No recent activity yet</strong>
+                            <p>Once records are created or updated, the latest workspace actions will appear here.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="glass-card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
                     <h6 class="font-weight-bold mb-0">Recent Documents</h6>
                     <a href="{{ route('documents.index') }}" class="btn btn-sm btn-link font-weight-bold p-0">Open</a>
                 </div>
@@ -624,6 +664,51 @@
                     <button type="submit" class="btn btn-primary px-4">Save Task</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="dashboardActivityModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card module-modal-card-activity">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="font-weight-bold mb-1">All Recent Activity</h4>
+                    <p class="text-muted mb-0">A fuller view of the latest workspace actions.</p>
+                </div>
+                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardActivityModal')">&times;</button>
+            </div>
+
+            <div class="activity-feed-list activity-feed-list-modal">
+                @forelse($allRecentActivities as $activity)
+                    <div class="activity-feed-item">
+                        <div class="activity-feed-icon activity-feed-icon-{{ $activity['module'] }}">
+                            <i class="
+                                @switch($activity['module'])
+                                    @case('client') bi bi-person-lines-fill @break
+                                    @case('case') bi bi-briefcase-fill @break
+                                    @case('document') bi bi-file-earmark-text-fill @break
+                                    @case('schedule') bi bi-calendar-check-fill @break
+                                    @default bi bi-stopwatch-fill
+                                @endswitch
+                            "></i>
+                        </div>
+                        <div class="activity-feed-copy">
+                            <strong>{{ $activity['actor'] }} {{ $activity['action'] }} {{ $activity['label'] }}:</strong>
+                            <p>{{ $activity['subject'] }}</p>
+                            <span>{{ $activity['time_label'] }}</span>
+                        </div>
+                    </div>
+                @empty
+                    <div class="time-log-empty">
+                        <i class="bi bi-activity"></i>
+                        <strong>No recent activity yet</strong>
+                        <p>Once records are created or updated, the latest workspace actions will appear here.</p>
+                    </div>
+                @endforelse
+            </div>
+
+            <div class="module-modal-actions">
+                <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardActivityModal')">Close</button>
+            </div>
         </div>
     </div>
 </div>

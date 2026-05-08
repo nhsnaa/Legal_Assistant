@@ -106,11 +106,14 @@ class DashboardController extends Controller
         );
         $aiSuggestions = collect($aiPlan['suggestions'])->values();
         $aiSummary = $aiPlan['summary'];
+        $allRecentActivities = $this->buildRecentActivityFeed();
+        $recentActivities = $allRecentActivities->take(5)->values();
+        $recentActivityCount = $allRecentActivities->count();
 
         return view('dashboard', compact(
             'greeting', 'activeCases', 'chartLabels', 'chartData', 
             'hearings', 'recentDocuments', 'recentTimeEntryData', 
-            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'documentRules', 'aiSuggestions', 'aiSummary'
+            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'documentRules', 'aiSuggestions', 'aiSummary', 'recentActivities', 'allRecentActivities', 'recentActivityCount'
         ));
     }
 
@@ -271,6 +274,12 @@ class DashboardController extends Controller
         ]);
 
         $newPostKey = $database->getReference('time_entries')->push($newData)->getKey();
+        $this->logActivity(
+            'time',
+            'Time Entry',
+            'created',
+            ($validated['activity'] ?? 'General Work') . ' for ' . ($case['case_name'] ?? 'General')
+        );
 
         return response()->json([
             'message' => 'Time entry saved to Firebase.',
@@ -369,6 +378,9 @@ class DashboardController extends Controller
                 'updated_by_id' => $actor['id'],
                 'updated_by_name' => $actor['name'],
             ]));
+            $this->logActivity('schedule', 'Task', 'created', $title, [
+                'source' => 'ai_schedule',
+            ]);
 
             $created++;
         }
@@ -455,5 +467,28 @@ class DashboardController extends Controller
             'summary' => $summary,
             'suggestions' => collect($suggestions)->take(3)->values()->all(),
         ];
+    }
+
+    private function buildRecentActivityFeed()
+    {
+        return $this->workspaceCollection('activity_logs')
+            ->map(function ($item, $id) {
+                $timestamp = !empty($item['created_at']) ? Carbon::parse($item['created_at']) : null;
+
+                return [
+                    'id' => $id,
+                    'module' => $item['module'] ?? 'system',
+                    'label' => $item['label'] ?? 'Record',
+                    'actor' => $item['actor_name'] ?? 'Workspace User',
+                    'action' => $item['action'] ?? 'updated',
+                    'subject' => $item['subject'] ?? 'Workspace Record',
+                    'timestamp' => $timestamp,
+                    'time_label' => $timestamp ? $timestamp->diffForHumans() : 'Unknown time',
+                ];
+            })
+            ->filter(fn ($item) => !empty($item['timestamp']))
+            ->sortByDesc(fn ($item) => $item['timestamp']->timestamp)
+            ->take(8)
+            ->values();
     }
 }

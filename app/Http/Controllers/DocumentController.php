@@ -149,6 +149,9 @@ class DocumentController extends Controller
                 'updated_by_id' => $actor['id'],
                 'updated_by_name' => $actor['name'],
             ]));
+            $this->logActivity('document', 'Document', 'created', $documentName, [
+                'type' => 'file',
+            ]);
         }
 
         if ($linkUrl !== '') {
@@ -177,6 +180,13 @@ class DocumentController extends Controller
                 'updated_by_id' => $actor['id'],
                 'updated_by_name' => $actor['name'],
             ]));
+            $this->logActivity('document', 'Document', 'created', $this->buildDocumentName(
+                $linkBaseName,
+                $scope,
+                $linkedEntity['name'] ?? null
+            ), [
+                'type' => 'link',
+            ]);
         }
 
         return redirect()->route('documents.index')->with('success', 'Document records saved successfully.');
@@ -283,6 +293,9 @@ class DocumentController extends Controller
         }
 
         Firebase::database()->getReference('documents/' . $id)->update($payload);
+        $this->logActivity('document', 'Document', 'updated', $validated['name'], [
+            'type' => $document['type'] ?? 'file',
+        ]);
         return redirect()->route('documents.index')->with('success', 'Document renamed.');
     }
 
@@ -299,6 +312,9 @@ class DocumentController extends Controller
             Storage::delete($doc['file_path']);
         }
 
+        $this->logActivity('document', 'Document', 'deleted', $doc['name'] ?? ($doc['original_name'] ?? 'Untitled Document'), [
+            'type' => $doc['type'] ?? 'file',
+        ]);
         $ref->remove();
         return redirect()->back()->with('success', 'Document deleted.');
     }

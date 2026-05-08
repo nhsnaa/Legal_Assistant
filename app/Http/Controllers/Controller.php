@@ -85,6 +85,21 @@ abstract class Controller
         ]);
     }
 
+    protected function logActivity(string $module, string $label, string $action, string $subject, array $meta = []): void
+    {
+        $actor = $this->currentActorMetadata();
+
+        Firebase::database()->getReference('activity_logs')->push($this->workspacePayload(array_merge([
+            'module' => $module,
+            'label' => $label,
+            'action' => $action,
+            'subject' => $subject,
+            'actor_id' => $actor['id'],
+            'actor_name' => $actor['name'],
+            'created_at' => now()->toIso8601String(),
+        ], $meta)));
+    }
+
     protected function findScheduleConflicts(Carbon|string $targetTime, ?string $ignoreId = null, int $bufferMinutes = 59): Collection
     {
         $target = $targetTime instanceof Carbon ? $targetTime->copy() : Carbon::parse($targetTime);

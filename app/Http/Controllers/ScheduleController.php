@@ -144,15 +144,19 @@ class ScheduleController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ])));
+        $this->logActivity('schedule', 'Task', 'created', $validated['title']);
         return redirect()->back()->with('success', 'Event scheduled.');
     }
 
     public function destroyEvent($id)
     {
-        if (!$this->findWorkspaceRecord('hearings', $id)) {
+        $hearing = $this->findWorkspaceRecord('hearings', $id);
+
+        if (!$hearing) {
             return redirect()->route('schedule')->with('error', 'Schedule task not found.');
         }
 
+        $this->logActivity('schedule', 'Task', 'deleted', $hearing['title'] ?? ($hearing['case_name'] ?? 'Untitled Task'));
         Firebase::database()->getReference('hearings/' . $id)->remove();
 
         return redirect()
@@ -203,6 +207,7 @@ class ScheduleController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]));
+        $this->logActivity('schedule', 'Task', 'updated', $validated['title']);
 
         return redirect()->route('schedule')->with('success', 'Schedule task updated successfully.');
     }
@@ -237,6 +242,12 @@ class ScheduleController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]));
+        $this->logActivity(
+            'time',
+            'Time Entry',
+            'created',
+            ($validated['activity'] ?? 'General Work') . ' for ' . ($case['case_name'] ?? 'General')
+        );
 
         $returnTarget = $request->input('return_to');
 
@@ -253,10 +264,18 @@ class ScheduleController extends Controller
 
     public function destroyTimeEntry($id)
     {
-        if (!$this->findWorkspaceRecord('time_entries', $id)) {
+        $entry = $this->findWorkspaceRecord('time_entries', $id);
+
+        if (!$entry) {
             return redirect()->route('schedule', ['tab' => 'time'])->with('error', 'Time entry not found.');
         }
 
+        $this->logActivity(
+            'time',
+            'Time Entry',
+            'deleted',
+            ($entry['activity'] ?? 'General Work') . ' for ' . ($entry['case_name'] ?? 'General')
+        );
         Firebase::database()->getReference('time_entries/' . $id)->remove();
 
         return redirect()
@@ -294,6 +313,12 @@ class ScheduleController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]);
+        $this->logActivity(
+            'time',
+            'Time Entry',
+            'updated',
+            ($validated['activity'] ?? 'General Work') . ' for ' . ($case['case_name'] ?? 'General')
+        );
 
         return redirect()
             ->route('schedule', ['tab' => 'time'])

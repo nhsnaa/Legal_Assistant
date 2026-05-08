@@ -64,6 +64,7 @@ class CaseController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ])));
+        $this->logActivity('case', 'Case', 'created', $validated['case_name']);
 
         return redirect()->back()->with('success', 'Case created successfully.');
     }
@@ -116,13 +117,15 @@ public function show($id)
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]));
+        $this->logActivity('case', 'Case', 'updated', $validated['case_name']);
 
         return redirect()->route('cases.index')->with('success', 'Case updated successfully.');
     }
 
     public function destroy($id)
     {
-        if ($this->findWorkspaceRecord('cases', $id)) {
+        if ($case = $this->findWorkspaceRecord('cases', $id)) {
+            $this->logActivity('case', 'Case', 'deleted', $case['case_name'] ?? 'Untitled Case');
             Firebase::database()->getReference('cases/' . $id)->remove();
             return redirect()->route('cases.index')->with('success', 'Case deleted successfully.');
         }
@@ -146,6 +149,12 @@ public function show($id)
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]);
+        $this->logActivity(
+            'case',
+            'Case',
+            $nextStatus === 'Closed' ? 'archived' : 'restored',
+            $case['case_name'] ?? 'Untitled Case'
+        );
 
         return redirect()->route('cases.index')->with(
             'success',
