@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Kreait\Laravel\Firebase\Facades\Firebase;
 
@@ -82,6 +83,33 @@ abstract class Controller
             'workspace_id' => $this->currentWorkspaceId(),
             'workspace_owner_id' => $this->currentWorkspaceOwnerId(),
         ]);
+    }
+
+    protected function findScheduleConflicts(Carbon|string $targetTime, ?string $ignoreId = null, int $bufferMinutes = 59): Collection
+    {
+        $target = $targetTime instanceof Carbon ? $targetTime->copy() : Carbon::parse($targetTime);
+
+        return $this->workspaceCollection('hearings')
+            ->map(function ($hearing, $id) {
+                return [
+                    'id' => $id,
+                    'title' => $hearing['title'] ?? ($hearing['case_name'] ?? 'Untitled Task'),
+                    'case_name' => $hearing['case_name'] ?? 'General Task',
+                    'status' => $hearing['status'] ?? 'Scheduled',
+                    'hearing_time' => !empty($hearing['hearing_time'])
+                        ? Carbon::parse($hearing['hearing_time'])
+                        : null,
+                ];
+            })
+            ->filter(function ($hearing) use ($target, $ignoreId, $bufferMinutes) {
+                if (($hearing['id'] ?? null) === $ignoreId || empty($hearing['hearing_time'])) {
+                    return false;
+                }
+
+                return abs($hearing['hearing_time']->diffInMinutes($target, false)) <= $bufferMinutes;
+            })
+            ->sortBy(fn ($hearing) => $hearing['hearing_time']?->timestamp ?? 0)
+            ->values();
     }
 
     protected function currentWorkspaceSecuritySettings(): array

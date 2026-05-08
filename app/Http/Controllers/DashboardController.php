@@ -287,6 +287,7 @@ class DashboardController extends Controller
             'suggestions.*.timing' => ['nullable', 'string', 'max:255'],
             'suggestions.*.detail' => ['nullable', 'string'],
             'suggestions.*.reason' => ['nullable', 'string'],
+            'force_conflicts' => ['nullable', 'boolean'],
         ]);
 
         $database = Firebase::database();
@@ -302,11 +303,15 @@ class DashboardController extends Controller
         $created = 0;
         $skipped = 0;
         $today = now()->toDateString();
+        $conflicts = [];
+        $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
 
         foreach ($validated['suggestions'] as $suggestion) {
             $slot = $suggestion['slot'] ?? 'Suggested Block';
             $time = $slotTimeMap[$slot] ?? '10:00';
-            $hearingTime = Carbon::parse($today . ' ' . $time)->toIso8601String();
+            $targetTime = Carbon::parse($today . ' ' . $time);
+            $hearingTime = $targetTime->toIso8601String();
             $title = trim($suggestion['title']);
             $detail = trim((string) ($suggestion['detail'] ?? ''));
             $reason = trim((string) ($suggestion['reason'] ?? ''));
@@ -318,6 +323,28 @@ class DashboardController extends Controller
 
             if ($isDuplicate) {
                 $skipped++;
+                continue;
+            }
+
+            $nearbyConflicts = $this->findScheduleConflicts($targetTime);
+
+            if ($nearbyConflicts->isNotEmpty() && !$request->boolean('force_conflicts')) {
+                $conflicts[] = [
+                    'slot' => $slot,
+                    'title' => $title,
+                    'scheduled_time' => $targetTime->format('d M Y, g:i A'),
+                    'conflicts_with' => $nearbyConflicts->map(function ($conflict) {
+                        return [
+                            'title' => $conflict['title'] ?? 'Untitled Task',
+                            'case_name' => $conflict['case_name'] ?? 'General Task',
+                            'status' => $conflict['status'] ?? 'Scheduled',
+                            'time' => !empty($conflict['hearing_time'])
+                                ? $conflict['hearing_time']->format('d M Y, g:i A')
+                                : 'Unknown time',
+                        ];
+                    })->values()->all(),
+                ];
+
                 continue;
             }
 
@@ -335,9 +362,24 @@ class DashboardController extends Controller
                 'notes' => $notes,
                 'created_from_ai_schedule' => true,
                 'ai_slot' => $slot,
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+                'created_by_id' => $actor['id'],
+                'created_by_name' => $actor['name'],
+                'updated_by_id' => $actor['id'],
+                'updated_by_name' => $actor['name'],
             ]));
 
             $created++;
+        }
+
+        if (!empty($conflicts) && !$request->boolean('force_conflicts')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Possible schedule conflicts detected. One or more AI blocks overlap with existing tasks.',
+                'conflicts' => $conflicts,
+                'skipped' => $skipped,
+            ], 409);
         }
 
         return response()->json([

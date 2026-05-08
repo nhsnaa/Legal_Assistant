@@ -262,37 +262,39 @@
                 <button type="button" class="module-modal-close" onclick="closeScheduleModal('scheduleEventModal')">&times;</button>
             </div>
 
-            <form action="{{ route('schedule.events.store') }}" method="POST">
+            <form action="{{ route('schedule.events.store') }}" method="POST" id="scheduleEventCreateForm">
                 @csrf
+                <input type="hidden" name="conflict_context" value="schedule_create">
+                <input type="hidden" name="conflict_override" id="scheduleEventConflictOverride" value="0">
                 <div class="form-group">
                     <label class="font-weight-bold small">Task Title</label>
-                    <input type="text" name="title" class="form-control module-input" required>
+                    <input type="text" name="title" class="form-control module-input" required value="{{ old('title') }}">
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Related Case</label>
                     <select name="case_name" class="form-control module-input">
                         <option value="">General task / no case</option>
                         @foreach ($caseOptions as $caseOption)
-                            <option value="{{ $caseOption->case_name }}">{{ $caseOption->case_name }}</option>
+                            <option value="{{ $caseOption->case_name }}" {{ old('case_name') === $caseOption->case_name ? 'selected' : '' }}>{{ $caseOption->case_name }}</option>
                         @endforeach
                     </select>
                     <small class="text-muted d-block mt-2">Leave this blank if the task is internal, administrative, or not tied to one case.</small>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Date & Time</label>
-                    <input type="datetime-local" name="hearing_time" class="form-control module-input" required>
+                    <input type="datetime-local" name="hearing_time" class="form-control module-input" required value="{{ old('hearing_time') }}">
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Status</label>
                     <select name="status" class="form-control module-input">
-                        <option value="Scheduled">Scheduled</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Pending">Pending</option>
+                        <option value="Scheduled" {{ old('status', 'Scheduled') === 'Scheduled' ? 'selected' : '' }}>Scheduled</option>
+                        <option value="Confirmed" {{ old('status') === 'Confirmed' ? 'selected' : '' }}>Confirmed</option>
+                        <option value="Pending" {{ old('status') === 'Pending' ? 'selected' : '' }}>Pending</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Notes</label>
-                    <textarea name="notes" rows="3" class="form-control module-input"></textarea>
+                    <textarea name="notes" rows="3" class="form-control module-input">{{ old('notes') }}</textarea>
                 </div>
 
                 <div class="module-modal-actions">
@@ -426,6 +428,8 @@
             <form id="scheduleEventEditForm" method="POST">
                 @csrf
                 @method('PUT')
+                <input type="hidden" name="conflict_context" value="schedule_edit">
+                <input type="hidden" name="conflict_override" id="scheduleEventEditConflictOverride" value="0">
                 <div class="form-group">
                     <label class="font-weight-bold small">Task Title</label>
                     <input type="text" name="title" id="scheduleEventEditTitle" class="form-control module-input" required>
@@ -601,6 +605,7 @@
             'updated_at' => $hearing->updated_at?->toIso8601String(),
         ];
     })->values()->all();
+    $scheduleConflictJson = session('schedule_conflict');
 @endphp
 
 @section('scripts')
@@ -649,6 +654,97 @@ function openEventEditModal(eventItem) {
     openScheduleModal('scheduleEventEditModal');
 }
 
+function scheduleConflictHtml(conflictData) {
+    const conflicts = Array.isArray(conflictData?.conflicts) ? conflictData.conflicts : [];
+
+    if (!conflicts.length) {
+        return `
+            <div class="ila-conflict-body">
+                <p class="ila-conflict-intro mb-0">Another task already exists near this time.</p>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="ila-conflict-body">
+            <p class="ila-conflict-intro">${escapeHtml(conflictData.message || 'Possible schedule conflict detected.')}</p>
+            <div class="ila-conflict-list">
+            ${conflicts.map(function (conflict) {
+                return `
+                    <div class="ila-conflict-card">
+                        <div class="ila-conflict-card-row">
+                            <strong class="ila-conflict-title">${escapeHtml(conflict.title || 'Untitled Task')}</strong>
+                            <span class="ila-conflict-status">${escapeHtml(conflict.status || 'Scheduled')}</span>
+                        </div>
+                        <div class="ila-conflict-meta">${escapeHtml(conflict.case_name || 'General Task')}</div>
+                        <div class="ila-conflict-time">${escapeHtml(conflict.time || 'Unknown time')}</div>
+                    </div>
+                `;
+            }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function promptScheduleConflict(conflictData) {
+    if (!conflictData || typeof Swal === 'undefined') {
+        return;
+    }
+
+    const context = conflictData.context || 'schedule_create';
+    let form = document.getElementById('scheduleEventCreateForm');
+
+    if (context === 'schedule_edit') {
+        const payload = conflictData.payload || {};
+        document.getElementById('scheduleEventEditForm').action = "{{ url('/schedule/events') }}/" + (conflictData.event_id || '');
+        document.getElementById('scheduleEventEditTitle').value = payload.title || '';
+        document.getElementById('scheduleEventEditCase').value = payload.case_name || '';
+        document.getElementById('scheduleEventEditTime').value = payload.hearing_time || '';
+        document.getElementById('scheduleEventEditStatus').value = payload.status || 'Scheduled';
+        document.getElementById('scheduleEventEditNotes').value = payload.notes || '';
+        form = document.getElementById('scheduleEventEditForm');
+    } else {
+        closeScheduleModal('scheduleEventModal');
+    }
+
+    closeScheduleModal('scheduleEventEditModal');
+    closeScheduleModal('scheduleEventModal');
+
+    Swal.fire({
+        icon: 'warning',
+        title: 'Possible Schedule Conflict',
+        html: scheduleConflictHtml(conflictData),
+        showCancelButton: true,
+        confirmButtonText: 'Continue Anyway',
+        cancelButtonText: 'Review Task',
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#94a3b8',
+        backdrop: 'rgba(15, 23, 42, 0.5)',
+        customClass: {
+            popup: 'ila-swal-popup ila-conflict-popup',
+            confirmButton: 'ila-swal-confirm',
+            cancelButton: 'ila-swal-cancel'
+        },
+        buttonsStyling: false
+    }).then(function (result) {
+        if (!result.isConfirmed || !form) {
+            if (context === 'schedule_edit') {
+                openScheduleModal('scheduleEventEditModal');
+            } else {
+                openScheduleModal('scheduleEventModal');
+            }
+            return;
+        }
+
+        const overrideInput = form.querySelector('input[name="conflict_override"]');
+        if (overrideInput) {
+            overrideInput.value = '1';
+        }
+
+        form.submit();
+    });
+}
+
 function openTimeViewModal(entry) {
     document.getElementById('scheduleTimeViewCase').textContent = entry.case_name || 'General';
     document.getElementById('scheduleTimeViewDate').textContent = entry.work_date || '-';
@@ -677,6 +773,7 @@ function openTimeEditModal(entry) {
 }
 
 const scheduleEvents = @json($scheduleEventsJson);
+const pendingScheduleConflict = @json($scheduleConflictJson);
 
 let currentScheduleMonth = new Date(@json($selectedMonth->copy()->startOfMonth()->format('Y-m-d')) + 'T00:00:00');
 
@@ -786,6 +883,7 @@ document.getElementById('scheduleNextMonthBtn')?.addEventListener('click', funct
 });
 
 renderScheduleCalendar();
+promptScheduleConflict(pendingScheduleConflict);
 
 @if (request('tab') === 'time')
 activateScheduleTab('timePanel');

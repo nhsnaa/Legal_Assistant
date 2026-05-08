@@ -8,6 +8,26 @@ use Carbon\Carbon;
 
 class ScheduleController extends Controller
 {
+    private function buildScheduleConflictData(Request $request, array $payload, $conflicts, ?string $eventId = null): array
+    {
+        return [
+            'context' => $request->input('conflict_context', 'schedule_create'),
+            'event_id' => $eventId,
+            'payload' => $payload,
+            'message' => 'Possible schedule conflict detected. There is already another task scheduled around this time.',
+            'conflicts' => collect($conflicts)->map(function ($conflict) {
+                return [
+                    'title' => $conflict['title'] ?? 'Untitled Task',
+                    'case_name' => $conflict['case_name'] ?? 'General Task',
+                    'status' => $conflict['status'] ?? 'Scheduled',
+                    'time' => !empty($conflict['hearing_time'])
+                        ? $conflict['hearing_time']->format('d M Y, g:i A')
+                        : 'Unknown time',
+                ];
+            })->values()->all(),
+        ];
+    }
+
     public function index(Request $request)
     {
         $monthInput = $request->query('month');
@@ -92,7 +112,27 @@ class ScheduleController extends Controller
         ]);
 
         $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
-        $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
+        $targetTime = Carbon::parse($validated['hearing_time']);
+        $conflicts = $this->findScheduleConflicts($targetTime);
+
+        if ($conflicts->isNotEmpty() && !$request->boolean('conflict_override')) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('schedule_conflict', $this->buildScheduleConflictData(
+                    $request,
+                    [
+                        'title' => $validated['title'],
+                        'case_name' => $validated['case_name'],
+                        'hearing_time' => $targetTime->format('Y-m-d\TH:i'),
+                        'status' => $validated['status'],
+                        'notes' => $validated['notes'] ?? '',
+                    ],
+                    $conflicts
+                ));
+        }
+
+        $validated['hearing_time'] = $targetTime->toIso8601String();
         $actor = $this->currentActorMetadata();
         $timestamp = now()->toIso8601String();
 
@@ -135,7 +175,27 @@ class ScheduleController extends Controller
         }
 
         $validated['case_name'] = trim((string) ($validated['case_name'] ?? '')) ?: 'General Task';
-        $validated['hearing_time'] = Carbon::parse($validated['hearing_time'])->toIso8601String();
+        $targetTime = Carbon::parse($validated['hearing_time']);
+        $conflicts = $this->findScheduleConflicts($targetTime, $id);
+
+        if ($conflicts->isNotEmpty() && !$request->boolean('conflict_override')) {
+            return redirect()
+                ->back()
+                ->with('schedule_conflict', $this->buildScheduleConflictData(
+                    $request,
+                    [
+                        'title' => $validated['title'],
+                        'case_name' => $validated['case_name'],
+                        'hearing_time' => $targetTime->format('Y-m-d\TH:i'),
+                        'status' => $validated['status'],
+                        'notes' => $validated['notes'] ?? '',
+                    ],
+                    $conflicts,
+                    $id
+                ));
+        }
+
+        $validated['hearing_time'] = $targetTime->toIso8601String();
         $actor = $this->currentActorMetadata();
 
         Firebase::database()->getReference('hearings/' . $id)->update(array_merge($validated, [

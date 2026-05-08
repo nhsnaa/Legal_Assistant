@@ -584,37 +584,39 @@
                 <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardEventModal')">&times;</button>
             </div>
 
-            <form action="{{ route('schedule.events.store') }}" method="POST">
+            <form action="{{ route('schedule.events.store') }}" method="POST" id="dashboardEventCreateForm">
                 @csrf
+                <input type="hidden" name="conflict_context" value="dashboard_create">
+                <input type="hidden" name="conflict_override" id="dashboardEventConflictOverride" value="0">
                 <div class="form-group">
                     <label class="font-weight-bold small">Task Title</label>
-                    <input type="text" name="title" class="form-control module-input" required>
+                    <input type="text" name="title" class="form-control module-input" required value="{{ old('title') }}">
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Related Case</label>
                     <select name="case_name" class="form-control module-input">
                         <option value="">General task / no case</option>
                         @foreach ($caseOptions as $caseOption)
-                            <option value="{{ $caseOption->case_name }}">{{ $caseOption->case_name }}</option>
+                            <option value="{{ $caseOption->case_name }}" {{ old('case_name') === $caseOption->case_name ? 'selected' : '' }}>{{ $caseOption->case_name }}</option>
                         @endforeach
                     </select>
                     <small class="text-muted d-block mt-2">Optional for meetings, admin work, or general office reminders.</small>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Date & Time</label>
-                    <input type="datetime-local" name="hearing_time" class="form-control module-input" required>
+                    <input type="datetime-local" name="hearing_time" class="form-control module-input" required value="{{ old('hearing_time') }}">
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Status</label>
                     <select name="status" class="form-control module-input">
-                        <option value="Scheduled">Scheduled</option>
-                        <option value="Confirmed">Confirmed</option>
-                        <option value="Pending">Pending</option>
+                        <option value="Scheduled" {{ old('status', 'Scheduled') === 'Scheduled' ? 'selected' : '' }}>Scheduled</option>
+                        <option value="Confirmed" {{ old('status') === 'Confirmed' ? 'selected' : '' }}>Confirmed</option>
+                        <option value="Pending" {{ old('status') === 'Pending' ? 'selected' : '' }}>Pending</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Notes</label>
-                    <textarea name="notes" rows="3" class="form-control module-input"></textarea>
+                    <textarea name="notes" rows="3" class="form-control module-input">{{ old('notes') }}</textarea>
                 </div>
 
                 <div class="module-modal-actions">
@@ -641,6 +643,120 @@ function openDashboardModal(modalId) {
 
 function closeDashboardModal(modalId) {
     document.getElementById(modalId)?.classList.remove('show');
+}
+
+function buildDashboardConflictHtml(conflictData) {
+    const conflicts = Array.isArray(conflictData?.conflicts) ? conflictData.conflicts : [];
+
+    if (!conflicts.length) {
+        return `
+            <div class="ila-conflict-body">
+                <p class="ila-conflict-intro mb-0">Another task already exists near this time.</p>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="ila-conflict-body">
+            <p class="ila-conflict-intro">${escapeHtml(conflictData.message || 'Possible schedule conflict detected.')}</p>
+            <div class="ila-conflict-list">
+            ${conflicts.map(function (conflict) {
+                return `
+                    <div class="ila-conflict-card">
+                        <div class="ila-conflict-card-row">
+                            <strong class="ila-conflict-title">${escapeHtml(conflict.title || 'Untitled Task')}</strong>
+                            <span class="ila-conflict-status">${escapeHtml(conflict.status || 'Scheduled')}</span>
+                        </div>
+                        <div class="ila-conflict-meta">${escapeHtml(conflict.case_name || 'General Task')}</div>
+                        <div class="ila-conflict-time">${escapeHtml(conflict.time || 'Unknown time')}</div>
+                    </div>
+                `;
+            }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function promptDashboardScheduleConflict(conflictData) {
+    if (!conflictData || typeof Swal === 'undefined') {
+        return;
+    }
+
+    if ((conflictData.context || '') !== 'dashboard_create') {
+        return;
+    }
+
+    closeDashboardModal('dashboardEventModal');
+
+    Swal.fire({
+        icon: 'warning',
+        title: 'Possible Schedule Conflict',
+        html: buildDashboardConflictHtml(conflictData),
+        showCancelButton: true,
+        confirmButtonText: 'Continue Anyway',
+        cancelButtonText: 'Review Task',
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#94a3b8',
+        backdrop: 'rgba(15, 23, 42, 0.5)',
+        customClass: {
+            popup: 'ila-swal-popup ila-conflict-popup',
+            confirmButton: 'ila-swal-confirm',
+            cancelButton: 'ila-swal-cancel'
+        },
+        buttonsStyling: false
+    }).then(function (result) {
+        if (!result.isConfirmed) {
+            openDashboardModal('dashboardEventModal');
+            return;
+        }
+
+        const form = document.getElementById('dashboardEventCreateForm');
+        const overrideInput = document.getElementById('dashboardEventConflictOverride');
+
+        if (overrideInput) {
+            overrideInput.value = '1';
+        }
+
+        form?.submit();
+    });
+}
+
+function buildAiConflictHtml(conflicts, message) {
+    const items = Array.isArray(conflicts) ? conflicts : [];
+
+    return `
+        <div class="ila-conflict-body">
+            <p class="ila-conflict-intro">${escapeHtml(message || 'Possible schedule conflicts detected.')}</p>
+            <div class="ila-conflict-list ila-conflict-list-ai">
+            ${items.map(function (item) {
+                const nested = Array.isArray(item.conflicts_with) ? item.conflicts_with : [];
+                return `
+                    <div class="ila-conflict-card ila-conflict-card-ai">
+                        <div class="ila-conflict-card-row">
+                            <strong class="ila-conflict-title">${escapeHtml(item.title || 'Suggested Block')}</strong>
+                            <span class="ila-conflict-status">AI Block</span>
+                        </div>
+                        <div class="ila-conflict-time">${escapeHtml(item.scheduled_time || 'Today')}</div>
+                        <div class="ila-conflict-nested-list">
+                        ${nested.map(function (conflict) {
+                            return `
+                                <div class="ila-conflict-nested-card">
+                                    <div class="ila-conflict-card-row">
+                                        <strong class="ila-conflict-title">${escapeHtml(conflict.title || 'Existing Task')}</strong>
+                                        <span class="ila-conflict-status">${escapeHtml(conflict.status || 'Scheduled')}</span>
+                                    </div>
+                                    <div class="ila-conflict-meta">${escapeHtml(conflict.case_name || 'General Task')}</div>
+                                    <div class="ila-conflict-time">${escapeHtml(conflict.time || 'Unknown time')}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+            </div>
+        </div>
+    `;
 }
 
 const chartLabels = @json($chartLabels ?? []);
@@ -684,6 +800,7 @@ const dashboardAiSuggestionsUrl = @json(route('dashboard.ai-suggestions'));
 const dashboardApplyAiScheduleUrl = @json(route('dashboard.ai-suggestions.apply'));
 const csrfToken = @json(csrf_token());
 const aiScheduleStorageKey = @json('ilaAiSchedule:' . session('firebase_user_id'));
+const pendingDashboardScheduleConflict = @json(session('schedule_conflict'));
 let dashboardTimeEntries = Array.isArray(recentTimeEntries) ? recentTimeEntries.slice() : [];
 let pendingTimeEntry = null;
 const generateAiSuggestionsBtn = document.getElementById('generateAiSuggestionsBtn');
@@ -1012,57 +1129,106 @@ applyAiSuggestionsBtn?.addEventListener('click', function () {
     }
 
     const originalHtml = applyAiSuggestionsBtn.innerHTML;
-    applyAiSuggestionsBtn.disabled = true;
-    applyAiSuggestionsBtn.innerHTML = '<span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>Applying...';
+    const applyAiSchedule = function (forceConflicts) {
+        applyAiSuggestionsBtn.disabled = true;
+        applyAiSuggestionsBtn.innerHTML = '<span class="spinner-border spinner-border-sm mr-2" role="status" aria-hidden="true"></span>Applying...';
 
-    fetch(dashboardApplyAiScheduleUrl, {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
-            suggestions: currentAiSuggestions
+        fetch(dashboardApplyAiScheduleUrl, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify({
+                suggestions: currentAiSuggestions,
+                force_conflicts: forceConflicts ? 1 : 0
+            })
         })
-    })
-        .then(function (response) {
-            return response.json().then(function (payload) {
-                if (!response.ok) {
-                    throw new Error(payload.message || 'Unable to apply the AI schedule right now.');
+            .then(function (response) {
+                return response.json().then(function (payload) {
+                    if (response.status === 409) {
+                        const conflictError = new Error(payload.message || 'Possible schedule conflicts detected.');
+                        conflictError.type = 'schedule_conflict';
+                        conflictError.payload = payload;
+                        throw conflictError;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(payload.message || 'Unable to apply the AI schedule right now.');
+                    }
+
+                    return payload;
+                });
+            })
+            .then(function (payload) {
+                clearAiScheduleState();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Schedule Applied',
+                        text: payload.message + (payload.skipped ? ' ' + payload.skipped + ' duplicate block(s) were skipped.' : ''),
+                        confirmButtonColor: '#0891b2',
+                        customClass: {
+                            popup: 'ila-swal-popup',
+                            confirmButton: 'ila-swal-confirm'
+                        },
+                        buttonsStyling: false
+                    });
+                }
+            })
+            .catch(function (error) {
+                if (error.type === 'schedule_conflict' && typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Possible Schedule Conflicts',
+                        html: buildAiConflictHtml(error.payload?.conflicts || [], error.payload?.message || ''),
+                        showCancelButton: true,
+                        confirmButtonText: 'Apply Anyway',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#f59e0b',
+                        cancelButtonColor: '#94a3b8',
+                        backdrop: 'rgba(15, 23, 42, 0.5)',
+                        customClass: {
+                            popup: 'ila-swal-popup ila-conflict-popup',
+                            confirmButton: 'ila-swal-confirm',
+                            cancelButton: 'ila-swal-cancel'
+                        },
+                        buttonsStyling: false
+                    }).then(function (result) {
+                        if (result.isConfirmed) {
+                            applyAiSchedule(true);
+                        }
+                    });
+
+                    return;
                 }
 
-                return payload;
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Apply Failed',
+                        text: error.message || 'Unable to apply the AI schedule right now.',
+                        confirmButtonColor: '#0891b2',
+                        customClass: {
+                            popup: 'ila-swal-popup',
+                            confirmButton: 'ila-swal-confirm'
+                        },
+                        buttonsStyling: false
+                    });
+                }
+            })
+            .finally(function () {
+                applyAiSuggestionsBtn.disabled = false;
+                applyAiSuggestionsBtn.innerHTML = originalHtml;
             });
-        })
-        .then(function (payload) {
-            clearAiScheduleState();
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Schedule Applied',
-                    text: payload.message + (payload.skipped ? ' ' + payload.skipped + ' duplicate block(s) were skipped.' : ''),
-                    confirmButtonColor: '#0891b2'
-                });
-            }
-        })
-        .catch(function (error) {
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Apply Failed',
-                    text: error.message || 'Unable to apply the AI schedule right now.',
-                    confirmButtonColor: '#0891b2'
-                });
-            }
-        })
-        .finally(function () {
-            applyAiSuggestionsBtn.disabled = false;
-            applyAiSuggestionsBtn.innerHTML = originalHtml;
-        });
+    };
+
+    applyAiSchedule(false);
 });
 
 dashboardDocumentScope?.addEventListener('change', syncDashboardDocumentScope);
 syncDashboardDocumentScope();
+promptDashboardScheduleConflict(pendingDashboardScheduleConflict);
 </script>
 @endsection
