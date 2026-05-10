@@ -4,13 +4,6 @@
 
 @section('content')
 <div>
-    @if (session('success'))
-        <div class="module-alert module-alert-success mb-4">
-            <span>{{ session('success') }}</span>
-            <button type="button" onclick="this.parentElement.style.display='none'">&times;</button>
-        </div>
-    @endif
-
     <h6 class="font-weight-bold mb-4">Quick Create</h6>
     <div class="quick-create-grid mb-5">
         @php
@@ -190,14 +183,11 @@
             <div class="glass-card p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h6 class="font-weight-bold mb-0">Recent Activity</h6>
-                    @if(($recentActivityCount ?? 0) > 5)
-                        <button type="button" class="btn btn-sm btn-link font-weight-bold p-0" onclick="openDashboardModal('dashboardActivityModal')">View More</button>
-                    @else
-                        <span class="text-muted tiny uppercase">Latest 5</span>
-                    @endif
+                    <button type="button" class="btn btn-sm btn-link font-weight-bold p-0 {{ ($recentActivityCount ?? 0) > 3 ? '' : 'd-none' }}" id="recentActivityViewMoreBtn" onclick="openDashboardModal('dashboardActivityModal')">View More</button>
+                    <span class="text-muted tiny uppercase {{ ($recentActivityCount ?? 0) > 3 ? 'd-none' : '' }}" id="recentActivityHint">Latest 3</span>
                 </div>
 
-                <div class="activity-feed-list">
+                <div class="activity-feed-list" id="recentActivityList">
                     @forelse($recentActivities as $activity)
                         <div class="activity-feed-item">
                             <div class="activity-feed-icon activity-feed-icon-{{ $activity['module'] }}">
@@ -430,6 +420,14 @@
                 <div class="form-group">
                     <label class="font-weight-bold small">Case Title</label>
                     <input type="text" name="case_name" class="form-control module-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="font-weight-bold small">Case Type</label>
+                    <select name="case_type" class="form-control module-input" required>
+                        @foreach (['Criminal', 'Divorce', 'Family', 'Civil Litigation', 'Corporate', 'Employment', 'Property', 'Immigration', 'Other'] as $caseType)
+                            <option value="{{ $caseType }}" {{ $caseType === 'Other' ? 'selected' : '' }}>{{ $caseType }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Detailed Description</label>
@@ -677,7 +675,7 @@
                 <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardActivityModal')">&times;</button>
             </div>
 
-            <div class="activity-feed-list activity-feed-list-modal">
+            <div class="activity-feed-list activity-feed-list-modal" id="recentActivityModalList">
                 @forelse($allRecentActivities as $activity)
                     <div class="activity-feed-item">
                         <div class="activity-feed-icon activity-feed-icon-{{ $activity['module'] }}">
@@ -900,7 +898,13 @@ const dashboardDocumentCaseGroup = document.getElementById('dashboardDocumentCas
 const dashboardDocumentClientGroup = document.getElementById('dashboardDocumentClientGroup');
 const initialAiSuggestions = @json($aiSuggestions ?? []);
 const initialAiSummary = @json($aiSummary ?? '');
+const initialRecentActivities = @json(($allRecentActivities ?? collect())->values()->all());
+const recentActivityList = document.getElementById('recentActivityList');
+const recentActivityModalList = document.getElementById('recentActivityModalList');
+const recentActivityViewMoreBtn = document.getElementById('recentActivityViewMoreBtn');
+const recentActivityHint = document.getElementById('recentActivityHint');
 let currentAiSuggestions = Array.isArray(initialAiSuggestions) ? initialAiSuggestions.slice() : [];
+let dashboardRecentActivities = Array.isArray(initialRecentActivities) ? initialRecentActivities.slice() : [];
 
 function persistAiScheduleState(summary, suggestions, source, message) {
     try {
@@ -977,6 +981,70 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function getActivityIconClass(module) {
+    switch (module) {
+        case 'client':
+            return 'bi bi-person-lines-fill';
+        case 'case':
+            return 'bi bi-briefcase-fill';
+        case 'document':
+            return 'bi bi-file-earmark-text-fill';
+        case 'schedule':
+            return 'bi bi-calendar-check-fill';
+        default:
+            return 'bi bi-stopwatch-fill';
+    }
+}
+
+function activityEmptyMarkup() {
+    return `
+        <div class="time-log-empty">
+            <i class="bi bi-activity"></i>
+            <strong>No recent activity yet</strong>
+            <p>Once records are created or updated, the latest workspace actions will appear here.</p>
+        </div>
+    `;
+}
+
+function renderActivityItems(items) {
+    if (!Array.isArray(items) || !items.length) {
+        return activityEmptyMarkup();
+    }
+
+    return items.map(function (activity) {
+        return `
+            <div class="activity-feed-item">
+                <div class="activity-feed-icon activity-feed-icon-${escapeHtml(activity.module || 'time')}">
+                    <i class="${escapeHtml(getActivityIconClass(activity.module || 'time'))}"></i>
+                </div>
+                <div class="activity-feed-copy">
+                    <strong>${escapeHtml(activity.actor || 'Workspace User')} ${escapeHtml(activity.action || 'updated')} ${escapeHtml(activity.label || 'Record')}:</strong>
+                    <p>${escapeHtml(activity.subject || 'Workspace Record')}</p>
+                    <span>${escapeHtml(activity.time_label || 'Just now')}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderRecentActivities() {
+    if (recentActivityList) {
+        recentActivityList.innerHTML = renderActivityItems(dashboardRecentActivities.slice(0, 3));
+    }
+
+    if (recentActivityModalList) {
+        recentActivityModalList.innerHTML = renderActivityItems(dashboardRecentActivities);
+    }
+
+    if (recentActivityViewMoreBtn) {
+        recentActivityViewMoreBtn.classList.toggle('d-none', dashboardRecentActivities.length <= 3);
+    }
+
+    if (recentActivityHint) {
+        recentActivityHint.classList.toggle('d-none', dashboardRecentActivities.length > 3);
+    }
 }
 
 function renderAiSuggestions(summary, suggestions, source, message) {
@@ -1156,7 +1224,7 @@ timeEntryForm?.addEventListener('submit', async function (event) {
         dashboardTimeEntries.push({
             id: payload.entry.id,
             durationMs: payload.entry.durationMs,
-            durationLabel: formatDuration(payload.entry.durationMs),
+            durationLabel: payload.entry.durationLabel || formatDuration(payload.entry.durationMs),
             activity: payload.entry.activity,
             caseName: payload.entry.caseName,
             billable: payload.entry.billable,
@@ -1164,8 +1232,26 @@ timeEntryForm?.addEventListener('submit', async function (event) {
             savedAt: payload.entry.savedAt
         });
 
+        if (payload.activityLog) {
+            dashboardRecentActivities.unshift(payload.activityLog);
+            renderRecentActivities();
+        }
+
         renderTimeLogs();
         discardTimeEntry();
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Time Entry Saved',
+                text: payload.message || 'The timer entry has been saved successfully.',
+                timer: 1800,
+                showConfirmButton: false,
+                customClass: {
+                    popup: 'ila-swal-popup'
+                }
+            });
+        }
     } catch (error) {
         alert('Unable to save the time entry right now. Please try again.');
     } finally {
@@ -1176,6 +1262,7 @@ timeEntryForm?.addEventListener('submit', async function (event) {
 
 timeLogFilter?.addEventListener('change', renderTimeLogs);
 renderTimeLogs();
+renderRecentActivities();
 restoreAiScheduleState();
 
 generateAiSuggestionsBtn?.addEventListener('click', function () {

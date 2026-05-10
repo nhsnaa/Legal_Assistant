@@ -48,11 +48,25 @@ class ScheduleController extends Controller
                 $hearing['updated_at'] = !empty($hearing['updated_at'])
                     ? Carbon::parse($hearing['updated_at'])
                     : null;
+                $status = $hearing['status'] ?? 'Scheduled';
+                $isCompleted = $status === 'Completed';
+                $isOverdue = !$isCompleted && $hearing['hearing_time']->isPast();
+                $isDueSoon = !$isCompleted && !$isOverdue && $hearing['hearing_time']->between(now(), now()->copy()->addDay());
+                $hearing['display_status'] = $isCompleted ? 'Completed' : ($isOverdue ? 'Overdue' : $status);
+                $hearing['state_class'] = $isCompleted ? 'is-completed' : ($isOverdue ? 'is-overdue' : ($isDueSoon ? 'is-due-soon' : 'is-scheduled'));
+                $hearing['status_badge_class'] = $isCompleted
+                    ? 'module-badge-success'
+                    : ($isOverdue
+                        ? 'module-badge-danger'
+                        : ($isDueSoon
+                            ? 'module-badge-warning'
+                            : ($status === 'Confirmed' ? 'module-badge-success' : ($status === 'Pending' ? 'module-badge-warning' : 'module-badge-info'))));
                 return (object) $hearing;
             });
 
         $timeEntries = $this->workspaceCollection('time_entries')
             ->map(function ($entry, $id) {
+                $durationMs = $this->durationMillisecondsFromEntry($entry);
                 $entry['id'] = $id;
                 $entry['work_date'] = !empty($entry['work_date'])
                     ? Carbon::parse($entry['work_date'])
@@ -64,6 +78,8 @@ class ScheduleController extends Controller
                     ? Carbon::parse($entry['updated_at'])
                     : null;
                 $entry['case'] = (object) ['case_name' => $entry['case_name'] ?? 'General'];
+                $entry['duration_ms'] = $durationMs;
+                $entry['duration_label'] = $this->formatDurationLabel($durationMs);
                 return (object) $entry;
             })
             ->reverse()
@@ -107,7 +123,7 @@ class ScheduleController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'case_name' => ['nullable', 'string'],
             'hearing_time' => ['required', 'date'],
-            'status' => ['required', 'in:Scheduled,Confirmed,Pending'],
+            'status' => ['required', 'in:Scheduled,Confirmed,Pending,Completed'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -170,7 +186,7 @@ class ScheduleController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'case_name' => ['nullable', 'string'],
             'hearing_time' => ['required', 'date'],
-            'status' => ['required', 'in:Scheduled,Confirmed,Pending'],
+            'status' => ['required', 'in:Scheduled,Confirmed,Pending,Completed'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -212,6 +228,28 @@ class ScheduleController extends Controller
         return redirect()->route('schedule')->with('success', 'Schedule task updated successfully.');
     }
 
+    public function completeEvent($id)
+    {
+        $event = $this->findWorkspaceRecord('hearings', $id);
+
+        if (!$event) {
+            return redirect()->route('schedule')->with('error', 'Schedule task not found.');
+        }
+
+        $actor = $this->currentActorMetadata();
+
+        Firebase::database()->getReference('hearings/' . $id)->update([
+            'status' => 'Completed',
+            'updated_at' => now()->toIso8601String(),
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
+        ]);
+
+        $this->logActivity('schedule', 'Task', 'completed', $event['title'] ?? ($event['case_name'] ?? 'Untitled Task'));
+
+        return redirect()->route('schedule')->with('success', 'Schedule task marked as completed.');
+    }
+
     public function storeTimeEntry(Request $request)
     {
         $validated = $request->validate([
@@ -232,6 +270,7 @@ class ScheduleController extends Controller
             'case_name' => $case['case_name'] ?? 'General',
             'work_date' => Carbon::parse($validated['work_date'])->toDateString(),
             'hours' => (float) $validated['hours'],
+            'duration_ms' => (int) round(((float) $validated['hours']) * 3600000),
             'activity' => $validated['activity'] ?? 'General Work',
             'billable' => filter_var($validated['billable'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'description' => $validated['description'],
@@ -306,6 +345,7 @@ class ScheduleController extends Controller
             'case_name' => $case['case_name'] ?? 'General',
             'work_date' => Carbon::parse($validated['work_date'])->toDateString(),
             'hours' => (float) $validated['hours'],
+            'duration_ms' => (int) round(((float) $validated['hours']) * 3600000),
             'activity' => $validated['activity'] ?? 'General Work',
             'billable' => filter_var($validated['billable'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'description' => $validated['description'],

@@ -67,12 +67,14 @@
         @if(session('success'))
             Swal.fire({
                 icon: 'success',
-                title: 'Operation Successful',
+                title: 'Done',
                 text: "{{ session('success') }}",
-                timer: 3000,
+                timer: 1800,
                 showConfirmButton: false,
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdrop: `rgba(8, 145, 178, 0.1)`
+                backdrop: 'rgba(15, 23, 42, 0.28)',
+                customClass: {
+                    popup: 'ila-swal-popup'
+                }
             });
         @endif
 
@@ -81,7 +83,12 @@
                 icon: 'error',
                 title: 'Attention',
                 text: "{{ session('error') ?: $errors->first() }}",
-                confirmButtonColor: '#0891b2'
+                confirmButtonColor: '#0891b2',
+                customClass: {
+                    popup: 'ila-swal-popup',
+                    confirmButton: 'ila-swal-confirm'
+                },
+                buttonsStyling: false
             });
         @endif
     });

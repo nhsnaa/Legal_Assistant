@@ -1263,6 +1263,34 @@ body.profile-menu-open #sidebar {
     color: var(--muted);
 }
 
+.schedule-event-pill.is-overdue {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.schedule-event-pill.is-overdue strong {
+    color: #b91c1c;
+}
+
+.schedule-event-pill.is-due-soon {
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.schedule-event-pill.is-due-soon strong {
+    color: #b45309;
+}
+
+.schedule-event-pill.is-completed {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.schedule-event-pill.is-completed strong {
+    color: #047857;
+    text-decoration: line-through;
+}
+
 .schedule-upcoming-list {
     display: flex;
     flex-direction: column;
@@ -1276,6 +1304,21 @@ body.profile-menu-open #sidebar {
     border-radius: 18px;
     background: rgba(248, 251, 253, 0.95);
     border: 1px solid rgba(219, 231, 240, 0.9);
+}
+
+.schedule-upcoming-item.is-overdue {
+    background: rgba(254, 242, 242, 0.96);
+    border-color: rgba(248, 113, 113, 0.32);
+}
+
+.schedule-upcoming-item.is-due-soon {
+    background: rgba(255, 247, 237, 0.96);
+    border-color: rgba(251, 191, 36, 0.32);
+}
+
+.schedule-upcoming-item.is-completed {
+    background: rgba(236, 253, 245, 0.96);
+    border-color: rgba(52, 211, 153, 0.32);
 }
 
 .schedule-upcoming-time {

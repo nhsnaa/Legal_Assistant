@@ -4,20 +4,6 @@
 
 @section('content')
 <div class="module-shell">
-    @if (session('success'))
-        <div class="module-alert module-alert-success">
-            <span>{{ session('success') }}</span>
-            <button type="button" onclick="this.parentElement.style.display='none'">&times;</button>
-        </div>
-    @endif
-
-    @if ($errors->any())
-        <div class="module-alert module-alert-danger">
-            <span>{{ $errors->first() }}</span>
-            <button type="button" onclick="this.parentElement.style.display='none'">&times;</button>
-        </div>
-    @endif
-
     <div class="module-hero glass-card">
         <div>
             <span class="module-kicker">Relationship Hub</span>

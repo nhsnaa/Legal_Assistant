@@ -61,10 +61,12 @@ class DashboardController extends Controller
         // 5. Recent Time Entries
         $timeRef = $this->workspaceCollection('time_entries')->all();
         $recentTimeEntryData = collect($timeRef)->map(function ($entry, $key) {
+            $durationMs = $this->durationMillisecondsFromEntry($entry);
+
             return [
                 'id' => $key,
-                'durationMs' => (int) round(((float) ($entry['hours'] ?? 0)) * 3600000),
-                'durationLabel' => number_format((float) ($entry['hours'] ?? 0), 2) . 'h',
+                'durationMs' => $durationMs,
+                'durationLabel' => $this->formatDurationLabel($durationMs),
                 'activity' => $entry['activity'] ?? 'Unknown',
                 'caseName' => $entry['case_name'] ?? 'No case',
                 'billable' => $entry['billable'] ?? false,
@@ -107,7 +109,7 @@ class DashboardController extends Controller
         $aiSuggestions = collect($aiPlan['suggestions'])->values();
         $aiSummary = $aiPlan['summary'];
         $allRecentActivities = $this->buildRecentActivityFeed();
-        $recentActivities = $allRecentActivities->take(5)->values();
+        $recentActivities = $allRecentActivities->take(3)->values();
         $recentActivityCount = $allRecentActivities->count();
 
         return view('dashboard', compact(
@@ -261,16 +263,25 @@ class DashboardController extends Controller
         
         // Get Case Name for display
         $case = $this->findWorkspaceRecord('cases', $validated['case_id']);
+        $timestamp = now()->toIso8601String();
+
+        $actor = $this->currentActorMetadata();
 
         $newData = $this->workspacePayload([
             'case_id' => $validated['case_id'],
             'case_name' => $case['case_name'] ?? 'General',
             'work_date' => date('Y-m-d', strtotime($validated['stopped_at'])),
             'hours' => $hours,
+            'duration_ms' => $validated['duration_ms'],
             'activity' => $validated['activity'],
             'billable' => (bool) $validated['billable'],
             'description' => $validated['description'],
-            'created_at' => now()->toIso8601String(),
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+            'created_by_id' => $actor['id'],
+            'created_by_name' => $actor['name'],
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
         ]);
 
         $newPostKey = $database->getReference('time_entries')->push($newData)->getKey();
@@ -282,8 +293,26 @@ class DashboardController extends Controller
         );
 
         return response()->json([
-            'message' => 'Time entry saved to Firebase.',
-            'entry' => array_merge($newData, ['id' => $newPostKey, 'durationMs' => $validated['duration_ms'], 'savedAt' => $newData['created_at']])
+            'message' => 'Time entry saved successfully.',
+            'entry' => [
+                'id' => $newPostKey,
+                'durationMs' => $validated['duration_ms'],
+                'durationLabel' => $this->formatDurationLabel($validated['duration_ms']),
+                'activity' => $newData['activity'],
+                'caseName' => $newData['case_name'],
+                'billable' => $newData['billable'],
+                'description' => $newData['description'],
+                'savedAt' => $newData['created_at'],
+            ],
+            'activityLog' => [
+                'module' => 'time',
+                'label' => 'Time Entry',
+                'actor' => $actor['name'],
+                'action' => 'created',
+                'subject' => ($validated['activity'] ?? 'General Work') . ' for ' . ($case['case_name'] ?? 'General'),
+                'time_label' => 'Just now',
+                'timestamp' => $timestamp,
+            ],
         ]);
     }
 

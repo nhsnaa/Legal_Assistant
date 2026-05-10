@@ -4,20 +4,6 @@
 
 @section('content')
 <div class="module-shell">
-    @if (session('success'))
-        <div class="module-alert module-alert-success">
-            <span>{{ session('success') }}</span>
-            <button type="button" onclick="this.parentElement.style.display='none'">&times;</button>
-        </div>
-    @endif
-
-    @if ($errors->any())
-        <div class="module-alert module-alert-danger">
-            <span>{{ $errors->first() }}</span>
-            <button type="button" onclick="this.parentElement.style.display='none'">&times;</button>
-        </div>
-    @endif
-
     <div class="module-hero glass-card">
         <div>
             <span class="module-kicker">Work Planner</span>
@@ -63,17 +49,18 @@
                                 <div class="schedule-day-number">{{ $day['date']->format('j') }}</div>
                                 <div class="schedule-day-events">
                                     @foreach ($day['events']->take(3) as $event)
-                                        <button type="button" class="schedule-event-pill text-left border-0 w-100" onclick="openEventViewModal(@js([
+                                        <button type="button" class="schedule-event-pill {{ $event->state_class }} text-left border-0 w-100" onclick="openEventViewModal(@js([
                                             'id' => $event->id,
                                             'title' => $event->title ?: $event->case_name,
                                             'case_name' => $event->case_name,
-                                            'status' => $event->status,
+                                            'status' => $event->display_status,
                                             'notes' => $event->notes ?? '',
                                             'hearing_time' => $event->hearing_time->toIso8601String(),
                                             'created_by_name' => $event->created_by_name ?? null,
                                             'updated_by_name' => $event->updated_by_name ?? null,
                                             'created_at' => $event->created_at?->toIso8601String(),
                                             'updated_at' => $event->updated_at?->toIso8601String(),
+                                            'state_class' => $event->state_class,
                                         ]))">
                                             <strong>{{ $event->title ?: $event->case_name }}</strong>
                                             <span>{{ $event->hearing_time->format('g:i A') }}</span>
@@ -98,7 +85,7 @@
 
                     <div class="schedule-upcoming-list">
                         @forelse ($upcomingHearings as $hearing)
-                            <div class="schedule-upcoming-item">
+                            <div class="schedule-upcoming-item {{ $hearing->state_class }}">
                                 <div class="schedule-upcoming-time">
                                     <strong>{{ $hearing->hearing_time->format('d M') }}</strong>
                                     <span>{{ $hearing->hearing_time->format('g:i A') }}</span>
@@ -106,22 +93,30 @@
                                 <div class="schedule-upcoming-copy">
                                     <strong>{{ $hearing->title ?: $hearing->case_name }}</strong>
                                     <p class="mb-1">{{ $hearing->case_name }}</p>
-                                    <span class="module-badge {{ $hearing->status === 'Confirmed' ? 'module-badge-success' : ($hearing->status === 'Pending' ? 'module-badge-warning' : 'module-badge-info') }}">
-                                        {{ $hearing->status }}
+                                    <span class="module-badge {{ $hearing->status_badge_class }}">
+                                        {{ $hearing->display_status }}
                                     </span>
                                     <div class="module-actions-inline mt-2">
                                         <button type="button" class="btn btn-sm btn-light" onclick="openEventViewModal(@js([
                                             'id' => $hearing->id,
                                             'title' => $hearing->title ?: $hearing->case_name,
                                             'case_name' => $hearing->case_name,
-                                            'status' => $hearing->status,
+                                            'status' => $hearing->display_status,
                                             'notes' => $hearing->notes ?? '',
                                             'hearing_time' => $hearing->hearing_time->toIso8601String(),
                                             'created_by_name' => $hearing->created_by_name ?? null,
                                             'updated_by_name' => $hearing->updated_by_name ?? null,
                                             'created_at' => $hearing->created_at?->toIso8601String(),
                                             'updated_at' => $hearing->updated_at?->toIso8601String(),
+                                            'state_class' => $hearing->state_class,
                                         ]))">View</button>
+                                        @if ($hearing->status !== 'Completed')
+                                            <form action="{{ route('schedule.events.complete', $hearing->id) }}" method="POST" onsubmit="return confirm('Mark this task as completed?')">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" class="btn btn-sm btn-outline-success">Done</button>
+                                            </form>
+                                        @endif
                                         <button type="button" class="btn btn-sm btn-light" onclick="openEventEditModal(@js([
                                             'id' => $hearing->id,
                                             'title' => $hearing->title ?: $hearing->case_name,
@@ -171,7 +166,7 @@
                                 <tr>
                                     <th>Case Title</th>
                                     <th>Date</th>
-                                    <th>Hours</th>
+                                    <th>Duration</th>
                                     <th>Billing</th>
                                     <th>Description</th>
                                     <th>Actions</th>
@@ -182,7 +177,10 @@
                                     <tr>
                                         <td class="font-weight-bold">{{ optional($entry->case)->case_name }}</td>
                                         <td>{{ $entry->work_date->format('d M Y') }}</td>
-                                        <td>{{ number_format((float) $entry->hours, 2) }}</td>
+                                        <td>
+                                            <div class="font-weight-bold">{{ $entry->duration_label }}</div>
+                                            <small class="text-muted">{{ number_format((float) $entry->hours, 2) }} hours</small>
+                                        </td>
                                         <td>
                                             <span class="module-badge {{ !empty($entry->billable) ? 'module-badge-info' : 'module-badge-muted' }}">
                                                 {{ !empty($entry->billable) ? 'Billable' : 'Non-Billable' }}
@@ -197,6 +195,7 @@
                                                     'case_name' => optional($entry->case)->case_name,
                                                     'work_date' => $entry->work_date->format('Y-m-d'),
                                                     'hours' => (float) $entry->hours,
+                                                    'duration_label' => $entry->duration_label,
                                                     'activity' => $entry->activity ?? 'General Work',
                                                     'billable' => !empty($entry->billable),
                                                     'description' => $entry->description,
@@ -210,6 +209,7 @@
                                                     'case_id' => $entry->case_id,
                                                     'work_date' => $entry->work_date->format('Y-m-d'),
                                                     'hours' => (float) $entry->hours,
+                                                    'duration_label' => $entry->duration_label,
                                                     'activity' => $entry->activity ?? 'General Work',
                                                     'billable' => !empty($entry->billable),
                                                     'description' => $entry->description,
@@ -290,6 +290,7 @@
                         <option value="Scheduled" {{ old('status', 'Scheduled') === 'Scheduled' ? 'selected' : '' }}>Scheduled</option>
                         <option value="Confirmed" {{ old('status') === 'Confirmed' ? 'selected' : '' }}>Confirmed</option>
                         <option value="Pending" {{ old('status') === 'Pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="Completed" {{ old('status') === 'Completed' ? 'selected' : '' }}>Completed</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -454,6 +455,7 @@
                         <option value="Scheduled">Scheduled</option>
                         <option value="Confirmed">Confirmed</option>
                         <option value="Pending">Pending</option>
+                        <option value="Completed">Completed</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -484,7 +486,7 @@
                     <strong id="scheduleTimeViewDate">-</strong>
                 </div>
                 <div class="module-detail-item">
-                    <label>Hours</label>
+                    <label>Duration</label>
                     <strong id="scheduleTimeViewHours">-</strong>
                 </div>
                 <div class="module-detail-item">
@@ -550,6 +552,7 @@
                     <div class="form-group col-md-6">
                         <label class="font-weight-bold small">Hours</label>
                         <input type="number" step="0.25" min="0.25" max="24" name="hours" id="scheduleTimeEditHours" class="form-control module-input" required>
+                        <small class="text-muted d-block mt-2" id="scheduleTimeEditDurationHint">Saved as decimal hours for editing.</small>
                     </div>
                     <div class="form-group col-md-6">
                         <label class="font-weight-bold small">Activity</label>
@@ -596,13 +599,14 @@
             'id' => $hearing->id,
             'title' => $hearing->title ?: $hearing->case_name,
             'case_name' => $hearing->case_name,
-            'status' => $hearing->status,
+            'status' => $hearing->display_status,
             'notes' => $hearing->notes ?? '',
             'hearing_time' => $hearing->hearing_time->toIso8601String(),
             'created_by_name' => $hearing->created_by_name ?? null,
             'updated_by_name' => $hearing->updated_by_name ?? null,
             'created_at' => $hearing->created_at?->toIso8601String(),
             'updated_at' => $hearing->updated_at?->toIso8601String(),
+            'state_class' => $hearing->state_class,
         ];
     })->values()->all();
     $scheduleConflictJson = session('schedule_conflict');
@@ -649,7 +653,7 @@ function openEventEditModal(eventItem) {
     document.getElementById('scheduleEventEditTitle').value = eventItem.title || '';
     document.getElementById('scheduleEventEditCase').value = eventItem.case_name || '';
     document.getElementById('scheduleEventEditTime').value = eventItem.hearing_time || '';
-    document.getElementById('scheduleEventEditStatus').value = eventItem.status || 'Scheduled';
+    document.getElementById('scheduleEventEditStatus').value = ['Overdue', 'Due Soon'].includes(eventItem.status) ? 'Scheduled' : (eventItem.status || 'Scheduled');
     document.getElementById('scheduleEventEditNotes').value = eventItem.notes || '';
     openScheduleModal('scheduleEventEditModal');
 }
@@ -748,7 +752,7 @@ function promptScheduleConflict(conflictData) {
 function openTimeViewModal(entry) {
     document.getElementById('scheduleTimeViewCase').textContent = entry.case_name || 'General';
     document.getElementById('scheduleTimeViewDate').textContent = entry.work_date || '-';
-    document.getElementById('scheduleTimeViewHours').textContent = Number(entry.hours || 0).toFixed(2);
+    document.getElementById('scheduleTimeViewHours').textContent = entry.duration_label || (Number(entry.hours || 0).toFixed(2) + ' hours');
     document.getElementById('scheduleTimeViewBilling').textContent = entry.billable ? 'Billable' : 'Non-Billable';
     document.getElementById('scheduleTimeViewActivity').textContent = entry.activity || 'General Work';
     document.getElementById('scheduleTimeViewDescription').textContent = entry.description || 'No description added.';
@@ -764,6 +768,9 @@ function openTimeEditModal(entry) {
     document.getElementById('scheduleTimeEditCase').value = entry.case_id || '';
     document.getElementById('scheduleTimeEditDate').value = entry.work_date || '';
     document.getElementById('scheduleTimeEditHours').value = entry.hours || '';
+    document.getElementById('scheduleTimeEditDurationHint').textContent = entry.duration_label
+        ? 'This entry currently equals ' + entry.duration_label + '. Editing still uses decimal hours.'
+        : 'Saved as decimal hours for editing.';
     document.getElementById('scheduleTimeEditActivity').value = entry.activity || 'General Work';
     document.getElementById('scheduleEditBillableYes').checked = !!entry.billable;
     document.getElementById('scheduleEditBillableNo').checked = !entry.billable;
@@ -771,6 +778,21 @@ function openTimeEditModal(entry) {
     activateScheduleTab('timePanel');
     openScheduleModal('scheduleTimeEditModal');
 }
+
+document.getElementById('scheduleTimeEditHours')?.addEventListener('input', function () {
+    const hours = Number(this.value || 0);
+    const totalSeconds = Math.max(1, Math.round(hours * 3600));
+    const hourPart = Math.floor(totalSeconds / 3600);
+    const minutePart = Math.floor((totalSeconds % 3600) / 60);
+    const secondPart = totalSeconds % 60;
+    const label = hourPart > 0
+        ? `${hourPart}h ${minutePart}m ${secondPart}s`
+        : (minutePart > 0 ? `${minutePart}m ${secondPart}s` : `${secondPart}s`);
+
+    document.getElementById('scheduleTimeEditDurationHint').textContent = hours > 0
+        ? `This equals about ${label}.`
+        : 'Saved as decimal hours for editing.';
+});
 
 const scheduleEvents = @json($scheduleEventsJson);
 const pendingScheduleConflict = @json($scheduleConflictJson);
@@ -845,7 +867,7 @@ function renderScheduleCalendar() {
         const visibleEvents = dayEvents.slice(0, 3).map(function (event) {
             const eventTime = new Date(event.hearing_time);
             return `
-                <button type="button" class="schedule-event-pill text-left border-0 w-100" onclick="openEventViewModalById('${escapeHtml(event.id)}')">
+                <button type="button" class="schedule-event-pill ${escapeHtml(event.state_class || 'is-scheduled')} text-left border-0 w-100" onclick="openEventViewModalById('${escapeHtml(event.id)}')">
                     <strong>${escapeHtml(event.title || event.case_name)}</strong>
                     <span>${escapeHtml(eventTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</span>
                 </button>

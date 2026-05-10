@@ -8,6 +8,33 @@ use Kreait\Laravel\Firebase\Facades\Firebase;
 
 abstract class Controller
 {
+    protected function durationMillisecondsFromEntry(array $entry): int
+    {
+        if (isset($entry['duration_ms']) && is_numeric($entry['duration_ms'])) {
+            return max((int) $entry['duration_ms'], 0);
+        }
+
+        return max((int) round(((float) ($entry['hours'] ?? 0)) * 3600000), 0);
+    }
+
+    protected function formatDurationLabel(int $milliseconds): string
+    {
+        $totalSeconds = max(1, (int) floor($milliseconds / 1000));
+        $hours = intdiv($totalSeconds, 3600);
+        $minutes = intdiv($totalSeconds % 3600, 60);
+        $seconds = $totalSeconds % 60;
+
+        if ($hours > 0) {
+            return $hours . 'h ' . $minutes . 'm ' . $seconds . 's';
+        }
+
+        if ($minutes > 0) {
+            return $minutes . 'm ' . $seconds . 's';
+        }
+
+        return $seconds . 's';
+    }
+
     protected function currentActorMetadata(): array
     {
         return [
@@ -118,6 +145,10 @@ abstract class Controller
             })
             ->filter(function ($hearing) use ($target, $ignoreId, $bufferMinutes) {
                 if (($hearing['id'] ?? null) === $ignoreId || empty($hearing['hearing_time'])) {
+                    return false;
+                }
+
+                if (($hearing['status'] ?? null) === 'Completed') {
                     return false;
                 }
 

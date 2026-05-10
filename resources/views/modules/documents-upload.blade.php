@@ -4,13 +4,6 @@
 
 @section('content')
 <div class="module-shell">
-    @if ($errors->any())
-        <div class="module-alert module-alert-danger">
-            <span>{{ $errors->first() }}</span>
-            <button type="button" onclick="this.parentElement.style.display='none'">&times;</button>
-        </div>
-    @endif
-
     <div class="module-toolbar">
         <div>
             <h1 class="module-title mb-2">Add Document</h1>
