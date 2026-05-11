@@ -27,13 +27,13 @@
 
     <div class="module-filter-tabs mb-4">
         <a href="{{ route('clients.index', ['filter' => 'all']) }}" class="module-filter-tab {{ $filter === 'all' ? 'active' : '' }}">
-            All <span>{{ $clientCounts['all'] }}</span>
+            All <span id="clientCountAll">{{ $clientCounts['all'] }}</span>
         </a>
         <a href="{{ route('clients.index', ['filter' => 'active']) }}" class="module-filter-tab {{ $filter === 'active' ? 'active' : '' }}">
-            Active <span>{{ $clientCounts['active'] }}</span>
+            Active <span id="clientCountActive">{{ $clientCounts['active'] }}</span>
         </a>
         <a href="{{ route('clients.index', ['filter' => 'archived']) }}" class="module-filter-tab {{ $filter === 'archived' ? 'active' : '' }}">
-            Archive <span>{{ $clientCounts['archived'] }}</span>
+            Archive <span id="clientCountArchived">{{ $clientCounts['archived'] }}</span>
         </a>
     </div>
 
@@ -50,50 +50,37 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="clientTableBody">
                     @forelse ($clients as $client)
-                        <tr>
+                        <tr data-client-row="{{ $client->id }}">
                             <td class="module-id">#{{ $client->id }}</td>
                             <td class="font-weight-bold">{{ $client->name }}</td>
                             <td>{{ $client->email }}</td>
                             <td>{{ $client->phone }}</td>
                             <td>
-                                <span class="module-badge {{ $client->status === 'Active' ? 'module-badge-success' : 'module-badge-warning' }}">
+                                <span class="module-badge {{ $client->status === 'Active' ? 'module-badge-success' : 'module-badge-warning' }}" data-client-status-badge>
                                     {{ $client->status }}
                                 </span>
                             </td>
                             <td>
                                 <div class="module-actions-inline">
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-light"
-                                        onclick="openClientViewModal(@js([
-                                            'id' => $client->id,
-                                            'name' => $client->name,
-                                            'email' => $client->email,
-                                            'phone' => $client->phone,
-                                            'status' => $client->status,
-                                            'created_by_name' => $client->created_by_name ?? null,
-                                            'updated_by_name' => $client->updated_by_name ?? null,
-                                            'created_at_label' => $client->created_at_label,
-                                            'updated_at_label' => $client->updated_at_label,
-                                        ]))">
-                                        View
-                                    </button>
+                                    <a href="{{ route('clients.show', $client->id) }}" class="btn btn-sm btn-light">
+                                        Overview
+                                    </a>
                                     <button
                                         type="button"
                                         class="btn btn-sm btn-light"
                                         onclick="openClientEditModal(@js(['id' => $client->id, 'name' => $client->name, 'email' => $client->email, 'phone' => $client->phone, 'status' => $client->status]))">
                                         Edit
                                     </button>
-                                    <form action="{{ route('clients.archive', $client->id) }}" method="POST" onsubmit="return confirm('{{ $client->status === 'Inactive' ? 'Restore this client?' : 'Archive this client?' }}')">
+                                    <form action="{{ route('clients.archive', $client->id) }}" method="POST" data-async-client-action="archive" data-client-id="{{ $client->id }}" data-confirm="{{ $client->status === 'Inactive' ? 'Restore this client?' : 'Archive this client?' }}">
                                         @csrf
                                         @method('PATCH')
-                                        <button type="submit" class="btn btn-sm btn-light">
+                                        <button type="submit" class="btn btn-sm btn-light" data-client-archive-button>
                                             {{ $client->status === 'Inactive' ? 'Restore' : 'Archive' }}
                                         </button>
                                     </form>
-                                    <form action="{{ route('clients.destroy', $client->id) }}" method="POST" onsubmit="return confirm('Delete this client?')">
+                                    <form action="{{ route('clients.destroy', $client->id) }}" method="POST" data-async-client-action="delete" data-client-id="{{ $client->id }}" data-confirm="Delete this client?">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
@@ -246,6 +233,8 @@
 
 @section('scripts')
 <script>
+const currentClientFilter = @json($filter);
+
 function openClientModal() {
     document.getElementById('clientModal').classList.add('show');
 }
@@ -284,6 +273,125 @@ function openClientEditModal(client) {
 function closeClientEditModal() {
     document.getElementById('clientEditModal').classList.remove('show');
 }
+
+function updateClientCounts(counts) {
+    if (!counts) return;
+    document.getElementById('clientCountAll').textContent = counts.all ?? document.getElementById('clientCountAll').textContent;
+    document.getElementById('clientCountActive').textContent = counts.active ?? document.getElementById('clientCountActive').textContent;
+    document.getElementById('clientCountArchived').textContent = counts.archived ?? document.getElementById('clientCountArchived').textContent;
+}
+
+function ensureClientEmptyState() {
+    const tbody = document.getElementById('clientTableBody');
+    if (!tbody || tbody.querySelector('[data-client-row]')) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="module-empty-cell">No clients registered in the system yet.</td></tr>';
+}
+
+async function handleClientAction(form) {
+    const confirmed = confirm(form.dataset.confirm || 'Continue with this action?');
+    if (!confirmed) {
+        return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalText = submitButton ? submitButton.innerHTML : '';
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.innerHTML = 'Working...';
+    }
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: new FormData(form)
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+            throw new Error(payload.message || 'Action failed.');
+        }
+
+        const row = document.querySelector(`[data-client-row="${form.dataset.clientId}"]`);
+        updateClientCounts(payload.counts);
+
+        if (form.dataset.asyncClientAction === 'delete') {
+            row?.remove();
+            ensureClientEmptyState();
+        } else if (form.dataset.asyncClientAction === 'archive' && row) {
+            const nextStatus = payload.status || 'Active';
+            const badge = row.querySelector('[data-client-status-badge]');
+            const archiveButton = row.querySelector('[data-client-archive-button]');
+            const archiveForm = row.querySelector('[data-async-client-action="archive"]');
+
+            if (currentClientFilter === 'active' && nextStatus === 'Inactive') {
+                row.remove();
+                ensureClientEmptyState();
+            } else if (currentClientFilter === 'archived' && nextStatus === 'Active') {
+                row.remove();
+                ensureClientEmptyState();
+            } else {
+                if (badge) {
+                    badge.textContent = nextStatus;
+                    badge.classList.toggle('module-badge-success', nextStatus === 'Active');
+                    badge.classList.toggle('module-badge-warning', nextStatus !== 'Active');
+                }
+
+                if (archiveButton) {
+                    archiveButton.textContent = nextStatus === 'Inactive' ? 'Restore' : 'Archive';
+                }
+
+                if (archiveForm) {
+                    archiveForm.dataset.confirm = nextStatus === 'Inactive' ? 'Restore this client?' : 'Archive this client?';
+                }
+            }
+        }
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Done',
+                text: payload.message || 'Action completed successfully.',
+                timer: 1400,
+                showConfirmButton: false,
+                customClass: {
+                    popup: 'ila-swal-popup'
+                }
+            });
+        }
+    } catch (error) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Attention',
+                text: error.message || 'Unable to complete this action right now.',
+                customClass: {
+                    popup: 'ila-swal-popup',
+                    confirmButton: 'ila-swal-confirm'
+                },
+                buttonsStyling: false
+            });
+        }
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
+        }
+    }
+}
+
+document.querySelectorAll('form[data-async-client-action]').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        handleClientAction(form);
+    });
+});
 
 @if ($errors->any())
 openClientModal();

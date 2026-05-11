@@ -36,6 +36,13 @@ class NotificationController extends Controller
                 };
             })
             ->map(function ($notification, $id) {
+                $isWorkspaceInvitation = ($notification['type'] ?? null) === 'workspace_invitation';
+                $invitationAlreadyAccepted = !empty($notification['accepted_at']) || !empty($notification['resolved_at']);
+                $alreadyInInvitedWorkspace = $isWorkspaceInvitation
+                    && session('workspace_status') === 'active'
+                    && !empty($notification['workspace_id'])
+                    && session('workspace_id') === ($notification['workspace_id'] ?? null);
+
                 return [
                     'id' => $id,
                     'title' => $notification['title'] ?? 'Notification',
@@ -45,8 +52,11 @@ class NotificationController extends Controller
                     'created_at' => $notification['created_at'] ?? now()->toIso8601String(),
                     'link' => $notification['link'] ?? null,
                     'invited_role' => $notification['invited_role'] ?? null,
-                    'action_required' => in_array(($notification['type'] ?? null), ['workspace_invitation', 'password_reset_request'], true)
-                        && empty($notification['resolved_at']),
+                    'action_required' => match ($notification['type'] ?? null) {
+                        'workspace_invitation' => !$invitationAlreadyAccepted && !$alreadyInInvitedWorkspace,
+                        'password_reset_request' => empty($notification['resolved_at']),
+                        default => false,
+                    },
                     'action_label' => match ($notification['type'] ?? null) {
                         'workspace_invitation' => 'Accept Invitation',
                         'password_reset_request' => 'Set Temporary Password',
@@ -108,6 +118,23 @@ class NotificationController extends Controller
         $role = $notification['invited_role'] ?? 'staff';
         $workspaceId = $notification['workspace_id'] ?? $userId;
         $workspaceOwnerId = $notification['workspace_owner_id'] ?? $workspaceId;
+        $alreadyAccepted = !empty($notification['accepted_at']) || !empty($notification['resolved_at']);
+        $alreadyInWorkspace = session('workspace_status') === 'active'
+            && session('workspace_id') === $workspaceId;
+
+        if ($alreadyAccepted || $alreadyInWorkspace) {
+            $notificationRef->update([
+                'read' => true,
+                'resolved_at' => $notification['resolved_at'] ?? now()->toIso8601String(),
+                'accepted_at' => $notification['accepted_at'] ?? now()->toIso8601String(),
+                'link' => route('dashboard'),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'This invitation has already been accepted.',
+            ]);
+        }
 
         $database->getReference('users/' . $userId)->update([
             'user_role' => $role,
@@ -123,6 +150,7 @@ class NotificationController extends Controller
         $notificationRef->update([
             'read' => true,
             'accepted_at' => now()->toIso8601String(),
+            'resolved_at' => now()->toIso8601String(),
             'link' => route('dashboard'),
         ]);
 

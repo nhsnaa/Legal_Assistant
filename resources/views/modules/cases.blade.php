@@ -27,13 +27,13 @@
 
     <div class="module-filter-tabs mb-4">
         <a href="{{ route('cases.index', ['filter' => 'all']) }}" class="module-filter-tab {{ $filter === 'all' ? 'active' : '' }}">
-            All <span>{{ $caseCounts['all'] }}</span>
+            All <span id="caseCountAll">{{ $caseCounts['all'] }}</span>
         </a>
         <a href="{{ route('cases.index', ['filter' => 'active']) }}" class="module-filter-tab {{ $filter === 'active' ? 'active' : '' }}">
-            Active <span>{{ $caseCounts['active'] }}</span>
+            Active <span id="caseCountActive">{{ $caseCounts['active'] }}</span>
         </a>
         <a href="{{ route('cases.index', ['filter' => 'archived']) }}" class="module-filter-tab {{ $filter === 'archived' ? 'active' : '' }}">
-            Archive <span>{{ $caseCounts['archived'] }}</span>
+            Archive <span id="caseCountArchived">{{ $caseCounts['archived'] }}</span>
         </a>
     </div>
 
@@ -51,15 +51,15 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="caseTableBody">
                     @forelse ($cases as $case)
-                        <tr>
+                        <tr data-case-row="{{ $case->id }}">
                             <td class="module-id">#{{ $case->id }}</td>
                             <td class="font-weight-bold">{{ $case->case_name }}</td>
                             <td>{{ $case->case_type ?? 'Other' }}</td>
                             <td>{{ $case->client->name ?? 'Unassigned client' }}</td>
                             <td>
-                                <span class="module-badge {{ $case->status === 'Active' ? 'module-badge-success' : ($case->status === 'Pending' ? 'module-badge-warning' : 'module-badge-muted') }}">
+                                <span class="module-badge {{ $case->status === 'Active' ? 'module-badge-success' : ($case->status === 'Pending' ? 'module-badge-warning' : 'module-badge-muted') }}" data-case-status-badge>
                                     {{ $case->status }}
                                 </span>
                             </td>
@@ -86,14 +86,14 @@
                                         ]))">
                                         Edit
                                     </button>
-                                    <form action="{{ route('cases.archive', $case->id) }}" method="POST" onsubmit="return confirm('{{ $case->status === 'Closed' ? 'Restore this case?' : 'Archive this case?' }}')">
+                                    <form action="{{ route('cases.archive', $case->id) }}" method="POST" data-async-case-action="archive" data-case-id="{{ $case->id }}" data-confirm="{{ $case->status === 'Closed' ? 'Restore this case?' : 'Archive this case?' }}">
                                         @csrf
                                         @method('PATCH')
-                                        <button type="submit" class="btn btn-sm btn-light">
+                                        <button type="submit" class="btn btn-sm btn-light" data-case-archive-button>
                                             {{ $case->status === 'Closed' ? 'Restore' : 'Archive' }}
                                         </button>
                                     </form>
-                                    <form action="{{ route('cases.destroy', $case->id) }}" method="POST" onsubmit="return confirm('Delete this case?')">
+                                    <form action="{{ route('cases.destroy', $case->id) }}" method="POST" data-async-case-action="delete" data-case-id="{{ $case->id }}" data-confirm="Delete this case?">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
@@ -255,6 +255,8 @@
 
 @section('scripts')
 <script>
+const currentCaseFilter = @json($filter);
+
 function openCaseModal() {
     document.getElementById('caseModal').classList.add('show');
 }
@@ -279,6 +281,130 @@ function openCaseEditModal(caseItem) {
 function closeCaseEditModal() {
     document.getElementById('caseEditModal').classList.remove('show');
 }
+
+function updateCaseCounts(counts) {
+    if (!counts) return;
+    document.getElementById('caseCountAll').textContent = counts.all ?? document.getElementById('caseCountAll').textContent;
+    document.getElementById('caseCountActive').textContent = counts.active ?? document.getElementById('caseCountActive').textContent;
+    document.getElementById('caseCountArchived').textContent = counts.archived ?? document.getElementById('caseCountArchived').textContent;
+}
+
+function ensureCaseEmptyState() {
+    const tbody = document.getElementById('caseTableBody');
+    if (!tbody || tbody.querySelector('[data-case-row]')) return;
+
+    tbody.innerHTML = '<tr><td colspan="7" class="module-empty-cell">No cases added to the system yet.</td></tr>';
+}
+
+function caseBadgeClass(status) {
+    if (status === 'Active') return 'module-badge-success';
+    if (status === 'Pending') return 'module-badge-warning';
+    return 'module-badge-muted';
+}
+
+async function handleCaseAction(form) {
+    const confirmed = confirm(form.dataset.confirm || 'Continue with this action?');
+    if (!confirmed) {
+        return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalText = submitButton ? submitButton.innerHTML : '';
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.innerHTML = 'Working...';
+    }
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: new FormData(form)
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+            throw new Error(payload.message || 'Action failed.');
+        }
+
+        const row = document.querySelector(`[data-case-row="${form.dataset.caseId}"]`);
+        updateCaseCounts(payload.counts);
+
+        if (form.dataset.asyncCaseAction === 'delete') {
+            row?.remove();
+            ensureCaseEmptyState();
+        } else if (form.dataset.asyncCaseAction === 'archive' && row) {
+            const nextStatus = payload.status || 'Active';
+            const badge = row.querySelector('[data-case-status-badge]');
+            const archiveButton = row.querySelector('[data-case-archive-button]');
+            const archiveForm = row.querySelector('[data-async-case-action="archive"]');
+
+            if (currentCaseFilter === 'active' && nextStatus === 'Closed') {
+                row.remove();
+                ensureCaseEmptyState();
+            } else if (currentCaseFilter === 'archived' && nextStatus !== 'Closed') {
+                row.remove();
+                ensureCaseEmptyState();
+            } else {
+                if (badge) {
+                    badge.textContent = nextStatus;
+                    badge.className = 'module-badge ' + caseBadgeClass(nextStatus);
+                }
+
+                if (archiveButton) {
+                    archiveButton.textContent = nextStatus === 'Closed' ? 'Restore' : 'Archive';
+                }
+
+                if (archiveForm) {
+                    archiveForm.dataset.confirm = nextStatus === 'Closed' ? 'Restore this case?' : 'Archive this case?';
+                }
+            }
+        }
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Done',
+                text: payload.message || 'Action completed successfully.',
+                timer: 1400,
+                showConfirmButton: false,
+                customClass: {
+                    popup: 'ila-swal-popup'
+                }
+            });
+        }
+    } catch (error) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Attention',
+                text: error.message || 'Unable to complete this action right now.',
+                customClass: {
+                    popup: 'ila-swal-popup',
+                    confirmButton: 'ila-swal-confirm'
+                },
+                buttonsStyling: false
+            });
+        }
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
+        }
+    }
+}
+
+document.querySelectorAll('form[data-async-case-action]').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        handleCaseAction(form);
+    });
+});
 
 @if ($errors->any())
 openCaseModal();

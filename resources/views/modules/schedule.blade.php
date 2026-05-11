@@ -45,7 +45,7 @@
                         @endforeach
 
                         @foreach ($calendarDays as $day)
-                            <div class="schedule-day {{ $day['isCurrentMonth'] ? '' : 'is-muted' }}">
+                            <div class="schedule-day {{ $day['isCurrentMonth'] ? '' : 'is-muted' }}" data-schedule-date="{{ $day['date']->format('Y-m-d') }}" role="button" tabindex="0" aria-label="Add task on {{ $day['date']->format('d M Y') }}">
                                 <div class="schedule-day-number">{{ $day['date']->format('j') }}</div>
                                 <div class="schedule-day-events">
                                     @foreach ($day['events']->take(3) as $event)
@@ -282,7 +282,7 @@
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Date & Time</label>
-                    <input type="datetime-local" name="hearing_time" class="form-control module-input" required value="{{ old('hearing_time') }}">
+                    <input type="datetime-local" name="hearing_time" id="scheduleEventCreateTime" class="form-control module-input" required value="{{ old('hearing_time') }}">
                 </div>
                 <div class="form-group">
                     <label class="font-weight-bold small">Status</label>
@@ -622,6 +622,26 @@ function closeScheduleModal(modalId) {
     document.getElementById(modalId)?.classList.remove('show');
 }
 
+function buildSuggestedTaskDateTime(dateString) {
+    const baseDate = dateString || new Date().toISOString().slice(0, 10);
+    return baseDate + 'T09:00';
+}
+
+function openScheduleCreateForDate(dateString) {
+    const createTimeInput = document.getElementById('scheduleEventCreateTime');
+
+    if (createTimeInput && !createTimeInput.value) {
+        createTimeInput.value = buildSuggestedTaskDateTime(dateString);
+    } else if (createTimeInput && dateString) {
+        const existingTime = createTimeInput.value && createTimeInput.value.includes('T')
+            ? createTimeInput.value.split('T')[1]
+            : '09:00';
+        createTimeInput.value = dateString + 'T' + existingTime;
+    }
+
+    openScheduleModal('scheduleEventModal');
+}
+
 function openEventViewModal(eventItem) {
     document.getElementById('scheduleEventViewTitle').textContent = eventItem.title || '-';
     document.getElementById('scheduleEventViewStatus').textContent = eventItem.status || '-';
@@ -879,7 +899,7 @@ function renderScheduleCalendar() {
             : '';
 
         dayMarkup.push(`
-            <div class="schedule-day ${isCurrentMonth ? '' : 'is-muted'}">
+            <div class="schedule-day ${isCurrentMonth ? '' : 'is-muted'}" data-schedule-date="${cursorKey}" role="button" tabindex="0" aria-label="Add task on ${cursor.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}">
                 <div class="schedule-day-number">${cursor.getDate()}</div>
                 <div class="schedule-day-events">
                     ${visibleEvents}
@@ -902,6 +922,35 @@ document.getElementById('schedulePrevMonthBtn')?.addEventListener('click', funct
 document.getElementById('scheduleNextMonthBtn')?.addEventListener('click', function () {
     currentScheduleMonth = new Date(currentScheduleMonth.getFullYear(), currentScheduleMonth.getMonth() + 1, 1);
     renderScheduleCalendar();
+});
+
+document.getElementById('scheduleCalendar')?.addEventListener('click', function (event) {
+    if (event.target.closest('.schedule-event-pill')) {
+        return;
+    }
+
+    const dayCell = event.target.closest('.schedule-day[data-schedule-date]');
+
+    if (!dayCell) {
+        return;
+    }
+
+    openScheduleCreateForDate(dayCell.getAttribute('data-schedule-date'));
+});
+
+document.getElementById('scheduleCalendar')?.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+    }
+
+    const dayCell = event.target.closest('.schedule-day[data-schedule-date]');
+
+    if (!dayCell) {
+        return;
+    }
+
+    event.preventDefault();
+    openScheduleCreateForDate(dayCell.getAttribute('data-schedule-date'));
 });
 
 renderScheduleCalendar();

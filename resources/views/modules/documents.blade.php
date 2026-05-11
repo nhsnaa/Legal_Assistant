@@ -41,9 +41,9 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="documentTableBody">
                         @foreach ($documents as $document)
-                            <tr>
+                            <tr data-document-row="{{ $document->id }}">
                                 <td class="font-weight-bold">{{ $document->name }}</td>
                                 <td>{{ $document->category ?? 'Uncategorized' }}</td>
                                 <td>
@@ -77,7 +77,7 @@
                                             {{ ($document->type ?? 'file') === 'link' ? 'Open Link' : 'Download' }}
                                         </a>
                                         <a href="{{ route('documents.edit', $document->id) }}" class="btn btn-sm btn-light">Edit</a>
-                                        <form action="{{ route('documents.destroy', $document->id) }}" method="POST" onsubmit="return confirm('Delete this document?')">
+                                        <form action="{{ route('documents.destroy', $document->id) }}" method="POST" data-async-document-delete="true" data-document-id="{{ $document->id }}" data-confirm="Delete this document?">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
@@ -103,4 +103,98 @@
 
 @section('modals')
     @include('layouts.modals.logout')
+@endsection
+
+@section('scripts')
+<script>
+function ensureDocumentEmptyState() {
+    const tbody = document.getElementById('documentTableBody');
+    if (!tbody || tbody.querySelector('[data-document-row]')) return;
+
+    const wrapper = tbody.closest('.glass-card');
+    if (!wrapper) return;
+
+    wrapper.innerHTML = `
+        <div class="module-empty-state">
+            <div class="module-empty-icon"><i class="bi bi-folder2-open"></i></div>
+            <h5 class="font-weight-bold">No documents yet</h5>
+            <p class="text-muted mb-3">Upload your first legal document or save a working link to start building the file library.</p>
+            <a href="{{ route('documents.create') }}" class="btn btn-primary px-4">Add Document</a>
+        </div>
+    `;
+}
+
+async function handleDocumentDelete(form) {
+    const confirmed = confirm(form.dataset.confirm || 'Delete this document?');
+    if (!confirmed) {
+        return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalText = submitButton ? submitButton.innerHTML : '';
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.innerHTML = 'Working...';
+    }
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: new FormData(form)
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+            throw new Error(payload.message || 'Unable to delete this document.');
+        }
+
+        document.querySelector(`[data-document-row="${form.dataset.documentId}"]`)?.remove();
+        ensureDocumentEmptyState();
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Done',
+                text: payload.message || 'Document deleted.',
+                timer: 1400,
+                showConfirmButton: false,
+                customClass: {
+                    popup: 'ila-swal-popup'
+                }
+            });
+        }
+    } catch (error) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Attention',
+                text: error.message || 'Unable to delete this document right now.',
+                customClass: {
+                    popup: 'ila-swal-popup',
+                    confirmButton: 'ila-swal-confirm'
+                },
+                buttonsStyling: false
+            });
+        }
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
+        }
+    }
+}
+
+document.querySelectorAll('form[data-async-document-delete]').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        handleDocumentDelete(form);
+    });
+});
+</script>
 @endsection

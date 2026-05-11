@@ -156,7 +156,9 @@ class DocumentController extends Controller
 
         if ($linkUrl !== '') {
             $host = parse_url($linkUrl, PHP_URL_HOST) ?: 'External Link';
-            $linkBaseName = $linkName !== '' ? $linkName : $host;
+            $linkBaseName = $linkName !== ''
+                ? $linkName
+                : ($request->input('document_category') ?: 'Linked Document');
 
             $database->getReference('documents')->push($this->workspacePayload([
                 'type' => 'link',
@@ -299,12 +301,16 @@ class DocumentController extends Controller
         return redirect()->route('documents.index')->with('success', 'Document renamed.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $ref = Firebase::database()->getReference('documents/' . $id);
         $doc = $this->findWorkspaceRecord('documents', $id);
 
         if (!$doc) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Document not found.'], 404);
+            }
+
             return redirect()->back()->with('error', 'Document not found.');
         }
 
@@ -316,6 +322,14 @@ class DocumentController extends Controller
             'type' => $doc['type'] ?? 'file',
         ]);
         $ref->remove();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Document deleted.',
+                'remaining' => $this->workspaceCollection('documents')->count(),
+            ]);
+        }
+
         return redirect()->back()->with('success', 'Document deleted.');
     }
 

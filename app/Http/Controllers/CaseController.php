@@ -122,21 +122,38 @@ public function show($id)
         return redirect()->route('cases.index')->with('success', 'Case updated successfully.');
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         if ($case = $this->findWorkspaceRecord('cases', $id)) {
             $this->logActivity('case', 'Case', 'deleted', $case['case_name'] ?? 'Untitled Case');
             Firebase::database()->getReference('cases/' . $id)->remove();
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Case deleted successfully.',
+                    'counts' => $this->caseCounts(),
+                ]);
+            }
+
             return redirect()->route('cases.index')->with('success', 'Case deleted successfully.');
         }
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Case not found.'], 404);
+        }
+
         return redirect()->route('cases.index')->with('error', 'Case not found.');
     }
 
-    public function toggleArchive($id)
+    public function toggleArchive(Request $request, $id)
     {
         $case = $this->findWorkspaceRecord('cases', $id);
 
         if (!$case) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Case not found.'], 404);
+            }
+
             return redirect()->route('cases.index')->with('error', 'Case not found.');
         }
 
@@ -156,12 +173,33 @@ public function show($id)
             $case['case_name'] ?? 'Untitled Case'
         );
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $nextStatus === 'Closed'
+                    ? 'Case archived successfully.'
+                    : 'Case restored successfully.',
+                'status' => $nextStatus,
+                'counts' => $this->caseCounts(),
+            ]);
+        }
+
         return redirect()->route('cases.index')->with(
             'success',
             $nextStatus === 'Closed'
                 ? 'Case archived successfully.'
                 : 'Case restored successfully.'
         );
+    }
+
+    private function caseCounts(): array
+    {
+        $allCases = $this->workspaceCollection('cases');
+
+        return [
+            'all' => $allCases->count(),
+            'active' => $allCases->whereIn('status', ['Active', 'Pending'])->count(),
+            'archived' => $allCases->where('status', 'Closed')->count(),
+        ];
     }
 
 }
