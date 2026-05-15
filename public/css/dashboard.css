@@ -664,6 +664,7 @@ body.profile-menu-open #sidebar {
     margin-bottom: 1.5rem;
 }
 
+
 .quick-create-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -766,6 +767,22 @@ body.profile-menu-open #sidebar {
 .module-table tbody td {
     padding: 1rem 1.15rem;
     vertical-align: middle;
+}
+
+.module-document-name-cell {
+    min-width: 220px;
+    max-width: 280px;
+}
+
+.module-document-name-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    white-space: normal;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .module-id {

@@ -143,10 +143,10 @@
                                             {{ $member->workspace_status === 'pending_invitation' ? 'Pending Invitation' : 'Workspace Access' }}
                                         </span>
                                         @if ($canManageWorkspaceUsers)
-                                            <form action="{{ route('settings.staff.destroy', $member->id) }}" method="POST" onsubmit="return confirm('Delete this staff account?');">
+                                            <form action="{{ route('settings.staff.destroy', $member->id) }}" method="POST" onsubmit="return confirm('Remove this staff member from the workspace? Their account will still be able to sign in.');">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="settings-inline-danger">Delete</button>
+                                                <button type="submit" class="settings-inline-danger">Remove</button>
                                             </form>
                                         @endif
                                     @endif

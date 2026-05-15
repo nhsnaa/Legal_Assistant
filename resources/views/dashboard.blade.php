@@ -141,7 +141,8 @@
             <div class="glass-card mb-4">
                 <div class="p-4 border-bottom d-flex justify-content-between">
                     <h6 class="font-weight-bold mb-0">Upcoming Court Hearings</h6>
-                    <a href="{{ route('schedule') }}" class="btn btn-sm btn-link font-weight-bold p-0">View All</a>
+                    <button type="button" class="btn btn-sm btn-link font-weight-bold p-0 {{ ($hearingCount ?? 0) > 3 ? '' : 'd-none' }}" onclick="openDashboardModal('dashboardHearingsModal')">View More</button>
+                    <span class="text-muted tiny uppercase {{ ($hearingCount ?? 0) > 3 ? 'd-none' : '' }}">Latest 3</span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -220,7 +221,8 @@
             <div class="glass-card p-4 mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h6 class="font-weight-bold mb-0">Recent Documents</h6>
-                    <a href="{{ route('documents.index') }}" class="btn btn-sm btn-link font-weight-bold p-0">Open</a>
+                    <button type="button" class="btn btn-sm btn-link font-weight-bold p-0 {{ (($allRecentDocuments ?? collect())->count() > 3) ? '' : 'd-none' }}" onclick="openDashboardModal('dashboardDocumentsModal')">View More</button>
+                    <span class="text-muted tiny uppercase {{ (($allRecentDocuments ?? collect())->count() > 3) ? 'd-none' : '' }}">Latest 3</span>
                 </div>
                 <div class="doc-list">
                     @forelse($recentDocuments as $id => $document)
@@ -258,18 +260,8 @@
             <div class="glass-card p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h6 class="font-weight-bold mb-0">Recent Time Records</h6>
-                    <span class="tiny text-muted uppercase" id="timeFilterCount">{{ count($recentTimeEntryData ?? []) }} entries</span>
-                </div>
-                <div class="mb-3">
-                    <select id="timeLogFilter" class="form-control form-control-pill" style="max-width: 220px;">
-                        <option value="all">All Activities</option>
-                        <option value="Document Review">Document Review</option>
-                        <option value="Client Interview">Client Interview</option>
-                        <option value="Case Preparation">Case Preparation</option>
-                        <option value="Legal Research">Legal Research</option>
-                        <option value="Court Preparation">Court Preparation</option>
-                        <option value="Admin Work">Admin Work</option>
-                    </select>
+                    <button type="button" class="btn btn-sm btn-link font-weight-bold p-0 {{ ($recentTimeEntryCount ?? 0) > 3 ? '' : 'd-none' }}" id="timeRecordsViewMoreBtn" onclick="openDashboardModal('dashboardTimeRecordsModal')">View More</button>
+                    <span class="text-muted tiny uppercase {{ ($recentTimeEntryCount ?? 0) > 3 ? 'd-none' : '' }}" id="timeRecordsHint">Latest 3</span>
                 </div>
                 <div class="time-log-list" id="timeLogList"></div>
             </div>
@@ -709,6 +701,125 @@
             </div>
         </div>
     </div>
+
+    <div id="dashboardHearingsModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card module-modal-card-activity">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="font-weight-bold mb-1">All Upcoming Hearings</h4>
+                    <p class="text-muted mb-0">A fuller view of scheduled hearings and court-related tasks.</p>
+                </div>
+                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardHearingsModal')">&times;</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="tiny uppercase font-weight-bold">
+                        <tr>
+                            <th class="border-0">Time</th>
+                            <th class="border-0">Case Name</th>
+                            <th class="border-0 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse(($allHearings ?? collect()) as $hearing)
+                            <tr>
+                                <td class="font-weight-bold">{{ isset($hearing['hearing_time']) ? \Carbon\Carbon::parse($hearing['hearing_time'])->format('d M Y, h:i A') : 'N/A' }}</td>
+                                <td>{{ $hearing['case_name'] ?? 'Untitled Case' }}</td>
+                                <td class="text-right">
+                                    <span class="badge-status-{{ ($hearing['status'] ?? '') === 'Confirmed' ? 'green' : 'orange' }}">
+                                        {{ $hearing['status'] ?? 'Scheduled' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">No upcoming hearings scheduled.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="module-modal-actions">
+                <a href="{{ route('schedule') }}" class="btn btn-primary px-4">Open Calendar</a>
+                <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardHearingsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboardDocumentsModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card module-modal-card-activity">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="font-weight-bold mb-1">All Recent Documents</h4>
+                    <p class="text-muted mb-0">A fuller view of the latest uploaded files and saved links.</p>
+                </div>
+                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardDocumentsModal')">&times;</button>
+            </div>
+            <div class="doc-list">
+                @forelse(($allRecentDocuments ?? collect()) as $document)
+                    @php
+                        $modalExtension = strtolower(pathinfo($document['original_name'] ?? '', PATHINFO_EXTENSION));
+                        $modalDocStyles = match ($modalExtension) {
+                            'pdf' => ['bg-primary', 'bi bi-file-earmark-pdf-fill'],
+                            'doc', 'docx' => ['bg-info', 'bi bi-file-earmark-word-fill'],
+                            'txt' => ['bg-secondary', 'bi bi-file-earmark-text-fill'],
+                            default => ['bg-warning', 'bi bi-paperclip'],
+                        };
+                    @endphp
+                    <div class="doc-item d-flex align-items-center mb-3 p-3 rounded border">
+                        <div class="icon-circle {{ $modalDocStyles[0] }} text-white mr-3"><i class="{{ $modalDocStyles[1] }}"></i></div>
+                        <div class="flex-grow-1">
+                            <div class="small font-weight-bold">{{ $document['name'] ?? 'Untitled' }}</div>
+                            <div class="text-muted tiny">
+                                {{ strtoupper($modalExtension ?: 'FILE') }}
+                                @if (!empty($document['created_at']))
+                                    | {{ \Carbon\Carbon::parse($document['created_at'])->format('d M Y') }}
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="time-log-empty">
+                        <i class="bi bi-folder2-open"></i>
+                        <strong>No documents uploaded yet</strong>
+                        <p>Use the quick create document button to start storing legal files in the system.</p>
+                    </div>
+                @endforelse
+            </div>
+            <div class="module-modal-actions">
+                <a href="{{ route('documents.index') }}" class="btn btn-primary px-4">Open Documents</a>
+                <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardDocumentsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboardTimeRecordsModal" class="module-modal-backdrop" aria-hidden="true">
+        <div class="module-modal-card module-modal-card-activity">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h4 class="font-weight-bold mb-1">All Recent Time Records</h4>
+                    <p class="text-muted mb-0">Review the full set of recently saved work sessions.</p>
+                </div>
+                <button type="button" class="module-modal-close" onclick="closeDashboardModal('dashboardTimeRecordsModal')">&times;</button>
+            </div>
+            <div class="mb-3">
+                <select id="timeLogFilter" class="form-control form-control-pill" style="max-width: 220px;">
+                    <option value="all">All Activities</option>
+                    <option value="Document Review">Document Review</option>
+                    <option value="Client Interview">Client Interview</option>
+                    <option value="Case Preparation">Case Preparation</option>
+                    <option value="Legal Research">Legal Research</option>
+                    <option value="Court Preparation">Court Preparation</option>
+                    <option value="Admin Work">Admin Work</option>
+                </select>
+            </div>
+            <div class="time-log-list" id="timeLogModalList"></div>
+            <div class="module-modal-actions">
+                <a href="{{ route('schedule', ['tab' => 'time']) }}" class="btn btn-primary px-4">Open Time Records</a>
+                <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardTimeRecordsModal')">Close</button>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -844,7 +955,7 @@ function buildAiConflictHtml(conflicts, message) {
 
 const chartLabels = @json($chartLabels ?? []);
 const chartData = @json($chartData ?? []);
-const recentTimeEntries = @json($recentTimeEntryData ?? []);
+const recentTimeEntries = @json($allRecentTimeEntryData ?? []);
 
 const ctx = document.getElementById('activityChart')?.getContext('2d');
 if (ctx) {
@@ -869,8 +980,8 @@ if (ctx) {
 }
 
 const timeLogList = document.getElementById('timeLogList');
+const timeLogModalList = document.getElementById('timeLogModalList');
 const timeLogFilter = document.getElementById('timeLogFilter');
-const timeFilterCount = document.getElementById('timeFilterCount');
 const timeEntryPanel = document.getElementById('timeEntryPanel');
 const timeEntryForm = document.getElementById('timeEntryForm');
 const timeEntryDuration = document.getElementById('timeEntryDuration');
@@ -1111,34 +1222,42 @@ function renderTimeLogs() {
         return selectedFilter === 'all' || log.activity === selectedFilter;
     });
 
-    if (timeFilterCount) {
-        timeFilterCount.textContent = filteredLogs.length + ' ' + (filteredLogs.length === 1 ? 'entry' : 'entries');
-    }
-
     if (!filteredLogs.length) {
-        timeLogList.innerHTML = `
+        const emptyMarkup = `
             <div class="time-log-empty">
                 <i class="bi bi-stopwatch"></i>
                 <strong>No time records yet</strong>
                 <p>Stop the timer and save an entry to build your recent activity list.</p>
             </div>
         `;
+        timeLogList.innerHTML = emptyMarkup;
+        if (timeLogModalList) {
+            timeLogModalList.innerHTML = emptyMarkup;
+        }
         return;
     }
 
-    timeLogList.innerHTML = filteredLogs.slice().reverse().map(function (log) {
-        return `
-            <div class="time-log-item">
-                <div class="time-log-duration">${escapeHtml(log.durationLabel)}</div>
-                <div class="time-log-copy">
-                    <strong>${escapeHtml(log.activity)}</strong>
-                    <span>${escapeHtml(log.caseName || 'No case')} | ${log.billable ? 'Billable' : 'Non-Billable'}</span>
-                    <p>${escapeHtml(log.notes)}</p>
-                    <span>${escapeHtml(formatDateTime(log.savedAt))}</span>
+    const renderLogItems = function (items) {
+        return items.map(function (log) {
+            return `
+                <div class="time-log-item">
+                    <div class="time-log-duration">${escapeHtml(log.durationLabel)}</div>
+                    <div class="time-log-copy">
+                        <strong>${escapeHtml(log.activity)}</strong>
+                        <span>${escapeHtml(log.caseName || 'No case')} | ${log.billable ? 'Billable' : 'Non-Billable'}</span>
+                        <p>${escapeHtml(log.notes)}</p>
+                        <span>${escapeHtml(formatDateTime(log.savedAt))}</span>
+                    </div>
                 </div>
-            </div>
-        `;
-    }).join('');
+            `;
+        }).join('');
+    };
+
+    timeLogList.innerHTML = renderLogItems(filteredLogs.slice(0, 3));
+
+    if (timeLogModalList) {
+        timeLogModalList.innerHTML = renderLogItems(filteredLogs);
+    }
 }
 
 function openTimeEntryPanel(elapsedMs) {

@@ -44,7 +44,9 @@
                     <tbody id="documentTableBody">
                         @foreach ($documents as $document)
                             <tr data-document-row="{{ $document->id }}">
-                                <td class="font-weight-bold">{{ $document->name }}</td>
+                                <td class="font-weight-bold module-document-name-cell">
+                                    <span class="module-document-name-text">{{ $document->name }}</span>
+                                </td>
                                 <td>{{ $document->category ?? 'Uncategorized' }}</td>
                                 <td>
                                     @if (($document->scope ?? 'general') === 'case')

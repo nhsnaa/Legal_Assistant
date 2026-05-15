@@ -49,18 +49,22 @@ class DashboardController extends Controller
 
         // 3. Fetch Hearings (Limit 5) without requiring a Firebase index
         $hearingsRef = $this->workspaceCollection('hearings')->all();
-        $hearings = collect($hearingsRef)
+        $allHearings = collect($hearingsRef)
+            ->filter(fn ($hearing) => ($hearing['status'] ?? 'Scheduled') !== 'Completed')
             ->sortBy('hearing_time')
-            ->take(5);
+            ->values();
+        $hearings = $allHearings->take(3);
+        $hearingCount = $allHearings->count();
 
         // 4. Fetch Recent Documents (Limit 4) without Firebase query requirements
         $docsRef = $this->workspaceCollection('documents')->all();
-        $recentDocuments = collect($docsRef)->reverse()->take(4);
+        $allRecentDocuments = collect($docsRef)->reverse()->values();
+        $recentDocuments = $allRecentDocuments->take(3);
         $documentsCount = count($docsRef);
 
         // 5. Recent Time Entries
         $timeRef = $this->workspaceCollection('time_entries')->all();
-        $recentTimeEntryData = collect($timeRef)->map(function ($entry, $key) {
+        $allRecentTimeEntryData = collect($timeRef)->map(function ($entry, $key) {
             $durationMs = $this->durationMillisecondsFromEntry($entry);
 
             return [
@@ -73,7 +77,9 @@ class DashboardController extends Controller
                 'notes' => $entry['description'] ?? '',
                 'savedAt' => $entry['created_at'] ?? now()->toIso8601String(),
             ];
-        })->reverse()->take(8)->values()->all();
+        })->reverse()->values()->all();
+        $recentTimeEntryData = collect($allRecentTimeEntryData)->take(3)->values()->all();
+        $recentTimeEntryCount = count($allRecentTimeEntryData);
 
         // 6. Clients & Case Options
         $clientsRef = $this->workspaceCollection('clients')->all();
@@ -115,7 +121,8 @@ class DashboardController extends Controller
         return view('dashboard', compact(
             'greeting', 'activeCases', 'chartLabels', 'chartData', 
             'hearings', 'recentDocuments', 'recentTimeEntryData', 
-            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'documentRules', 'aiSuggestions', 'aiSummary', 'recentActivities', 'allRecentActivities', 'recentActivityCount'
+            'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'documentRules', 'aiSuggestions', 'aiSummary', 'recentActivities', 'allRecentActivities', 'recentActivityCount',
+            'allHearings', 'hearingCount', 'allRecentDocuments', 'allRecentTimeEntryData', 'recentTimeEntryCount'
         ));
     }
 

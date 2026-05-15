@@ -326,11 +326,27 @@ class SettingsController extends Controller
             return redirect()->route('settings')->with('error', 'That account does not belong to this workspace.');
         }
 
-        $userRef->remove();
-        $database->getReference('settings/profile/' . $id)->remove();
-        $database->getReference('notifications/' . $id)->remove();
+        $userRef->update([
+            'workspace_id' => null,
+            'workspace_owner_id' => null,
+            'workspace_status' => 'pending_invitation',
+            'workspace_joined_at' => null,
+            'workspace_invited_at' => null,
+            'invited_workspace_id' => null,
+            'invited_workspace_owner_id' => null,
+            'pending_role' => null,
+        ]);
 
-        return redirect()->route('settings')->with('success', 'Staff account deleted successfully.');
+        $database->getReference('notifications/' . $id)->push([
+            'title' => 'Removed from Workspace',
+            'message' => 'You were removed from your previous workspace. You can still sign in and wait for a new invitation.',
+            'type' => 'account',
+            'read' => false,
+            'created_at' => now()->toIso8601String(),
+            'link' => route('dashboard'),
+        ]);
+
+        return redirect()->route('settings')->with('success', 'Staff member removed from the workspace successfully.');
     }
 
     public function updatePassword(Request $request)

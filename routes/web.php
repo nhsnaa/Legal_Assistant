@@ -72,6 +72,7 @@ Route::middleware('firebase.auth')->group(function () {
     Route::get('/schedule', [ScheduleController::class, 'index'])->name('schedule');
     Route::post('/schedule/events', [ScheduleController::class, 'storeEvent'])->name('schedule.events.store');
     Route::put('/schedule/events/{id}', [ScheduleController::class, 'updateEvent'])->name('schedule.events.update');
+    Route::patch('/schedule/events/{id}/complete', [ScheduleController::class, 'completeEvent'])->name('schedule.events.complete');
     Route::delete('/schedule/events/{id}', [ScheduleController::class, 'destroyEvent'])->name('schedule.events.destroy');
     Route::post('/schedule/time-entries', [ScheduleController::class, 'storeTimeEntry'])->name('schedule.time-entries.store');
     Route::put('/schedule/time-entries/{id}', [ScheduleController::class, 'updateTimeEntry'])->name('schedule.time-entries.update');
