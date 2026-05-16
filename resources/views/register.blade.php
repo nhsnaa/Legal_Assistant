@@ -7,7 +7,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="{{ asset('css/register.css') }}">
+    @php
+        $registerCssPath = public_path('css/register.css');
+        $registerCss = file_exists($registerCssPath) ? file_get_contents($registerCssPath) : '';
+    @endphp
+    @if ($registerCss)
+        <style>{!! $registerCss !!}</style>
+    @endif
 </head>
 <body>
 

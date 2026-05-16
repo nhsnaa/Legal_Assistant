@@ -7,7 +7,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="{{ asset('css/login.css') }}">
+    @php
+        $loginCssPath = public_path('css/login.css');
+        $loginCss = file_exists($loginCssPath) ? file_get_contents($loginCssPath) : '';
+    @endphp
+    @if ($loginCss)
+        <style>{!! $loginCss !!}</style>
+    @endif
 </head>
 <body>
 
