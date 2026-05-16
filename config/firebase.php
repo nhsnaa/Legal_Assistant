@@ -16,6 +16,9 @@ return [
             'database' => [
                 'url' => env('FIREBASE_DATABASE_URL'),
             ],
+            'storage' => [
+                'default_bucket' => env('FIREBASE_STORAGE_BUCKET'),
+            ],
         ],
     ],
 ];

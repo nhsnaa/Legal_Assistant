@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Kreait\Laravel\Firebase\Facades\Firebase;
@@ -121,7 +122,7 @@ class DocumentController extends Controller
                     ->withErrors(['documents' => 'The file type "' . strtolower($normalizedType) . '" is not allowed by the current document rules.']);
             }
 
-            $path = $file->store('documents');
+            $path = $this->storeFileInSupabaseStorage($file);
             $baseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
             $documentName = $this->buildDocumentName(
                 $baseName,
@@ -139,6 +140,7 @@ class DocumentController extends Controller
                 'client_name' => $linkedEntity['type'] === 'client' ? $linkedEntity['name'] : null,
                 'name' => $documentName,
                 'file_path' => $path,
+                'storage_disk' => 'supabase',
                 'original_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getMimeType(),
                 'size' => $file->getSize(),
@@ -204,6 +206,16 @@ class DocumentController extends Controller
 
         if (($document['type'] ?? 'file') === 'link' && !empty($document['link_url'])) {
             return redirect()->away($document['link_url']);
+        }
+
+        $storageDisk = $document['storage_disk'] ?? 'local';
+
+        if ($storageDisk === 'supabase') {
+            return $this->downloadFromSupabaseStorage($document);
+        }
+
+        if ($storageDisk === 'firebase') {
+            return $this->downloadFromFirebaseStorage($document);
         }
 
         if (empty($document['file_path']) || !Storage::exists($document['file_path'])) {
@@ -315,7 +327,15 @@ class DocumentController extends Controller
         }
 
         if (isset($doc['file_path'])) {
-            Storage::delete($doc['file_path']);
+            $storageDisk = $doc['storage_disk'] ?? 'local';
+
+            if ($storageDisk === 'supabase') {
+                $this->deleteFromSupabaseStorage($doc['file_path']);
+            } elseif ($storageDisk === 'firebase') {
+                $this->deleteFromFirebaseStorage($doc['file_path']);
+            } else {
+                Storage::delete($doc['file_path']);
+            }
         }
 
         $this->logActivity('document', 'Document', 'deleted', $doc['name'] ?? ($doc['original_name'] ?? 'Untitled Document'), [
@@ -403,5 +423,183 @@ class DocumentController extends Controller
             'id' => $clientId,
             'name' => $client['name'] ?? 'Unnamed Client',
         ];
+    }
+
+    private function storeFileInFirebaseStorage($file): string
+    {
+        $bucket = $this->firebaseStorageBucket();
+        $workspaceId = $this->currentWorkspaceId() ?: 'general';
+        $safeName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME), '_');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $fileName = now()->format('YmdHis') . '_' . Str::random(12) . '_' . ($safeName !== '' ? $safeName : 'document');
+
+        if ($extension !== '') {
+            $fileName .= '.' . $extension;
+        }
+
+        $objectPath = 'documents/' . $workspaceId . '/' . $fileName;
+        $stream = fopen($file->getRealPath(), 'r');
+
+        if ($stream === false) {
+            throw new \RuntimeException('Unable to read the uploaded file for Firebase Storage.');
+        }
+
+        try {
+            $bucket->upload($stream, [
+                'name' => $objectPath,
+                'metadata' => [
+                    'contentType' => $file->getMimeType(),
+                ],
+            ]);
+        } finally {
+            fclose($stream);
+        }
+
+        return $objectPath;
+    }
+
+    private function downloadFromFirebaseStorage(array $document)
+    {
+        if (empty($document['file_path'])) {
+            abort(404, 'File not found.');
+        }
+
+        $object = $this->firebaseStorageBucket()->object($document['file_path']);
+
+        if (!$object->exists()) {
+            abort(404, 'File not found.');
+        }
+
+        $contents = $object->downloadAsString();
+        $fileName = $document['original_name'] ?? basename($document['file_path']);
+        $mimeType = $document['mime_type'] ?? 'application/octet-stream';
+
+        return response($contents, 200, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'attachment; filename="' . addslashes($fileName) . '"',
+        ]);
+    }
+
+    private function deleteFromFirebaseStorage(string $path): void
+    {
+        $object = $this->firebaseStorageBucket()->object($path);
+
+        if ($object->exists()) {
+            $object->delete();
+        }
+    }
+
+    private function firebaseStorageBucket()
+    {
+        $storage = app('firebase.storage');
+        $configuredBucket = config('firebase.projects.main.storage.default_bucket');
+
+        return $configuredBucket
+            ? $storage->getBucket($configuredBucket)
+            : $storage->getBucket();
+    }
+
+    private function storeFileInSupabaseStorage($file): string
+    {
+        [$baseUrl, $serviceRoleKey, $bucket] = $this->supabaseStorageConfig();
+
+        $workspaceId = $this->currentWorkspaceId() ?: 'general';
+        $safeName = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME), '_');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $fileName = now()->format('YmdHis') . '_' . Str::random(12) . '_' . ($safeName !== '' ? $safeName : 'document');
+
+        if ($extension !== '') {
+            $fileName .= '.' . $extension;
+        }
+
+        $objectPath = 'documents/' . $workspaceId . '/' . $fileName;
+        $uploadUrl = rtrim($baseUrl, '/') . '/storage/v1/object/' . rawurlencode($bucket) . '/' . $this->encodeSupabaseObjectPath($objectPath);
+
+        $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $serviceRoleKey,
+                'apikey' => $serviceRoleKey,
+                'x-upsert' => 'false',
+                'Content-Type' => $file->getMimeType() ?: 'application/octet-stream',
+            ])
+            ->withBody(file_get_contents($file->getRealPath()), $file->getMimeType() ?: 'application/octet-stream')
+            ->timeout(60)
+            ->post($uploadUrl);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('Supabase upload failed: ' . $response->body());
+        }
+
+        return $objectPath;
+    }
+
+    private function downloadFromSupabaseStorage(array $document)
+    {
+        if (empty($document['file_path'])) {
+            abort(404, 'File not found.');
+        }
+
+        [$baseUrl, $serviceRoleKey, $bucket] = $this->supabaseStorageConfig();
+        $downloadUrl = rtrim($baseUrl, '/') . '/storage/v1/object/' . rawurlencode($bucket) . '/' . $this->encodeSupabaseObjectPath($document['file_path']);
+
+        $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $serviceRoleKey,
+                'apikey' => $serviceRoleKey,
+            ])
+            ->timeout(60)
+            ->get($downloadUrl);
+
+        if ($response->status() === 404) {
+            abort(404, 'File not found.');
+        }
+
+        if ($response->failed()) {
+            abort(500, 'Unable to download this file right now.');
+        }
+
+        $fileName = $document['original_name'] ?? basename($document['file_path']);
+        $mimeType = $document['mime_type'] ?? ($response->header('Content-Type') ?: 'application/octet-stream');
+
+        return response($response->body(), 200, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'attachment; filename="' . addslashes($fileName) . '"',
+        ]);
+    }
+
+    private function deleteFromSupabaseStorage(string $path): void
+    {
+        [$baseUrl, $serviceRoleKey, $bucket] = $this->supabaseStorageConfig();
+        $deleteUrl = rtrim($baseUrl, '/') . '/storage/v1/object/' . rawurlencode($bucket) . '/' . $this->encodeSupabaseObjectPath($path);
+
+        $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $serviceRoleKey,
+                'apikey' => $serviceRoleKey,
+            ])
+            ->timeout(30)
+            ->delete($deleteUrl);
+
+        if ($response->status() !== 404 && $response->failed()) {
+            throw new \RuntimeException('Supabase delete failed: ' . $response->body());
+        }
+    }
+
+    private function supabaseStorageConfig(): array
+    {
+        $baseUrl = config('services.supabase.url');
+        $serviceRoleKey = config('services.supabase.service_role_key');
+        $bucket = config('services.supabase.storage_bucket', 'documents');
+
+        if (!$baseUrl || !$serviceRoleKey || !$bucket) {
+            throw new \RuntimeException('Supabase Storage is not configured yet.');
+        }
+
+        return [$baseUrl, $serviceRoleKey, $bucket];
+    }
+
+    private function encodeSupabaseObjectPath(string $path): string
+    {
+        return collect(explode('/', trim($path, '/')))
+            ->filter(fn ($segment) => $segment !== '')
+            ->map(fn ($segment) => rawurlencode($segment))
+            ->implode('/');
     }
 }
