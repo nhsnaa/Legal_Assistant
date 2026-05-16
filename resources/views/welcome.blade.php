@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ asset('css/marketing.css') }}">
 </head>
-<body>
+<body class="marketing-page">
     <nav class="navbar navbar-expand-lg navbar-light py-3">
         <div class="container">
             <a class="navbar-brand font-weight-bold" href="{{ route('welcome') }}">ILA <span class="text-primary">SYSTEM</span></a>
