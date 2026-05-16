@@ -548,21 +548,26 @@ body.profile-menu-open #sidebar {
     left: 0;
     right: 0;
     z-index: 40;
+    max-width: 100%;
     padding: 0.45rem;
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.98);
     border: 1px solid rgba(219, 231, 240, 0.95);
     box-shadow: var(--shadow-lg);
+    overflow: hidden;
 }
 
 .search-result-item {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+    min-width: 0;
+    max-width: 100%;
     padding: 0.75rem 0.85rem;
     border-radius: 16px;
     color: var(--text);
     text-decoration: none !important;
+    overflow: hidden;
 }
 
 .search-result-item:hover {
@@ -576,16 +581,28 @@ body.profile-menu-open #sidebar {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--accent-strong);
+    max-width: 100%;
+    overflow-wrap: anywhere;
 }
 
 .search-result-item strong {
+    display: block;
+    max-width: 100%;
     font-size: 0.9rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .search-result-item small,
 .search-results-empty {
+    display: block;
+    max-width: 100%;
     color: var(--muted);
     font-size: 0.8rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .search-results-empty {
