@@ -24,8 +24,7 @@ class RegisterController extends Controller
         ]);
 
         try {
-            // Using absolute namespace to prevent "Class not found" on Vercel
-            $database = \Kreait\Laravel\Firebase\Facades\Firebase::database();
+            $database = app('firebase.database');
             
             $fullName = trim($validated['first_name'].' '.$validated['last_name']);
 
@@ -61,8 +60,7 @@ class RegisterController extends Controller
             return redirect()->route('login')->with('success', 'Registration successful!');
 
         } catch (\Throwable $e) {
-            // Log the actual error for debugging in Vercel Logs
-            error_log('Professional Site Register Error: ' . $e->getMessage());
+            error_log('Register Firebase Error: ' . $e->getMessage());
             
             // Return back with the actual error visible on the screen
             return back()->withInput()->withErrors(['email' => 'System Error: ' . $e->getMessage()]);

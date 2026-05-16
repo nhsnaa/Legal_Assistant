@@ -22,9 +22,12 @@ class LoginController extends Controller
         ]);
 
         try {
-            // Force verify that the credentials string exists
-            if (!env('FIREBASE_CREDENTIALS')) {
-                return back()->withErrors(['email' => 'System Error: FIREBASE_CREDENTIALS missing in Vercel settings.']);
+            $missingFirebaseConfig = $this->missingFirebaseConfig();
+
+            if ($missingFirebaseConfig) {
+                return back()->withErrors([
+                    'email' => 'System Error: Missing Firebase setting(s) in Render: ' . implode(', ', $missingFirebaseConfig) . '.',
+                ]);
             }
 
             // Using the app helper now that the package is properly installed
@@ -81,7 +84,7 @@ class LoginController extends Controller
                     $this->backfillWorkspaceData($database, $workspaceId, $workspaceOwnerId);
                 }
 
-                // Manual session persistence for Vercel 'cookie' driver
+                // Manual session persistence for the cookie session driver.
                 Session::put('firebase_user_id', $userId);
                 Session::put('user_role', $userData['user_role']);
                 Session::put('first_name', $userData['first_name'] ?? null);
@@ -96,17 +99,29 @@ class LoginController extends Controller
             }
 
         } catch (\Throwable $e) {
-            error_log('Vercel Login Crash: ' . $e->getMessage());
+            error_log('Login Firebase Error: ' . $e->getMessage());
             
             // This catches the "Value missing" error specifically
             if (str_contains($e->getMessage(), 'ServiceAccount')) {
-                return back()->withErrors(['email' => 'Firebase Auth Error: Ensure the FIREBASE_CREDENTIALS in Vercel is the full JSON text.']);
+                return back()->withErrors(['email' => 'Firebase Auth Error: Check the Firebase service account values in Render.']);
             }
             
             return back()->withErrors(['email' => 'Firebase Error: ' . $e->getMessage()]);
         }
 
         return back()->withErrors(['email' => 'Invalid email or password.']);
+    }
+
+    private function missingFirebaseConfig(): array
+    {
+        $config = [
+            'FIREBASE_PROJECT_ID' => config('firebase.projects.main.credentials.file.project_id'),
+            'FIREBASE_CLIENT_EMAIL' => config('firebase.projects.main.credentials.file.client_email'),
+            'FIREBASE_PRIVATE_KEY' => config('firebase.projects.main.credentials.file.private_key'),
+            'FIREBASE_DATABASE_URL' => config('firebase.projects.main.database.url'),
+        ];
+
+        return array_keys(array_filter($config, fn ($value) => blank($value)));
     }
 
     public function requestPasswordReset(Request $request)
