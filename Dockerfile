@@ -8,6 +8,7 @@ RUN composer install \
     --no-interaction \
     --no-progress \
     --prefer-dist \
+    --no-scripts \
     --optimize-autoloader
 
 
@@ -47,7 +48,10 @@ RUN mkdir -p storage/framework/cache/data \
     storage/framework/views \
     storage/logs \
     bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && php artisan package:discover --ansi \
+    && php artisan config:clear \
+    && php artisan view:cache
 
 ENV APP_ENV=production
 ENV APP_DEBUG=false
