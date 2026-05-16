@@ -1,4 +1,4 @@
-FROM composer:2 AS vendor
+FROM composer:2.8 AS vendor
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ COPY vite.config.js ./
 RUN npm run build
 
 
-FROM php:8.2-cli
+FROM php:8.4-cli
 
 WORKDIR /var/www/html
 
