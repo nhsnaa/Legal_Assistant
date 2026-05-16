@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Force the storage path for Blade templates
-        if (isset($_SERVER['RENDER']) || isset($_SERVER['VERCEL_URL'])) {
+        if (isset($_SERVER['RENDER'])) {
             config(['view.compiled' => '/tmp/storage/framework/views']);
         }
     }
