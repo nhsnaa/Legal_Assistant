@@ -5,7 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ILA System | Smart Legal Workspace for Solo Lawyers</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="{{ asset('css/marketing.css') }}">
+    @php
+        $marketingCssPath = public_path('css/marketing.css');
+        $marketingCss = file_exists($marketingCssPath) ? file_get_contents($marketingCssPath) : '';
+    @endphp
+    @if ($marketingCss)
+        <style>{!! $marketingCss !!}</style>
+    @endif
 </head>
 <body class="marketing-page">
     <nav class="navbar navbar-expand-lg navbar-light py-3">
