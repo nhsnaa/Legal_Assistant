@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 
 class AppServiceProvider extends ServiceProvider
@@ -17,8 +18,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
+
         // Force the storage path for Blade templates
-        if (isset($_SERVER['VERCEL_URL'])) {
+        if (isset($_SERVER['RENDER']) || isset($_SERVER['VERCEL_URL'])) {
             config(['view.compiled' => '/tmp/storage/framework/views']);
         }
     }
