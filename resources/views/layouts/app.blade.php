@@ -11,14 +11,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
 
-    @if(Request::is('settings*'))
-        <link rel="stylesheet" href="{{ asset('css/settings.css') }}">
+    @php
+        $dashboardCssPath = public_path('css/dashboard.css');
+        $dashboardCss = file_exists($dashboardCssPath) ? file_get_contents($dashboardCssPath) : '';
+        $settingsCss = '';
+
+        if (Request::is('settings*')) {
+            $settingsCssPath = public_path('css/settings.css');
+            $settingsCss = file_exists($settingsCssPath) ? file_get_contents($settingsCssPath) : '';
+        }
+    @endphp
+
+    @if ($dashboardCss)
+        <style>{!! $dashboardCss !!}</style>
     @endif
-    @if(Request::is('login') || Request::is('register'))
-        <link rel="stylesheet" href="{{ asset('css/login.css') }}">
+
+    @if ($settingsCss)
+        <style>{!! $settingsCss !!}</style>
     @endif
 
     @yield('styles')
