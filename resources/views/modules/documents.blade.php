@@ -28,15 +28,13 @@
     <div class="glass-card module-table-card">
         @if ($documents->count() > 0)
             <div class="table-responsive">
-                <table class="table module-table mb-0">
+                <table class="table module-table module-documents-table mb-0">
                     <thead>
                         <tr>
                             <th>Document Name</th>
                             <th>Category</th>
                             <th>Linked To</th>
                             <th>Type</th>
-                            <th>Original Name</th>
-                            <th>Size</th>
                             <th>Uploaded</th>
                             <th>Access</th>
                             <th>Actions</th>
@@ -47,6 +45,7 @@
                             <tr data-document-row="{{ $document->id }}">
                                 <td class="font-weight-bold module-document-name-cell">
                                     <span class="module-document-name-text">{{ $document->name }}</span>
+                                    <span class="module-document-subtext">{{ $document->original_name }}</span>
                                 </td>
                                 <td>{{ $document->category ?? 'Uncategorized' }}</td>
                                 <td>
@@ -64,20 +63,19 @@
                                     <span class="module-badge {{ ($document->type ?? 'file') === 'link' ? 'module-badge-info' : 'module-badge-muted' }}">
                                         {{ ($document->type ?? 'file') === 'link' ? 'Link' : 'File' }}
                                     </span>
-                                </td>
-                                <td>{{ $document->original_name }}</td>
-                                <td>
-                                    @if (($document->type ?? 'file') === 'link')
-                                        --
-                                    @else
-                                        {{ number_format(($document->size ?? 0) / 1024, 2) }} KB
-                                    @endif
+                                    <div class="small text-muted mt-2">
+                                        @if (($document->type ?? 'file') === 'link')
+                                            External source
+                                        @else
+                                            {{ number_format(($document->size ?? 0) / 1024, 2) }} KB
+                                        @endif
+                                    </div>
                                 </td>
                                 <td>{{ $document->created_at ? $document->created_at->format('M d, Y') : 'N/A' }}</td>
-                                <td>
-                                    <strong>{{ $document->access_count ?? 0 }}</strong>
-                                    <span class="small text-muted">access{{ ($document->access_count ?? 0) === 1 ? '' : 'es' }}</span>
-                                    <div class="small text-muted mt-1">
+                                <td class="module-document-access-cell">
+                                    <span class="module-access-count">{{ $document->access_count ?? 0 }}</span>
+                                    <span class="module-document-subtext">access{{ ($document->access_count ?? 0) === 1 ? '' : 'es' }}</span>
+                                    <div class="module-document-subtext mt-1">
                                         @if ($document->last_accessed_at)
                                             {{ $document->last_accessed_at->format('M d, Y h:i A') }}
                                             @if (!empty($document->last_accessed_by_name))
@@ -88,16 +86,23 @@
                                         @endif
                                     </div>
                                 </td>
-                                <td>
-                                    <div class="module-actions-inline">
-                                        <a href="{{ route('documents.show', $document->id) }}" class="btn btn-sm btn-light" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">
-                                            {{ ($document->type ?? 'file') === 'link' ? 'Open Link' : 'Download' }}
+                                <td class="module-document-actions-cell">
+                                    <div class="module-document-actions">
+                                        <a href="{{ route('documents.show', $document->id) }}" class="btn btn-sm btn-light module-action-btn" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">
+                                            <i class="bi {{ ($document->type ?? 'file') === 'link' ? 'bi-box-arrow-up-right' : 'bi-download' }}"></i>
+                                            <span>{{ ($document->type ?? 'file') === 'link' ? 'Open' : 'Download' }}</span>
                                         </a>
-                                        <a href="{{ route('documents.edit', $document->id) }}" class="btn btn-sm btn-light">Edit</a>
+                                        <a href="{{ route('documents.edit', $document->id) }}" class="btn btn-sm btn-light module-action-btn">
+                                            <i class="bi bi-pencil-square"></i>
+                                            <span>Edit</span>
+                                        </a>
                                         <form action="{{ route('documents.destroy', $document->id) }}" method="POST" data-async-document-delete="true" data-document-id="{{ $document->id }}" data-confirm="Delete this document?">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger module-action-btn">
+                                                <i class="bi bi-trash3"></i>
+                                                <span>Delete</span>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>
