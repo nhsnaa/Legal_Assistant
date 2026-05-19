@@ -525,10 +525,25 @@
                     </div>
                     <div class="form-group mb-0">
                         <label class="font-weight-bold small">Document URL</label>
-                        <input type="url" name="link_url" class="form-control module-input" placeholder="https://drive.google.com/...">
+                        <input type="url" name="link_url" id="dashboardDocumentLinkUrl" class="form-control module-input" placeholder="https://drive.google.com/...">
                         <small class="text-muted d-block mt-2">Use this when the team wants to keep working on the live document in Google Drive.</small>
                     </div>
                 </div>
+
+                <div class="module-alert module-alert-warning mt-3">
+                    <div>
+                        <strong>External link security reminder</strong>
+                        <p class="mb-0">ILA can record when this link is opened, but Google Drive or the external provider controls who can access the file. Set confidential files to restricted/private before saving the link.</p>
+                    </div>
+                </div>
+
+                <label class="module-confirmation-check mt-3">
+                    <input type="checkbox" name="link_privacy_ack" id="dashboardDocumentLinkPrivacyAck" value="1">
+                    <span>I confirm this external link is restricted/private or approved for workspace access.</span>
+                </label>
+                @error('link_privacy_ack')
+                    <small class="text-danger d-block mt-2">{{ $message }}</small>
+                @enderror
 
                 <div class="module-modal-actions">
                     <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardDocumentModal')">Cancel</button>
@@ -1007,6 +1022,8 @@ const aiAssistantStatus = document.getElementById('aiAssistantStatus');
 const dashboardDocumentScope = document.getElementById('dashboardDocumentScope');
 const dashboardDocumentCaseGroup = document.getElementById('dashboardDocumentCaseGroup');
 const dashboardDocumentClientGroup = document.getElementById('dashboardDocumentClientGroup');
+const dashboardDocumentLinkUrl = document.getElementById('dashboardDocumentLinkUrl');
+const dashboardDocumentLinkPrivacyAck = document.getElementById('dashboardDocumentLinkPrivacyAck');
 const initialAiSuggestions = @json($aiSuggestions ?? []);
 const initialAiSummary = @json($aiSummary ?? '');
 const initialRecentActivities = @json(($allRecentActivities ?? collect())->values()->all());
@@ -1063,6 +1080,14 @@ function syncDashboardDocumentScope() {
     const scope = dashboardDocumentScope ? dashboardDocumentScope.value : 'general';
     dashboardDocumentCaseGroup?.classList.toggle('d-none', scope !== 'case');
     dashboardDocumentClientGroup?.classList.toggle('d-none', scope !== 'client');
+}
+
+function syncDashboardExternalLinkConfirmation() {
+    const hasLink = dashboardDocumentLinkUrl && dashboardDocumentLinkUrl.value.trim() !== '';
+
+    if (dashboardDocumentLinkPrivacyAck) {
+        dashboardDocumentLinkPrivacyAck.required = hasLink;
+    }
 }
 
 function formatDuration(milliseconds) {
@@ -1519,7 +1544,9 @@ applyAiSuggestionsBtn?.addEventListener('click', function () {
 });
 
 dashboardDocumentScope?.addEventListener('change', syncDashboardDocumentScope);
+dashboardDocumentLinkUrl?.addEventListener('input', syncDashboardExternalLinkConfirmation);
 syncDashboardDocumentScope();
+syncDashboardExternalLinkConfirmation();
 promptDashboardScheduleConflict(pendingDashboardScheduleConflict);
 </script>
 @endsection
