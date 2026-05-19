@@ -118,6 +118,23 @@
                         <p class="mb-0"><a href="{{ route('documents.show', $document->id) }}" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">{{ ($document->type ?? 'file') === 'link' ? 'Open current link' : 'Open current file' }}</a></p>
                     </div>
                     <div class="module-note-item">
+                        <strong>Access Count</strong>
+                        <p class="mb-0">{{ $document->access_count ?? 0 }} access{{ ($document->access_count ?? 0) === 1 ? '' : 'es' }}</p>
+                    </div>
+                    <div class="module-note-item">
+                        <strong>Last Accessed</strong>
+                        <p class="mb-0">
+                            @if ($document->last_accessed_at)
+                                {{ $document->last_accessed_at->format('d M Y, h:i A') }}
+                                @if (!empty($document->last_accessed_by_name))
+                                    by {{ $document->last_accessed_by_name }}
+                                @endif
+                            @else
+                                Not accessed yet
+                            @endif
+                        </p>
+                    </div>
+                    <div class="module-note-item">
                         <strong>Created By</strong>
                         <p class="mb-0">{{ $document->created_by_name ?? 'Not recorded' }}</p>
                     </div>

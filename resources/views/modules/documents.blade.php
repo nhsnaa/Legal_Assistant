@@ -38,6 +38,7 @@
                             <th>Original Name</th>
                             <th>Size</th>
                             <th>Uploaded</th>
+                            <th>Access</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -73,6 +74,20 @@
                                     @endif
                                 </td>
                                 <td>{{ $document->created_at ? $document->created_at->format('M d, Y') : 'N/A' }}</td>
+                                <td>
+                                    <strong>{{ $document->access_count ?? 0 }}</strong>
+                                    <span class="small text-muted">access{{ ($document->access_count ?? 0) === 1 ? '' : 'es' }}</span>
+                                    <div class="small text-muted mt-1">
+                                        @if ($document->last_accessed_at)
+                                            {{ $document->last_accessed_at->format('M d, Y h:i A') }}
+                                            @if (!empty($document->last_accessed_by_name))
+                                                by {{ $document->last_accessed_by_name }}
+                                            @endif
+                                        @else
+                                            Never opened
+                                        @endif
+                                    </div>
+                                </td>
                                 <td>
                                     <div class="module-actions-inline">
                                         <a href="{{ route('documents.show', $document->id) }}" class="btn btn-sm btn-light" target="{{ ($document->type ?? 'file') === 'link' ? '_blank' : '_self' }}">

@@ -35,6 +35,10 @@ class DocumentController extends Controller
                 $document['updated_at'] = !empty($document['updated_at'])
                     ? Carbon::parse($document['updated_at'])
                     : null;
+                $document['last_accessed_at'] = !empty($document['last_accessed_at'])
+                    ? Carbon::parse($document['last_accessed_at'])
+                    : null;
+                $document['access_count'] = (int) ($document['access_count'] ?? 0);
                 return (object) $document;
             })
             ->reverse()
@@ -196,7 +200,7 @@ class DocumentController extends Controller
         return redirect()->route('documents.index')->with('success', 'Document records saved successfully.');
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         $document = $this->findWorkspaceRecord('documents', $id);
 
@@ -205,22 +209,25 @@ class DocumentController extends Controller
         }
 
         if (($document['type'] ?? 'file') === 'link' && !empty($document['link_url'])) {
+            $this->recordDocumentAccess($id, $document, 'opened', $request);
             return redirect()->away($document['link_url']);
         }
 
         $storageDisk = $document['storage_disk'] ?? 'local';
 
         if ($storageDisk === 'supabase') {
-            return $this->downloadFromSupabaseStorage($document);
+            return $this->downloadFromSupabaseStorage($id, $document, $request);
         }
 
         if ($storageDisk === 'firebase') {
-            return $this->downloadFromFirebaseStorage($document);
+            return $this->downloadFromFirebaseStorage($id, $document, $request);
         }
 
         if (empty($document['file_path']) || !Storage::exists($document['file_path'])) {
             abort(404, 'File not found.');
         }
+
+        $this->recordDocumentAccess($id, $document, 'downloaded', $request);
 
         return Storage::download($document['file_path'], $document['original_name'] ?? basename($document['file_path']));
     }
@@ -237,6 +244,8 @@ class DocumentController extends Controller
         $document->scope = $document->scope ?? 'general';
         $document->created_at = !empty($docData['created_at']) ? Carbon::parse($docData['created_at']) : null;
         $document->updated_at = !empty($docData['updated_at']) ? Carbon::parse($docData['updated_at']) : null;
+        $document->last_accessed_at = !empty($docData['last_accessed_at']) ? Carbon::parse($docData['last_accessed_at']) : null;
+        $document->access_count = (int) ($docData['access_count'] ?? 0);
 
         $caseOptions = $this->workspaceCollection('cases')
             ->map(fn ($case, $caseId) => (object) [
@@ -362,6 +371,39 @@ class DocumentController extends Controller
         return strtoupper((string) $extension);
     }
 
+    private function recordDocumentAccess(string $id, array $document, string $action, Request $request): void
+    {
+        $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
+        $documentName = $document['name'] ?? ($document['original_name'] ?? 'Untitled Document');
+        $accessCount = ((int) ($document['access_count'] ?? 0)) + 1;
+
+        Firebase::database()->getReference('document_access_logs')->push($this->workspacePayload([
+            'document_id' => $id,
+            'document_name' => $documentName,
+            'document_type' => $document['type'] ?? 'file',
+            'storage_disk' => $document['storage_disk'] ?? null,
+            'action' => $action,
+            'actor_id' => $actor['id'],
+            'actor_name' => $actor['name'],
+            'ip_address' => $request->ip(),
+            'user_agent' => Str::limit((string) $request->userAgent(), 255, ''),
+            'created_at' => $timestamp,
+        ]));
+
+        Firebase::database()->getReference('documents/' . $id)->update([
+            'access_count' => $accessCount,
+            'last_accessed_at' => $timestamp,
+            'last_accessed_by_id' => $actor['id'],
+            'last_accessed_by_name' => $actor['name'],
+        ]);
+
+        $this->logActivity('document', 'Document', $action, $documentName, [
+            'document_id' => $id,
+            'type' => $document['type'] ?? 'file',
+        ]);
+    }
+
     private function buildDocumentName(string $baseName, string $scope = 'general', ?string $linkedName = null): string
     {
         $cleanBaseName = trim($baseName) !== '' ? trim($baseName) : 'Document';
@@ -458,7 +500,7 @@ class DocumentController extends Controller
         return $objectPath;
     }
 
-    private function downloadFromFirebaseStorage(array $document)
+    private function downloadFromFirebaseStorage(string $id, array $document, Request $request)
     {
         if (empty($document['file_path'])) {
             abort(404, 'File not found.');
@@ -473,6 +515,8 @@ class DocumentController extends Controller
         $contents = $object->downloadAsString();
         $fileName = $document['original_name'] ?? basename($document['file_path']);
         $mimeType = $document['mime_type'] ?? 'application/octet-stream';
+
+        $this->recordDocumentAccess($id, $document, 'downloaded', $request);
 
         return response($contents, 200, [
             'Content-Type' => $mimeType,
@@ -532,7 +576,7 @@ class DocumentController extends Controller
         return $objectPath;
     }
 
-    private function downloadFromSupabaseStorage(array $document)
+    private function downloadFromSupabaseStorage(string $id, array $document, Request $request)
     {
         if (empty($document['file_path'])) {
             abort(404, 'File not found.');
@@ -558,6 +602,8 @@ class DocumentController extends Controller
 
         $fileName = $document['original_name'] ?? basename($document['file_path']);
         $mimeType = $document['mime_type'] ?? ($response->header('Content-Type') ?: 'application/octet-stream');
+
+        $this->recordDocumentAccess($id, $document, 'downloaded', $request);
 
         return response($response->body(), 200, [
             'Content-Type' => $mimeType,
