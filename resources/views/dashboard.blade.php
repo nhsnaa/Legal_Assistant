@@ -54,18 +54,13 @@
             </div>
 
             <div class="glass-card ai-assistant-card mb-4">
-                <div class="d-flex justify-content-between align-items-start flex-wrap mb-4">
-                    <div>
+                <div class="ai-assistant-header">
+                    <div class="ai-assistant-title">
                         <span class="module-kicker">AI Automated Scheduling</span>
                         <h5 class="font-weight-bold mb-1 mt-3">Suggested schedule for today</h5>
-                        <p class="text-muted mb-0" id="aiAssistantSummary">{{ $aiSummary ?? 'An automated scheduling summary based on hearings, active cases, documents, and recorded legal work.' }}</p>
-                        <div class="ai-safety-note mt-3">
-                            <i class="bi bi-shield-check"></i>
-                            <span>AI suggestions support workflow planning only. They are not legal advice and should be reviewed by a lawyer.</span>
-                        </div>
                     </div>
-                    <div class="d-flex align-items-center flex-wrap gap-2">
-                        <span class="ai-assistant-badge mr-2" id="aiAssistantBadge"><i class="bi bi-stars mr-2"></i>Prototype</span>
+                    <div class="ai-assistant-actions">
+                        <span class="ai-assistant-badge" id="aiAssistantBadge"><i class="bi bi-stars mr-2"></i>Prototype</span>
                         <button type="button" class="btn btn-primary btn-sm" id="generateAiSuggestionsBtn">
                             <i class="bi bi-magic mr-1"></i>Generate Schedule
                         </button>
@@ -73,6 +68,16 @@
                             <i class="bi bi-calendar-plus mr-1"></i>Apply to Schedule
                         </button>
                     </div>
+                </div>
+
+                <div class="ai-brief-panel">
+                    <span>Daily Brief</span>
+                    <p class="mb-0" id="aiAssistantSummary">{{ $aiSummary ?? 'An automated scheduling summary based on hearings, active cases, documents, and recorded legal work.' }}</p>
+                </div>
+
+                <div class="ai-safety-note">
+                    <i class="bi bi-shield-check"></i>
+                    <span>AI suggestions support workflow planning only. They are not legal advice and should be reviewed by a lawyer.</span>
                 </div>
 
                 <div class="ai-assistant-empty" id="aiAssistantEmptyState">
