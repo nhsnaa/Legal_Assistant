@@ -83,64 +83,89 @@
                         <button type="button" class="btn btn-sm btn-link font-weight-bold p-0" onclick="openScheduleModal('scheduleEventModal')">Add</button>
                     </div>
 
-                    <div class="schedule-upcoming-list">
-                        @forelse ($upcomingHearings as $hearing)
-                            <div class="schedule-upcoming-item {{ $hearing->state_class }}">
-                                <div class="schedule-upcoming-time">
-                                    <strong>{{ $hearing->hearing_time->format('d M') }}</strong>
-                                    <span>{{ $hearing->hearing_time->format('g:i A') }}</span>
-                                </div>
-                                <div class="schedule-upcoming-copy">
-                                    <strong>{{ $hearing->title ?: $hearing->case_name }}</strong>
-                                    <p class="mb-1">{{ $hearing->case_name }}</p>
-                                    <span class="module-badge {{ $hearing->status_badge_class }}">
-                                        {{ $hearing->display_status }}
-                                    </span>
-                                    <div class="module-actions-inline mt-2">
-                                        <button type="button" class="btn btn-sm btn-light" onclick="openEventViewModal(@js([
-                                            'id' => $hearing->id,
-                                            'title' => $hearing->title ?: $hearing->case_name,
-                                            'case_name' => $hearing->case_name,
-                                            'status' => $hearing->display_status,
-                                            'notes' => $hearing->notes ?? '',
-                                            'hearing_time' => $hearing->hearing_time->toIso8601String(),
-                                            'created_by_name' => $hearing->created_by_name ?? null,
-                                            'updated_by_name' => $hearing->updated_by_name ?? null,
-                                            'created_at' => $hearing->created_at?->toIso8601String(),
-                                            'updated_at' => $hearing->updated_at?->toIso8601String(),
-                                            'state_class' => $hearing->state_class,
-                                        ]))">View</button>
-                                        @if ($hearing->status !== 'Completed')
-                                            <form action="{{ route('schedule.events.complete', $hearing->id) }}" method="POST" onsubmit="return confirm('Mark this task as completed?')">
+                    @php
+                        $upcomingTaskFilterLabels = [
+                            'today' => 'Today',
+                            'week' => 'This Week',
+                            'all' => 'All',
+                            'completed' => 'Completed',
+                        ];
+                    @endphp
+
+                    <div class="schedule-upcoming-filters" role="tablist" aria-label="Upcoming task filters">
+                        @foreach ($upcomingTaskFilterLabels as $filterKey => $filterLabel)
+                            <button
+                                type="button"
+                                class="schedule-upcoming-filter {{ $filterKey === 'week' ? 'active' : '' }}"
+                                data-upcoming-filter="{{ $filterKey }}"
+                                role="tab"
+                                aria-selected="{{ $filterKey === 'week' ? 'true' : 'false' }}"
+                            >
+                                {{ $filterLabel }}
+                            </button>
+                        @endforeach
+                    </div>
+
+                    @foreach ($upcomingTaskFilterLabels as $filterKey => $filterLabel)
+                        <div class="schedule-upcoming-list {{ $filterKey === 'week' ? 'active' : '' }}" data-upcoming-panel="{{ $filterKey }}">
+                            @forelse (($upcomingTaskFilters[$filterKey] ?? collect()) as $hearing)
+                                <div class="schedule-upcoming-item {{ $hearing->state_class }}">
+                                    <div class="schedule-upcoming-time">
+                                        <strong>{{ $hearing->hearing_time->format('d M') }}</strong>
+                                        <span>{{ $hearing->hearing_time->format('g:i A') }}</span>
+                                    </div>
+                                    <div class="schedule-upcoming-copy">
+                                        <strong>{{ $hearing->title ?: $hearing->case_name }}</strong>
+                                        <p class="mb-1">{{ $hearing->case_name }}</p>
+                                        <span class="module-badge {{ $hearing->status_badge_class }}">
+                                            {{ $hearing->display_status }}
+                                        </span>
+                                        <div class="module-actions-inline mt-2">
+                                            <button type="button" class="btn btn-sm btn-light" onclick="openEventViewModal(@js([
+                                                'id' => $hearing->id,
+                                                'title' => $hearing->title ?: $hearing->case_name,
+                                                'case_name' => $hearing->case_name,
+                                                'status' => $hearing->display_status,
+                                                'notes' => $hearing->notes ?? '',
+                                                'hearing_time' => $hearing->hearing_time->toIso8601String(),
+                                                'created_by_name' => $hearing->created_by_name ?? null,
+                                                'updated_by_name' => $hearing->updated_by_name ?? null,
+                                                'created_at' => $hearing->created_at?->toIso8601String(),
+                                                'updated_at' => $hearing->updated_at?->toIso8601String(),
+                                                'state_class' => $hearing->state_class,
+                                            ]))">View</button>
+                                            @if ($hearing->status !== 'Completed')
+                                                <form action="{{ route('schedule.events.complete', $hearing->id) }}" method="POST" onsubmit="return confirm('Mark this task as completed?')">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button type="submit" class="btn btn-sm btn-outline-success">Done</button>
+                                                </form>
+                                            @endif
+                                            <button type="button" class="btn btn-sm btn-light" onclick="openEventEditModal(@js([
+                                                'id' => $hearing->id,
+                                                'title' => $hearing->title ?: $hearing->case_name,
+                                                'case_name' => $hearing->case_name,
+                                                'status' => $hearing->status,
+                                                'notes' => $hearing->notes ?? '',
+                                                'hearing_time' => $hearing->hearing_time->format('Y-m-d\\TH:i'),
+                                            ]))">Edit</button>
+                                            <form action="{{ route('schedule.events.destroy', $hearing->id) }}" method="POST" onsubmit="return confirm('Delete this scheduled task?')">
                                                 @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="btn btn-sm btn-outline-success">Done</button>
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
                                             </form>
-                                        @endif
-                                        <button type="button" class="btn btn-sm btn-light" onclick="openEventEditModal(@js([
-                                            'id' => $hearing->id,
-                                            'title' => $hearing->title ?: $hearing->case_name,
-                                            'case_name' => $hearing->case_name,
-                                            'status' => $hearing->status,
-                                            'notes' => $hearing->notes ?? '',
-                                            'hearing_time' => $hearing->hearing_time->format('Y-m-d\\TH:i'),
-                                        ]))">Edit</button>
-                                        <form action="{{ route('schedule.events.destroy', $hearing->id) }}" method="POST" onsubmit="return confirm('Delete this scheduled task?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-                                        </form>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        @empty
-                            <div class="module-empty-state py-4">
-                                <div class="module-empty-icon"><i class="bi bi-calendar2-event"></i></div>
-                                <h6 class="font-weight-bold">No scheduled tasks yet</h6>
-                                <p class="text-muted mb-0">Use the add task button to mark work on the calendar.</p>
-                            </div>
-                        @endforelse
-                    </div>
+                            @empty
+                                <div class="module-empty-state py-4">
+                                    <div class="module-empty-icon"><i class="bi bi-calendar2-event"></i></div>
+                                    <h6 class="font-weight-bold">No {{ strtolower($filterLabel) }} tasks</h6>
+                                    <p class="text-muted mb-0">Use the add task button to mark work on the calendar.</p>
+                                </div>
+                            @endforelse
+                        </div>
+                    @endforeach
                 </div>
             </div>
         </div>
@@ -832,6 +857,22 @@ function activateScheduleTab(target) {
 document.querySelectorAll('[data-schedule-tab]').forEach(function (tab) {
     tab.addEventListener('click', function () {
         activateScheduleTab(tab.getAttribute('data-schedule-tab'));
+    });
+});
+
+document.querySelectorAll('[data-upcoming-filter]').forEach(function (button) {
+    button.addEventListener('click', function () {
+        const target = button.getAttribute('data-upcoming-filter');
+
+        document.querySelectorAll('[data-upcoming-filter]').forEach(function (item) {
+            const isActive = item.getAttribute('data-upcoming-filter') === target;
+            item.classList.toggle('active', isActive);
+            item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        document.querySelectorAll('[data-upcoming-panel]').forEach(function (panel) {
+            panel.classList.toggle('active', panel.getAttribute('data-upcoming-panel') === target);
+        });
     });
 });
 

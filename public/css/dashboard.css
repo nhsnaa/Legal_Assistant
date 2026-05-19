@@ -1335,9 +1335,41 @@ body.profile-menu-open #sidebar {
 }
 
 .schedule-upcoming-list {
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 0.85rem;
+}
+
+.schedule-upcoming-list.active {
+    display: flex;
+}
+
+.schedule-upcoming-filters {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+    padding: 0.3rem;
+    border: 1px solid rgba(219, 231, 240, 0.92);
+    border-radius: 16px;
+    background: rgba(248, 251, 253, 0.82);
+}
+
+.schedule-upcoming-filter {
+    min-height: 34px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.74rem;
+    font-weight: 800;
+    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.schedule-upcoming-filter.active {
+    background: #ffffff;
+    color: var(--accent-strong);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
 .schedule-upcoming-item {
@@ -2733,6 +2765,10 @@ canvas {
 
     .schedule-weekday {
         display: none;
+    }
+
+    .schedule-upcoming-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .schedule-upcoming-item {

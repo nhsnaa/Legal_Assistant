@@ -105,9 +105,31 @@ class ScheduleController extends Controller
             $cursor->addDay();
         }
 
-        $upcomingHearings = $hearings
+        $todayStart = now()->copy()->startOfDay();
+        $todayEnd = now()->copy()->endOfDay();
+        $weekEnd = now()->copy()->endOfWeek();
+
+        $openHearings = $hearings
             ->filter(fn ($hearing) => ($hearing->status ?? 'Scheduled') !== 'Completed')
-            ->filter(fn ($hearing) => $hearing->hearing_time->gte(now()->copy()->startOfDay()))
+            ->filter(fn ($hearing) => $hearing->hearing_time->gte($todayStart))
+            ->sortBy(fn ($hearing) => $hearing->hearing_time->timestamp)
+            ->values();
+
+        $upcomingTaskFilters = [
+            'today' => $openHearings
+                ->filter(fn ($hearing) => $hearing->hearing_time->betweenIncluded($todayStart, $todayEnd))
+                ->values(),
+            'week' => $openHearings
+                ->filter(fn ($hearing) => $hearing->hearing_time->lte($weekEnd))
+                ->values(),
+            'all' => $openHearings,
+            'completed' => $hearings
+                ->filter(fn ($hearing) => ($hearing->status ?? 'Scheduled') === 'Completed')
+                ->sortByDesc(fn ($hearing) => $hearing->hearing_time->timestamp)
+                ->values(),
+        ];
+
+        $upcomingHearings = $openHearings
             ->sortBy(fn ($hearing) => $hearing->hearing_time->timestamp)
             ->take(6)
             ->values();
@@ -119,6 +141,7 @@ class ScheduleController extends Controller
             'hearings' => $hearings,
             'calendarDays' => $calendarDays,
             'upcomingHearings' => $upcomingHearings,
+            'upcomingTaskFilters' => $upcomingTaskFilters,
             'timeEntries' => $timeEntries,
             'caseOptions' => $caseOptions,
         ]);
