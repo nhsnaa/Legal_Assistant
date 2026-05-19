@@ -105,13 +105,20 @@ class ScheduleController extends Controller
             $cursor->addDay();
         }
 
+        $upcomingHearings = $hearings
+            ->filter(fn ($hearing) => ($hearing->status ?? 'Scheduled') !== 'Completed')
+            ->filter(fn ($hearing) => $hearing->hearing_time->gte(now()->copy()->startOfDay()))
+            ->sortBy(fn ($hearing) => $hearing->hearing_time->timestamp)
+            ->take(6)
+            ->values();
+
         return view('modules.schedule', [
             'selectedMonth' => $selectedMonth,
             'previousMonth' => $selectedMonth->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $selectedMonth->copy()->addMonth()->format('Y-m'),
             'hearings' => $hearings,
             'calendarDays' => $calendarDays,
-            'upcomingHearings' => $hearings->sortBy(fn ($hearing) => $hearing->hearing_time->timestamp)->take(6)->values(),
+            'upcomingHearings' => $upcomingHearings,
             'timeEntries' => $timeEntries,
             'caseOptions' => $caseOptions,
         ]);
