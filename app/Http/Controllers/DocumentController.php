@@ -89,6 +89,7 @@ class DocumentController extends Controller
             'client_id' => ['nullable', 'string'],
             'link_url' => ['nullable', 'url'],
             'link_name' => ['nullable', 'string', 'max:255'],
+            'link_privacy_ack' => ['required_with:link_url', 'accepted'],
         ]);
 
         $files = $request->file('documents', []);
@@ -279,6 +280,7 @@ class DocumentController extends Controller
             'case_id' => ['nullable', 'string'],
             'client_id' => ['nullable', 'string'],
             'link_url' => [($document['type'] ?? 'file') === 'link' ? 'required' : 'nullable', 'url'],
+            'link_privacy_ack' => [($document['type'] ?? 'file') === 'link' ? 'required' : 'nullable', 'accepted'],
         ]);
 
         $linkedEntity = $this->resolveLinkedEntity(

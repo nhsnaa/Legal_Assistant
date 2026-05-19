@@ -70,6 +70,19 @@
                             <label class="font-weight-bold small">Document URL</label>
                             <input type="url" name="link_url" class="form-control module-input" value="{{ old('link_url', $document->link_url ?? '') }}" required>
                         </div>
+                        <div class="module-alert module-alert-warning">
+                            <div>
+                                <strong>External link security reminder</strong>
+                                <p class="mb-0">ILA can record when this link is opened, but Google Drive or the external provider controls who can access the file. Keep confidential files restricted/private.</p>
+                            </div>
+                        </div>
+                        <label class="module-confirmation-check">
+                            <input type="checkbox" name="link_privacy_ack" value="1" {{ old('link_privacy_ack') ? 'checked' : '' }} required>
+                            <span>I confirm this external link is restricted/private or approved for workspace access.</span>
+                        </label>
+                        @error('link_privacy_ack')
+                            <small class="text-danger d-block mt-2">{{ $message }}</small>
+                        @enderror
                     @endif
 
                     <div class="module-modal-actions">

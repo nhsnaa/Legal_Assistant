@@ -93,10 +93,25 @@
                 </div>
                 <div class="col-lg-7">
                     <label class="font-weight-bold small">Document URL</label>
-                    <input type="url" name="link_url" class="form-control module-input" value="{{ old('link_url') }}" placeholder="https://drive.google.com/...">
+                    <input type="url" name="link_url" id="documentLinkUrl" class="form-control module-input" value="{{ old('link_url') }}" placeholder="https://drive.google.com/...">
                     <small class="text-muted d-block mt-2">Useful when the legal team wants to keep editing the original document in Google Drive.</small>
                 </div>
             </div>
+
+            <div class="module-alert module-alert-warning mt-3" id="documentLinkWarning">
+                <div>
+                    <strong>External link security reminder</strong>
+                    <p class="mb-0">ILA can record when this link is opened, but Google Drive or the external provider controls who can access the file. Set confidential files to restricted/private before saving the link.</p>
+                </div>
+            </div>
+
+            <label class="module-confirmation-check mt-3" id="documentLinkPrivacyGroup">
+                <input type="checkbox" name="link_privacy_ack" id="documentLinkPrivacyAck" value="1" {{ old('link_privacy_ack') ? 'checked' : '' }}>
+                <span>I confirm this external link is restricted/private or approved for workspace access.</span>
+            </label>
+            @error('link_privacy_ack')
+                <small class="text-danger d-block mt-2">{{ $message }}</small>
+            @enderror
 
             <div class="module-modal-actions">
                 <a href="{{ route('documents.index') }}" class="btn btn-light px-4">Cancel</a>
@@ -120,11 +135,21 @@ const fileList = document.getElementById('documentFileList');
 const documentScope = document.getElementById('documentScope');
 const caseSelectionGroup = document.getElementById('caseSelectionGroup');
 const clientSelectionGroup = document.getElementById('clientSelectionGroup');
+const documentLinkUrl = document.getElementById('documentLinkUrl');
+const documentLinkPrivacyAck = document.getElementById('documentLinkPrivacyAck');
 
 function syncDocumentScope() {
     const scope = documentScope ? documentScope.value : 'general';
     caseSelectionGroup?.classList.toggle('d-none', scope !== 'case');
     clientSelectionGroup?.classList.toggle('d-none', scope !== 'client');
+}
+
+function syncExternalLinkConfirmation() {
+    const hasLink = documentLinkUrl && documentLinkUrl.value.trim() !== '';
+
+    if (documentLinkPrivacyAck) {
+        documentLinkPrivacyAck.required = hasLink;
+    }
 }
 
 function renderSelectedFiles(files) {
@@ -168,6 +193,8 @@ dropzone.addEventListener('drop', function (event) {
 });
 
 documentScope?.addEventListener('change', syncDocumentScope);
+documentLinkUrl?.addEventListener('input', syncExternalLinkConfirmation);
 syncDocumentScope();
+syncExternalLinkConfirmation();
 </script>
 @endsection
