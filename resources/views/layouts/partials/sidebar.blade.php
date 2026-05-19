@@ -27,5 +27,11 @@
             <span class="nav-icon"><i class="bi bi-folder-fill"></i></span>
             <span class="link-text">Documents</span>
         </a>
+        @if (session('firebase_user_id') === session('workspace_owner_id'))
+            <a class="nav-link {{ request()->routeIs('audit.*') ? 'active' : '' }}" href="{{ route('audit.index') }}">
+                <span class="nav-icon"><i class="bi bi-shield-check"></i></span>
+                <span class="link-text">Audit Trail</span>
+            </a>
+        @endif
     </nav>
 </aside>
