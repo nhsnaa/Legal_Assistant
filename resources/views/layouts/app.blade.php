@@ -114,64 +114,6 @@
         localStorage.setItem('ilaSidebarCollapsed', sidebar.classList.contains('collapsed') ? 'true' : 'false');
     }
 
-    (function setupSidebarPrefetch() {
-        const prefetchedUrls = new Set();
-        const prefetchLinks = document.querySelectorAll('[data-sidebar-prefetch]');
-
-        function canPrefetch(link) {
-            if (!link || !link.href || prefetchedUrls.has(link.href)) {
-                return false;
-            }
-
-            const targetUrl = new URL(link.href, window.location.href);
-
-            return targetUrl.origin === window.location.origin
-                && targetUrl.pathname !== window.location.pathname;
-        }
-
-        function prefetch(link) {
-            if (!canPrefetch(link)) {
-                return;
-            }
-
-            prefetchedUrls.add(link.href);
-
-            const prefetchTag = document.createElement('link');
-            prefetchTag.rel = 'prefetch';
-            prefetchTag.as = 'document';
-            prefetchTag.href = link.href;
-            document.head.appendChild(prefetchTag);
-        }
-
-        function markPending(link) {
-            prefetchLinks.forEach(function (item) {
-                item.classList.remove('is-pending');
-            });
-
-            link.classList.add('is-pending');
-        }
-
-        prefetchLinks.forEach(function (link) {
-            link.addEventListener('mouseenter', function () {
-                prefetch(link);
-            });
-            link.addEventListener('focus', function () {
-                prefetch(link);
-            });
-            link.addEventListener('touchstart', function () {
-                prefetch(link);
-            }, { passive: true });
-            link.addEventListener('click', function () {
-                markPending(link);
-            });
-        });
-
-        window.addEventListener('load', function () {
-            window.setTimeout(function () {
-                prefetchLinks.forEach(prefetch);
-            }, 900);
-        });
-    })();
 </script>
 
 @yield('scripts')
