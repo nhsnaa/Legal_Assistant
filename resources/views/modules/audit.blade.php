@@ -3,7 +3,7 @@
 @section('title', 'Audit Trail')
 
 @section('content')
-<div class="module-shell">
+<div class="module-shell audit-page">
     <div class="module-hero glass-card">
         <div>
             <span class="module-kicker">Security Review</span>
@@ -34,9 +34,10 @@
         </div>
     </div>
 
-    <div class="glass-card p-4">
-        <div class="module-toolbar mb-3 p-0">
+    <section class="glass-card audit-section">
+        <div class="audit-section-header">
             <div>
+                <span class="module-kicker">Workspace Events</span>
                 <h5 class="font-weight-bold mb-1">Workspace Activity</h5>
                 <p class="text-muted mb-0">Latest recorded actions for this workspace. Only the workspace owner can view this page.</p>
             </div>
@@ -57,7 +58,7 @@
             </form>
         </div>
 
-        <div class="table-responsive">
+        <div class="table-responsive audit-table-wrap">
             <table class="table module-table audit-table mb-0">
                 <thead>
                     <tr>
@@ -91,17 +92,18 @@
                 </tbody>
             </table>
         </div>
-    </div>
+    </section>
 
-    <div class="glass-card p-4">
-        <div class="module-toolbar mb-3 p-0">
+    <section class="glass-card audit-section">
+        <div class="audit-section-header">
             <div>
+                <span class="module-kicker">Document Security</span>
                 <h5 class="font-weight-bold mb-1">Document Access Log</h5>
                 <p class="text-muted mb-0">Shows successful document opens/downloads with user, time, IP address, and browser details.</p>
             </div>
         </div>
 
-        <div class="table-responsive">
+        <div class="table-responsive audit-table-wrap">
             <table class="table module-table audit-document-table mb-0">
                 <thead>
                     <tr>
@@ -138,7 +140,7 @@
                 </tbody>
             </table>
         </div>
-    </div>
+    </section>
 </div>
 @endsection
 
