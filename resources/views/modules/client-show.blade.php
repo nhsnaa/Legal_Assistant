@@ -160,8 +160,8 @@
                     <div class="module-note-list">
                         @foreach ($linkedDocuments->take(6) as $document)
                             <div class="module-note-item">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
+                                <div class="client-overview-note-row">
+                                    <div class="client-overview-note-copy">
                                         <strong>{{ $document->name }}</strong>
                                         <p class="mb-1">{{ $document->category ?? 'Uncategorized' }} | {{ ($document->type ?? 'file') === 'link' ? 'Link' : 'File' }}</p>
                                         <small class="text-muted">
@@ -174,7 +174,7 @@
                                             @endif
                                         </small>
                                     </div>
-                                    <a href="{{ route('documents.edit', $document->id) }}" class="btn btn-sm btn-light ml-3">Open</a>
+                                    <a href="{{ route('documents.edit', $document->id) }}" class="btn btn-sm btn-light client-overview-note-action">Open</a>
                                 </div>
                             </div>
                         @endforeach
@@ -200,8 +200,8 @@
                     <div class="module-note-list">
                         @foreach ($linkedHearings->take(6) as $hearing)
                             <div class="module-note-item">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
+                                <div class="client-overview-note-row">
+                                    <div class="client-overview-note-copy">
                                         <strong>{{ $hearing->title ?? ($hearing->case_name ?? 'Untitled Task') }}</strong>
                                         <p class="mb-1">{{ $hearing->case_name ?? 'General Task' }}</p>
                                         <small class="text-muted">{{ $hearing->hearing_time->format('d M Y, g:i A') }}</small>

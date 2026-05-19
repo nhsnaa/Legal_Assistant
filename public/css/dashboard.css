@@ -1188,6 +1188,12 @@ body.profile-menu-open #sidebar {
     border-radius: 18px;
     background: rgba(248, 251, 253, 0.92);
     border: 1px solid rgba(219, 231, 240, 0.8);
+    min-width: 0;
+}
+
+.module-detail-item strong {
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .module-detail-item.full {
@@ -1656,18 +1662,45 @@ body.profile-menu-open #sidebar {
     border-radius: 18px;
     background: rgba(248, 251, 253, 0.9);
     border: 1px solid rgba(219, 231, 240, 0.9);
+    min-width: 0;
 }
 
 .module-note-item strong {
     display: block;
     margin-bottom: 0.35rem;
     font-size: 0.92rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .module-note-item p {
     color: var(--muted);
     font-size: 0.84rem;
     line-height: 1.6;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.module-note-item small {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.client-overview-note-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.85rem;
+    min-width: 0;
+}
+
+.client-overview-note-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.client-overview-note-action {
+    flex-shrink: 0;
 }
 
 .glass-card {
@@ -2882,6 +2915,14 @@ canvas {
     .module-actions-inline {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .client-overview-note-row {
+        flex-direction: column;
+    }
+
+    .client-overview-note-action {
+        width: 100%;
     }
 
     .module-file-item {
