@@ -109,10 +109,13 @@ class ScheduleController extends Controller
         $todayEnd = now()->copy()->endOfDay();
         $weekEnd = now()->copy()->endOfWeek();
 
-        $openHearings = $hearings
+        $allOpenHearings = $hearings
             ->filter(fn ($hearing) => ($hearing->status ?? 'Scheduled') !== 'Completed')
-            ->filter(fn ($hearing) => $hearing->hearing_time->gte($todayStart))
             ->sortBy(fn ($hearing) => $hearing->hearing_time->timestamp)
+            ->values();
+
+        $openHearings = $allOpenHearings
+            ->filter(fn ($hearing) => $hearing->hearing_time->gte($todayStart))
             ->values();
 
         $upcomingTaskFilters = [
@@ -122,7 +125,7 @@ class ScheduleController extends Controller
             'week' => $openHearings
                 ->filter(fn ($hearing) => $hearing->hearing_time->lte($weekEnd))
                 ->values(),
-            'all' => $openHearings,
+            'all' => $allOpenHearings,
             'completed' => $hearings
                 ->filter(fn ($hearing) => ($hearing->status ?? 'Scheduled') === 'Completed')
                 ->sortByDesc(fn ($hearing) => $hearing->hearing_time->timestamp)
