@@ -1826,6 +1826,27 @@ body.profile-menu-open #sidebar {
     border: 1px solid #fed7aa;
 }
 
+.ai-safety-note {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    max-width: 680px;
+    padding: 0.72rem 0.85rem;
+    border-radius: 14px;
+    background: rgba(236, 254, 255, 0.72);
+    border: 1px solid rgba(165, 243, 252, 0.85);
+    color: #155e75;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    font-weight: 600;
+}
+
+.ai-safety-note i {
+    margin-top: 0.12rem;
+    color: var(--accent-strong);
+    flex-shrink: 0;
+}
+
 .ai-assistant-empty {
     display: flex;
     flex-direction: column;
@@ -1914,9 +1935,24 @@ body.profile-menu-open #sidebar {
 
 .ai-suggestion-reason {
     display: block;
+    margin-top: 0.55rem;
+    padding: 0.62rem 0.72rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(219, 231, 240, 0.9);
     color: #4b6476;
     font-size: 0.78rem;
     line-height: 1.55;
+}
+
+.ai-suggestion-reason span {
+    display: block;
+    margin-bottom: 0.15rem;
+    color: var(--accent-strong);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 .ai-suggestion-timing {

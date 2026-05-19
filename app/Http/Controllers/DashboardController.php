@@ -173,7 +173,7 @@ class DashboardController extends Controller
                     [
                         'parts' => [
                             [
-                                'text' => 'Build an automated daily schedule from this dashboard data and return JSON in this shape: {"summary":"...","suggestions":[{"slot":"...","title":"...","timing":"...","detail":"...","reason":"..."}]}. Dashboard data: ' . json_encode([
+                                'text' => 'Build an automated daily schedule from this dashboard data and return JSON in this shape: {"summary":"Daily brief with workload counts and suggested focus. Do not give legal advice.","suggestions":[{"slot":"...","title":"...","timing":"...","detail":"...","reason":"Explain clearly which dashboard data caused this suggestion."}]}. The assistant supports workflow planning only, not legal advice. Dashboard data: ' . json_encode([
                                     'generated_at' => now()->toIso8601String(),
                                     'upcoming_hearings' => $hearings->map(function ($hearing) {
                                         return [
@@ -443,7 +443,10 @@ class DashboardController extends Controller
     private function buildPrototypeAiPlan($upcomingHearings, int $activeCases, int $documentsCount, int $billableEntriesCount): array
     {
         $suggestions = [];
-        $summary = 'Generate an automated schedule for today based on the latest legal workload in the system.';
+        $summary = 'Daily brief: ' . $activeCases . ' active case' . ($activeCases === 1 ? '' : 's') . ', '
+            . $upcomingHearings->count() . ' upcoming hearing' . ($upcomingHearings->count() === 1 ? '' : 's') . ', '
+            . $documentsCount . ' stored document' . ($documentsCount === 1 ? '' : 's') . ', and '
+            . $billableEntriesCount . ' billable time entr' . ($billableEntriesCount === 1 ? 'y' : 'ies') . '. Suggested focus: organize today around the highest-risk legal work first.';
 
         if ($upcomingHearings->isNotEmpty()) {
             $nextHearing = $upcomingHearings->first();
@@ -453,10 +456,10 @@ class DashboardController extends Controller
                 'title' => 'Reserve the first block for hearing preparation',
                 'timing' => $hearingTime->isToday() ? 'Due today' : 'Upcoming hearing',
                 'detail' => 'Focus on "' . ($nextHearing['title'] ?? $nextHearing['case_name'] ?? 'Untitled Case') . '" before ' . $hearingTime->format('d M, g:i A') . '.',
-                'reason' => 'Court-related work is the highest-risk item to leave until later in the day.',
+                'reason' => 'Suggested because the workspace has an upcoming hearing for "' . ($nextHearing['case_name'] ?? 'a case') . '" scheduled on ' . $hearingTime->format('d M, g:i A') . '. Court-related work is the highest-risk item to leave until later in the day.',
             ];
 
-            $summary = 'The assistant found a hearing-based priority, so it is scheduling court preparation first.';
+            $summary = 'Daily brief: the next hearing is ' . $hearingTime->format('d M, g:i A') . ' for "' . ($nextHearing['case_name'] ?? 'a case') . '". Suggested focus: prepare hearing materials first, then continue case work and document review.';
         }
 
         if ($activeCases > 0) {
@@ -465,7 +468,7 @@ class DashboardController extends Controller
                 'title' => 'Schedule a focused active-case work block',
                 'timing' => 'Deep work block',
                 'detail' => 'You currently have ' . $activeCases . ' active case' . ($activeCases === 1 ? '' : 's') . '. Group follow-up, research, and drafting into one focused session.',
-                'reason' => 'Clustering case review reduces context switching and helps legal drafting move faster.',
+                'reason' => 'Suggested because the workspace currently has ' . $activeCases . ' active case' . ($activeCases === 1 ? '' : 's') . '. Clustering case review reduces context switching and helps legal drafting move faster.',
             ];
         }
 
@@ -475,7 +478,7 @@ class DashboardController extends Controller
                 'title' => 'Schedule a document review and filing block',
                 'timing' => 'Document window',
                 'detail' => 'With ' . $documentsCount . ' stored document' . ($documentsCount === 1 ? '' : 's') . ', reserve a short review window for uploads, checking, or filing.',
-                'reason' => 'Documents are easier to batch together after the main case priority is under control.',
+                'reason' => 'Suggested because the workspace has ' . $documentsCount . ' document record' . ($documentsCount === 1 ? '' : 's') . '. Documents are easier to batch together after the main case priority is under control.',
             ];
         }
 
@@ -485,7 +488,7 @@ class DashboardController extends Controller
                 'title' => 'Reserve a wrap-up block for billable review',
                 'timing' => 'End-of-day check',
                 'detail' => 'You already have ' . $billableEntriesCount . ' billable time entr' . ($billableEntriesCount === 1 ? 'y' : 'ies') . '. Use the last slot of the day to verify time records are complete.',
-                'reason' => 'Time records are easiest to verify after the day’s work has been completed.',
+                'reason' => 'Suggested because the workspace already has ' . $billableEntriesCount . ' billable time entr' . ($billableEntriesCount === 1 ? 'y' : 'ies') . '. Time records are easiest to verify after the day\'s work has been completed.',
             ];
         }
 

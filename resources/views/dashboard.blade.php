@@ -59,6 +59,10 @@
                         <span class="module-kicker">AI Automated Scheduling</span>
                         <h5 class="font-weight-bold mb-1 mt-3">Suggested schedule for today</h5>
                         <p class="text-muted mb-0" id="aiAssistantSummary">{{ $aiSummary ?? 'An automated scheduling summary based on hearings, active cases, documents, and recorded legal work.' }}</p>
+                        <div class="ai-safety-note mt-3">
+                            <i class="bi bi-shield-check"></i>
+                            <span>AI suggestions support workflow planning only. They are not legal advice and should be reviewed by a lawyer.</span>
+                        </div>
                     </div>
                     <div class="d-flex align-items-center flex-wrap gap-2">
                         <span class="ai-assistant-badge mr-2" id="aiAssistantBadge"><i class="bi bi-stars mr-2"></i>Prototype</span>
@@ -92,7 +96,7 @@
                                     <span class="ai-suggestion-timing">{{ $suggestion['timing'] }}</span>
                                 </div>
                                 <p class="mb-1">{{ $suggestion['detail'] }}</p>
-                                <small class="ai-suggestion-reason">Scheduling note: {{ $suggestion['reason'] ?? 'It helps structure the day with clearer priorities.' }}</small>
+                                <small class="ai-suggestion-reason"><span>Why this was suggested:</span> {{ $suggestion['reason'] ?? 'It helps structure the day with clearer priorities.' }}</small>
                             </div>
                         </div>
                     @empty
@@ -1228,7 +1232,7 @@ function renderAiSuggestions(summary, suggestions, source, message) {
                             <span class="ai-suggestion-timing">${escapeHtml(suggestion.timing || 'Today')}</span>
                         </div>
                         <p class="mb-1">${escapeHtml(suggestion.detail || '')}</p>
-                        <small class="ai-suggestion-reason">Scheduling note: ${escapeHtml(suggestion.reason || 'It helps structure the day with clearer priorities.')}</small>
+                        <small class="ai-suggestion-reason"><span>Why this was suggested:</span> ${escapeHtml(suggestion.reason || 'It helps structure the day with clearer priorities.')}</small>
                     </div>
                 </div>
             `;
