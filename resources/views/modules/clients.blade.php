@@ -53,7 +53,7 @@
                 <tbody id="clientTableBody">
                     @forelse ($clients as $client)
                         <tr data-client-row="{{ $client->id }}">
-                            <td class="module-id">#{{ $client->id }}</td>
+                            <td class="module-id">{{ $client->display_id }}</td>
                             <td class="font-weight-bold">{{ $client->name }}</td>
                             <td>{{ $client->email }}</td>
                             <td>{{ $client->phone }}</td>

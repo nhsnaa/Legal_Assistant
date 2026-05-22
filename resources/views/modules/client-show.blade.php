@@ -63,7 +63,7 @@
                 <div class="module-detail-grid">
                     <div class="module-detail-item">
                         <label>Client ID</label>
-                        <strong>#{{ $client->id }}</strong>
+                        <strong>{{ $client->display_id }}</strong>
                     </div>
                     <div class="module-detail-item">
                         <label>Full Name</label>
@@ -120,7 +120,10 @@
                             <tbody>
                                 @foreach ($linkedCases as $case)
                                     <tr>
-                                        <td class="font-weight-bold">{{ $case->case_name ?? 'Untitled Case' }}</td>
+                                        <td>
+                                            <div class="font-weight-bold">{{ $case->case_name ?? 'Untitled Case' }}</div>
+                                            <div class="text-muted tiny">{{ $case->display_id }}</div>
+                                        </td>
                                         <td>{{ $case->case_type ?? 'Other' }}</td>
                                         <td>
                                             <span class="module-badge {{ ($case->status ?? 'Active') === 'Active' ? 'module-badge-success' : (($case->status ?? '') === 'Pending' ? 'module-badge-warning' : 'module-badge-muted') }}">

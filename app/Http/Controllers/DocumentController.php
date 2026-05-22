@@ -26,6 +26,7 @@ class DocumentController extends Controller
         $documents = $this->workspaceCollection('documents')
             ->map(function ($document, $id) {
                 $document['id'] = $id;
+                $document['display_id'] = $this->displayIdFor('DOC', $document, $id);
                 $document['type'] = $document['type'] ?? 'file';
                 $document['category'] = $document['category'] ?? 'Uncategorized';
                 $document['scope'] = $document['scope'] ?? 'general';
@@ -136,6 +137,7 @@ class DocumentController extends Controller
             );
 
             $database->getReference('documents')->push($this->workspacePayload([
+                'display_id' => $this->generateDisplayId('documents', 'DOC'),
                 'type' => 'file',
                 'category' => $request->input('document_category'),
                 'scope' => $scope,
@@ -168,6 +170,7 @@ class DocumentController extends Controller
                 : ($request->input('document_category') ?: 'Linked Document');
 
             $database->getReference('documents')->push($this->workspacePayload([
+                'display_id' => $this->generateDisplayId('documents', 'DOC'),
                 'type' => 'link',
                 'category' => $request->input('document_category'),
                 'scope' => $scope,
@@ -241,6 +244,7 @@ class DocumentController extends Controller
 
         $document = (object) $docData;
         $document->id = $id;
+        $document->display_id = $this->displayIdFor('DOC', $docData, $id);
         $document->category = $document->category ?? 'Uncategorized';
         $document->scope = $document->scope ?? 'general';
         $document->created_at = !empty($docData['created_at']) ? Carbon::parse($docData['created_at']) : null;

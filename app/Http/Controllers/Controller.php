@@ -112,6 +112,40 @@ abstract class Controller
         ]);
     }
 
+    protected function generateDisplayId(string $node, string $prefix): string
+    {
+        $year = now()->format('Y');
+        $needle = $prefix . '-' . $year . '-';
+
+        $nextNumber = $this->workspaceCollection($node)
+            ->pluck('display_id')
+            ->filter(fn ($displayId) => is_string($displayId) && str_starts_with($displayId, $needle))
+            ->map(fn ($displayId) => (int) substr($displayId, strlen($needle)))
+            ->max() + 1;
+
+        return sprintf('%s-%s-%03d', $prefix, $year, max($nextNumber, 1));
+    }
+
+    protected function displayIdFor(string $prefix, array|object $record, string $firebaseId): string
+    {
+        $displayId = is_array($record)
+            ? ($record['display_id'] ?? null)
+            : ($record->display_id ?? null);
+
+        if (is_string($displayId) && $displayId !== '') {
+            return $displayId;
+        }
+
+        $createdAt = is_array($record)
+            ? ($record['created_at'] ?? null)
+            : ($record->created_at ?? null);
+
+        $year = $createdAt ? Carbon::parse($createdAt)->format('Y') : now()->format('Y');
+        $shortId = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $firebaseId), -6));
+
+        return sprintf('%s-%s-%s', $prefix, $year, $shortId ?: 'LEGACY');
+    }
+
     protected function logActivity(string $module, string $label, string $action, string $subject, array $meta = []): void
     {
         $actor = $this->currentActorMetadata();

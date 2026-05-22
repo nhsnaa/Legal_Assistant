@@ -28,6 +28,10 @@
             <div class="glass-card p-4 h-100">
                 <div class="module-detail-grid">
                     <div class="module-detail-item">
+                        <label>Case ID</label>
+                        <strong>{{ $case->display_id }}</strong>
+                    </div>
+                    <div class="module-detail-item">
                         <label>Case Title</label>
                         <strong>{{ $case->case_name }}</strong>
                     </div>

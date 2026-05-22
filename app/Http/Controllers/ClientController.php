@@ -15,6 +15,7 @@ class ClientController extends Controller
         $allClients = $this->workspaceCollection('clients')
             ->map(function ($client, $id) {
                 $client['id'] = $id;
+                $client['display_id'] = $this->displayIdFor('CLIENT', $client, $id);
                 $client['created_at_label'] = !empty($client['created_at'])
                     ? Carbon::parse($client['created_at'])->format('d M Y, h:i A')
                     : null;
@@ -53,6 +54,7 @@ class ClientController extends Controller
         $timestamp = now()->toIso8601String();
 
         Firebase::database()->getReference('clients')->push($this->workspacePayload(array_merge($validated, [
+            'display_id' => $this->generateDisplayId('clients', 'CLIENT'),
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
             'created_by_id' => $actor['id'],
@@ -101,6 +103,7 @@ class ClientController extends Controller
         }
 
         $client = (object) array_merge($clientData, ['id' => $id]);
+        $client->display_id = $this->displayIdFor('CLIENT', $clientData, $id);
         $client->created_at = !empty($clientData['created_at']) ? Carbon::parse($clientData['created_at']) : null;
         $client->updated_at = !empty($clientData['updated_at']) ? Carbon::parse($clientData['updated_at']) : null;
 
@@ -108,6 +111,7 @@ class ClientController extends Controller
             ->filter(fn ($case) => ($case['client_id'] ?? null) === $id)
             ->map(function ($case, $caseId) {
                 $case['id'] = $caseId;
+                $case['display_id'] = $this->displayIdFor('CASE', $case, $caseId);
                 $case['created_at'] = !empty($case['created_at']) ? Carbon::parse($case['created_at']) : null;
                 $case['updated_at'] = !empty($case['updated_at']) ? Carbon::parse($case['updated_at']) : null;
                 return (object) $case;
@@ -126,6 +130,7 @@ class ClientController extends Controller
             })
             ->map(function ($document, $documentId) {
                 $document['id'] = $documentId;
+                $document['display_id'] = $this->displayIdFor('DOC', $document, $documentId);
                 $document['created_at'] = !empty($document['created_at']) ? Carbon::parse($document['created_at']) : null;
                 $document['updated_at'] = !empty($document['updated_at']) ? Carbon::parse($document['updated_at']) : null;
                 return (object) $document;

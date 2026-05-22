@@ -97,6 +97,10 @@
                 <h6 class="font-weight-bold mb-3">Document Details</h6>
                 <div class="module-note-list">
                     <div class="module-note-item">
+                        <strong>Document ID</strong>
+                        <p class="mb-0">{{ $document->display_id }}</p>
+                    </div>
+                    <div class="module-note-item">
                         <strong>{{ ($document->type ?? 'file') === 'link' ? 'Source Label' : 'Original File Name' }}</strong>
                         <p class="mb-0">{{ $document->original_name }}</p>
                     </div>

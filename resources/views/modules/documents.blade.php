@@ -45,6 +45,7 @@
                             <tr data-document-row="{{ $document->id }}">
                                 <td class="font-weight-bold module-document-name-cell">
                                     <span class="module-document-name-text">{{ $document->name }}</span>
+                                    <span class="module-document-subtext">{{ $document->display_id }}</span>
                                     <span class="module-document-subtext">{{ $document->original_name }}</span>
                                 </td>
                                 <td>{{ $document->category ?? 'Uncategorized' }}</td>

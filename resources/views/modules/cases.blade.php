@@ -54,7 +54,7 @@
                 <tbody id="caseTableBody">
                     @forelse ($cases as $case)
                         <tr data-case-row="{{ $case->id }}">
-                            <td class="module-id">#{{ $case->id }}</td>
+                            <td class="module-id">{{ $case->display_id }}</td>
                             <td class="font-weight-bold">{{ $case->case_name }}</td>
                             <td>{{ $case->case_type ?? 'Other' }}</td>
                             <td>{{ $case->client->name ?? 'Unassigned client' }}</td>

@@ -33,6 +33,7 @@ class CaseController extends Controller
 
         $allCases = $this->workspaceCollection('cases')->map(function ($case, $id) use ($clientMap) {
             $case['id'] = $id;
+            $case['display_id'] = $this->displayIdFor('CASE', $case, $id);
             $case['client'] = $clientMap->get($case['client_id'] ?? null);
             return (object) $case;
         });
@@ -62,6 +63,7 @@ class CaseController extends Controller
         $actor = $this->currentActorMetadata();
         $timestamp = now()->toIso8601String();
         $registeredCase = array_merge($validated, [
+            'display_id' => $this->generateDisplayId('cases', 'CASE'),
             'status' => 'Registered',
             'progress' => 0,
         ]);
@@ -101,6 +103,7 @@ class CaseController extends Controller
 
         $case = (object) $caseData;
         $case->id = $id;
+        $case->display_id = $this->displayIdFor('CASE', $caseData, $id);
         $case->created_at = !empty($caseData['created_at']) ? Carbon::parse($caseData['created_at']) : null;
         $case->updated_at = !empty($caseData['updated_at']) ? Carbon::parse($caseData['updated_at']) : null;
 
