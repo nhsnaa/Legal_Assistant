@@ -155,9 +155,9 @@
                 <div class="form-group col-md-6">
                     <label class="font-weight-bold small">Status</label>
                     <select name="status" class="form-control module-input">
-                        <option value="Active" {{ old('status') === 'Active' ? 'selected' : '' }}>Active</option>
-                        <option value="Pending" {{ old('status') === 'Pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="Closed" {{ old('status') === 'Closed' ? 'selected' : '' }}>Closed</option>
+                        @foreach ($caseStatuses as $status)
+                            <option value="{{ $status }}" {{ old('status', 'Active') === $status ? 'selected' : '' }}>{{ $status }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="form-group col-md-6">
@@ -171,7 +171,11 @@
             </div>
             <div class="form-group">
                 <label class="font-weight-bold small">Initial Progress (%)</label>
-                <input type="number" name="progress" min="0" max="100" class="form-control module-input" value="{{ old('progress', 0) }}">
+                <select name="progress" class="form-control module-input">
+                    @foreach (range(0, 100, 10) as $progress)
+                        <option value="{{ $progress }}" {{ (int) old('progress', 0) === $progress ? 'selected' : '' }}>{{ $progress }}%</option>
+                    @endforeach
+                </select>
             </div>
 
             <div class="module-modal-actions">
@@ -221,9 +225,9 @@
                 <div class="form-group col-md-6">
                     <label class="font-weight-bold small">Status</label>
                     <select name="status" id="caseEditStatus" class="form-control module-input">
-                        <option value="Active">Active</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Closed">Closed</option>
+                        @foreach ($caseStatuses as $status)
+                            <option value="{{ $status }}">{{ $status }}</option>
+                        @endforeach
                     </select>
                 </div>
                 <div class="form-group col-md-6">
@@ -237,7 +241,11 @@
             </div>
             <div class="form-group">
                 <label class="font-weight-bold small">Progress (%)</label>
-                <input type="number" name="progress" min="0" max="100" id="caseEditProgress" class="form-control module-input">
+                <select name="progress" id="caseEditProgress" class="form-control module-input">
+                    @foreach (range(0, 100, 10) as $progress)
+                        <option value="{{ $progress }}">{{ $progress }}%</option>
+                    @endforeach
+                </select>
             </div>
 
             <div class="module-modal-actions">

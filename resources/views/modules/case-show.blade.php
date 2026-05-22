@@ -95,6 +95,80 @@
             </div>
         </div>
     </div>
+
+    <div class="row">
+        <div class="col-xl-4 mb-4">
+            <div class="glass-card p-4 h-100">
+                <h5 class="font-weight-bold mb-2">Add Case Update</h5>
+                <p class="text-muted small mb-4">Record the latest progress without replacing the original case information.</p>
+
+                <form action="{{ route('cases.updates.store', $case->id) }}" method="POST">
+                    @csrf
+                    <div class="form-group">
+                        <label class="font-weight-bold small">Update Note</label>
+                        <textarea name="note" rows="5" class="form-control module-input" required placeholder="Example: Documents submitted to land office.">{{ old('note') }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold small">Current Status</label>
+                        <select name="status" class="form-control module-input" required>
+                            @foreach ($caseStatuses as $status)
+                                <option value="{{ $status }}" {{ old('status', $case->status) === $status ? 'selected' : '' }}>{{ $status }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="font-weight-bold small">Progress</label>
+                        <select name="progress" class="form-control module-input" required>
+                            @foreach ($progressOptions as $progress)
+                                <option value="{{ $progress }}" {{ (int) old('progress', $case->progress ?? 0) === $progress ? 'selected' : '' }}>{{ $progress }}%</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Save Update</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-xl-8 mb-4">
+            <div class="glass-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div>
+                        <h5 class="font-weight-bold mb-1">Case Update Timeline</h5>
+                        <p class="text-muted small mb-0">A dated history of progress notes, status changes, and users who recorded them.</p>
+                    </div>
+                    <span class="module-badge module-badge-info">{{ $caseUpdates->count() }} update{{ $caseUpdates->count() === 1 ? '' : 's' }}</span>
+                </div>
+
+                <div class="case-timeline">
+                    @forelse ($caseUpdates as $update)
+                        <div class="case-timeline-item">
+                            <div class="case-timeline-marker"></div>
+                            <div class="case-timeline-card">
+                                <div class="case-timeline-meta">
+                                    <span>{{ $update->created_at?->format('d M Y, h:i A') ?? 'Date not recorded' }}</span>
+                                    <span>{{ $update->created_by_name ?? 'Workspace User' }}</span>
+                                </div>
+                                <p class="mb-3">{{ $update->note ?? 'No update note provided.' }}</p>
+                                <div class="case-timeline-tags">
+                                    <span class="module-badge module-badge-info">{{ $update->status ?? 'Active' }}</span>
+                                    <span class="module-badge module-badge-muted">{{ (int) ($update->progress ?? 0) }}% progress</span>
+                                    @if (!empty($update->system_entry))
+                                        <span class="module-badge module-badge-muted">System entry</span>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="time-log-empty">
+                            <i class="bi bi-clock-history"></i>
+                            <strong>No case updates yet</strong>
+                            <p>Add the first update when there is new progress, a status change, or an important follow-up.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 @endsection
 

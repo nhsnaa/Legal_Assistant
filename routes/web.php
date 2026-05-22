@@ -67,6 +67,7 @@ Route::middleware('firebase.auth')->group(function () {
     Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     Route::get('/cases/{id}', [CaseController::class, 'show'])->name('cases.show');
     Route::put('/cases/{id}', [CaseController::class, 'update'])->name('cases.update');
+    Route::post('/cases/{id}/updates', [CaseController::class, 'storeUpdate'])->name('cases.updates.store');
     Route::patch('/cases/{id}/archive', [CaseController::class, 'toggleArchive'])->name('cases.archive');
     Route::delete('/cases/{id}', [CaseController::class, 'destroy'])->name('cases.destroy');
 

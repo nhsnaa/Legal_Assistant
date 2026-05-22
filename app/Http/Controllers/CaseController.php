@@ -2,12 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Kreait\Laravel\Firebase\Facades\Firebase;
-use Carbon\Carbon;
 
 class CaseController extends Controller
 {
+    private array $caseStatuses = [
+        'Active',
+        'Pending',
+        'Pending Client',
+        'Pending Firm',
+        'Pending Third Party',
+        'Completed',
+        'Cancelled',
+        'Closed',
+    ];
+
     public function index(Request $request)
     {
         $filter = $request->query('filter', 'all');
@@ -25,20 +36,16 @@ class CaseController extends Controller
             return (object) $case;
         });
 
-        // Filter logic
         $cases = $allCases->when($filter === 'active', function ($c) {
-            return $c->whereIn('status', ['Active', 'Pending']);
+            return $c->filter(fn ($case) => $this->isActiveCaseStatus($case->status ?? 'Active'));
         })->when($filter === 'archived', function ($c) {
-            return $c->where('status', 'Closed');
+            return $c->filter(fn ($case) => $this->isClosedCaseStatus($case->status ?? 'Active'));
         })->reverse();
 
-        $caseCounts = [
-            'all' => $allCases->count(),
-            'active' => $allCases->whereIn('status', ['Active', 'Pending'])->count(),
-            'archived' => $allCases->where('status', 'Closed')->count(),
-        ];
+        $caseCounts = $this->caseCounts($allCases);
+        $caseStatuses = $this->caseStatuses;
 
-        return view('modules.cases', compact('cases', 'clients', 'filter', 'caseCounts'));
+        return view('modules.cases', compact('cases', 'clients', 'filter', 'caseCounts', 'caseStatuses'));
     }
 
     public function store(Request $request)
@@ -48,7 +55,7 @@ class CaseController extends Controller
             'case_name' => ['required', 'string', 'max:255'],
             'case_type' => ['required', 'in:Criminal,Divorce,Family,Civil Litigation,Corporate,Employment,Property,Immigration,Other'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:Active,Closed,Pending'],
+            'status' => ['required', 'in:' . implode(',', $this->caseStatuses)],
             'priority' => ['required', 'in:High,Medium,Low'],
             'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
@@ -56,7 +63,7 @@ class CaseController extends Controller
         $actor = $this->currentActorMetadata();
         $timestamp = now()->toIso8601String();
 
-        Firebase::database()->getReference('cases')->push($this->workspacePayload(array_merge($validated, [
+        $caseReference = Firebase::database()->getReference('cases')->push($this->workspacePayload(array_merge($validated, [
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
             'created_by_id' => $actor['id'],
@@ -64,33 +71,58 @@ class CaseController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ])));
+
+        Firebase::database()->getReference('case_updates')->push($this->workspacePayload([
+            'case_id' => $caseReference->getKey(),
+            'note' => $validated['description'] ?: 'Case opened in the system.',
+            'status' => $validated['status'],
+            'progress' => $validated['progress'],
+            'created_at' => $timestamp,
+            'created_by_id' => $actor['id'],
+            'created_by_name' => $actor['name'],
+            'system_entry' => true,
+        ]));
+
         $this->logActivity('case', 'Case', 'created', $validated['case_name']);
 
         return redirect()->back()->with('success', 'Case created successfully.');
     }
-// app/Http/Controllers/CaseController.php
 
-public function show($id)
-{
-    $database = Firebase::database();
-    $caseData = $this->findWorkspaceRecord('cases', $id);
+    public function show($id)
+    {
+        $caseData = $this->findWorkspaceRecord('cases', $id);
 
-    if (!$caseData) { abort(404); }
+        if (!$caseData) {
+            abort(404);
+        }
 
-    $case = (object) $caseData;
-    $case->id = $id;
-    $case->created_at = !empty($caseData['created_at']) ? Carbon::parse($caseData['created_at']) : null;
-    $case->updated_at = !empty($caseData['updated_at']) ? Carbon::parse($caseData['updated_at']) : null;
-    // Link client info for the "Case Snapshot" sidebar
-    $clients = $this->workspaceCollection('clients')->all();
-    $case->client = (object) ($clients[$case->client_id] ?? ['name' => 'Unknown', 'email' => '-', 'phone' => '-']);
+        $case = (object) $caseData;
+        $case->id = $id;
+        $case->created_at = !empty($caseData['created_at']) ? Carbon::parse($caseData['created_at']) : null;
+        $case->updated_at = !empty($caseData['updated_at']) ? Carbon::parse($caseData['updated_at']) : null;
 
-    $case->timeEntries = $this->workspaceCollection('time_entries')
-        ->filter(fn ($entry) => ($entry['case_id'] ?? null) === $id)
-        ->values();
+        $clients = $this->workspaceCollection('clients')->all();
+        $case->client = (object) ($clients[$case->client_id] ?? ['name' => 'Unknown', 'email' => '-', 'phone' => '-']);
 
-    return view('modules.case-show', compact('case'));
-}
+        $case->timeEntries = $this->workspaceCollection('time_entries')
+            ->filter(fn ($entry) => ($entry['case_id'] ?? null) === $id)
+            ->values();
+
+        $caseUpdates = $this->workspaceCollection('case_updates')
+            ->filter(fn ($update) => ($update['case_id'] ?? null) === $id)
+            ->map(function ($update, $updateId) {
+                $update['id'] = $updateId;
+                $update['created_at'] = !empty($update['created_at']) ? Carbon::parse($update['created_at']) : null;
+                return (object) $update;
+            })
+            ->sortByDesc(fn ($update) => $update->created_at?->timestamp ?? 0)
+            ->values();
+
+        $caseStatuses = $this->caseStatuses;
+        $progressOptions = range(0, 100, 10);
+
+        return view('modules.case-show', compact('case', 'caseUpdates', 'caseStatuses', 'progressOptions'));
+    }
 
     public function update(Request $request, $id)
     {
@@ -105,7 +137,7 @@ public function show($id)
             'case_name' => ['required', 'string', 'max:255'],
             'case_type' => ['required', 'in:Criminal,Divorce,Family,Civil Litigation,Corporate,Employment,Property,Immigration,Other'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:Active,Closed,Pending'],
+            'status' => ['required', 'in:' . implode(',', $this->caseStatuses)],
             'priority' => ['required', 'in:High,Medium,Low'],
             'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
@@ -120,6 +152,47 @@ public function show($id)
         $this->logActivity('case', 'Case', 'updated', $validated['case_name']);
 
         return redirect()->route('cases.index')->with('success', 'Case updated successfully.');
+    }
+
+    public function storeUpdate(Request $request, $id)
+    {
+        $case = $this->findWorkspaceRecord('cases', $id);
+
+        if (!$case) {
+            return redirect()->route('cases.index')->with('error', 'Case not found.');
+        }
+
+        $validated = $request->validate([
+            'note' => ['required', 'string', 'max:2000'],
+            'status' => ['required', 'in:' . implode(',', $this->caseStatuses)],
+            'progress' => ['required', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
+
+        Firebase::database()->getReference('case_updates')->push($this->workspacePayload(array_merge($validated, [
+            'case_id' => $id,
+            'created_at' => $timestamp,
+            'created_by_id' => $actor['id'],
+            'created_by_name' => $actor['name'],
+        ])));
+
+        Firebase::database()->getReference('cases/' . $id)->update([
+            'status' => $validated['status'],
+            'progress' => $validated['progress'],
+            'updated_at' => $timestamp,
+            'updated_by_id' => $actor['id'],
+            'updated_by_name' => $actor['name'],
+        ]);
+
+        $this->logActivity('case', 'Case', 'added update to', $case['case_name'] ?? 'Untitled Case', [
+            'case_id' => $id,
+            'status' => $validated['status'],
+            'progress' => $validated['progress'],
+        ]);
+
+        return redirect()->route('cases.show', $id)->with('success', 'Case update added successfully.');
     }
 
     public function destroy(Request $request, $id)
@@ -157,15 +230,28 @@ public function show($id)
             return redirect()->route('cases.index')->with('error', 'Case not found.');
         }
 
-        $nextStatus = ($case['status'] ?? 'Active') === 'Closed' ? 'Active' : 'Closed';
+        $nextStatus = $this->isClosedCaseStatus($case['status'] ?? 'Active') ? 'Active' : 'Closed';
         $actor = $this->currentActorMetadata();
+        $timestamp = now()->toIso8601String();
 
         Firebase::database()->getReference('cases/' . $id)->update([
             'status' => $nextStatus,
-            'updated_at' => now()->toIso8601String(),
+            'updated_at' => $timestamp,
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]);
+
+        Firebase::database()->getReference('case_updates')->push($this->workspacePayload([
+            'case_id' => $id,
+            'note' => $nextStatus === 'Closed' ? 'Case archived.' : 'Case restored to active status.',
+            'status' => $nextStatus,
+            'progress' => (int) ($case['progress'] ?? 0),
+            'created_at' => $timestamp,
+            'created_by_id' => $actor['id'],
+            'created_by_name' => $actor['name'],
+            'system_entry' => true,
+        ]));
+
         $this->logActivity(
             'case',
             'Case',
@@ -191,15 +277,24 @@ public function show($id)
         );
     }
 
-    private function caseCounts(): array
+    private function caseCounts($cases = null): array
     {
-        $allCases = $this->workspaceCollection('cases');
+        $allCases = $cases ?? $this->workspaceCollection('cases');
 
         return [
             'all' => $allCases->count(),
-            'active' => $allCases->whereIn('status', ['Active', 'Pending'])->count(),
-            'archived' => $allCases->where('status', 'Closed')->count(),
+            'active' => $allCases->filter(fn ($case) => $this->isActiveCaseStatus(is_array($case) ? ($case['status'] ?? 'Active') : ($case->status ?? 'Active')))->count(),
+            'archived' => $allCases->filter(fn ($case) => $this->isClosedCaseStatus(is_array($case) ? ($case['status'] ?? 'Active') : ($case->status ?? 'Active')))->count(),
         ];
     }
 
+    private function isActiveCaseStatus(string $status): bool
+    {
+        return !$this->isClosedCaseStatus($status);
+    }
+
+    private function isClosedCaseStatus(string $status): bool
+    {
+        return in_array($status, ['Closed', 'Completed', 'Cancelled'], true);
+    }
 }
