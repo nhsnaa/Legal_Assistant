@@ -30,10 +30,11 @@ class CaseController extends Controller
         });
 
         $clientMap = $clients->keyBy('id');
+        $caseDisplayIds = $this->displayIdMapFor('cases', 'CASE');
 
-        $allCases = $this->workspaceCollection('cases')->map(function ($case, $id) use ($clientMap) {
+        $allCases = $this->workspaceCollection('cases')->map(function ($case, $id) use ($clientMap, $caseDisplayIds) {
             $case['id'] = $id;
-            $case['display_id'] = $this->displayIdFor('CASE', $case, $id);
+            $case['display_id'] = $caseDisplayIds[$id] ?? $this->displayIdFor('CASE', $case, $id);
             $case['client'] = $clientMap->get($case['client_id'] ?? null);
             return (object) $case;
         });
@@ -103,7 +104,7 @@ class CaseController extends Controller
 
         $case = (object) $caseData;
         $case->id = $id;
-        $case->display_id = $this->displayIdFor('CASE', $caseData, $id);
+        $case->display_id = $this->displayIdFromMap('cases', 'CASE', $id, $caseData);
         $case->created_at = !empty($caseData['created_at']) ? Carbon::parse($caseData['created_at']) : null;
         $case->updated_at = !empty($caseData['updated_at']) ? Carbon::parse($caseData['updated_at']) : null;
 

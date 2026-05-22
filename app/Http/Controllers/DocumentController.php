@@ -23,10 +23,12 @@ class DocumentController extends Controller
 
     public function index()
     {
+        $documentDisplayIds = $this->displayIdMapFor('documents', 'DOC');
+
         $documents = $this->workspaceCollection('documents')
-            ->map(function ($document, $id) {
+            ->map(function ($document, $id) use ($documentDisplayIds) {
                 $document['id'] = $id;
-                $document['display_id'] = $this->displayIdFor('DOC', $document, $id);
+                $document['display_id'] = $documentDisplayIds[$id] ?? $this->displayIdFor('DOC', $document, $id);
                 $document['type'] = $document['type'] ?? 'file';
                 $document['category'] = $document['category'] ?? 'Uncategorized';
                 $document['scope'] = $document['scope'] ?? 'general';
@@ -244,7 +246,7 @@ class DocumentController extends Controller
 
         $document = (object) $docData;
         $document->id = $id;
-        $document->display_id = $this->displayIdFor('DOC', $docData, $id);
+        $document->display_id = $this->displayIdFromMap('documents', 'DOC', $id, $docData);
         $document->category = $document->category ?? 'Uncategorized';
         $document->scope = $document->scope ?? 'general';
         $document->created_at = !empty($docData['created_at']) ? Carbon::parse($docData['created_at']) : null;

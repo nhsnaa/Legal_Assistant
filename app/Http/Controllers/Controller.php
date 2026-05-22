@@ -126,6 +126,53 @@ abstract class Controller
         return sprintf('%s-%s-%03d', $prefix, $year, max($nextNumber, 1));
     }
 
+    protected function displayIdMapFor(string $node, string $prefix): array
+    {
+        $records = $this->workspaceCollection($node);
+        $usedNumbers = [];
+
+        foreach ($records as $record) {
+            $displayId = $record['display_id'] ?? null;
+
+            if (!is_string($displayId) || !preg_match('/^' . preg_quote($prefix, '/') . '-(\d{4})-(\d{3,})$/', $displayId, $matches)) {
+                continue;
+            }
+
+            $usedNumbers[$matches[1]][(int) $matches[2]] = true;
+        }
+
+        $nextNumbers = [];
+        $displayIds = [];
+
+        foreach ($records as $firebaseId => $record) {
+            $displayId = $record['display_id'] ?? null;
+
+            if (is_string($displayId) && preg_match('/^' . preg_quote($prefix, '/') . '-\d{4}-\d{3,}$/', $displayId)) {
+                $displayIds[$firebaseId] = $displayId;
+                continue;
+            }
+
+            $year = !empty($record['created_at']) ? Carbon::parse($record['created_at'])->format('Y') : now()->format('Y');
+            $nextNumbers[$year] = $nextNumbers[$year] ?? 1;
+
+            while (!empty($usedNumbers[$year][$nextNumbers[$year]])) {
+                $nextNumbers[$year]++;
+            }
+
+            $displayIds[$firebaseId] = sprintf('%s-%s-%03d', $prefix, $year, $nextNumbers[$year]);
+            $usedNumbers[$year][$nextNumbers[$year]] = true;
+            $nextNumbers[$year]++;
+        }
+
+        return $displayIds;
+    }
+
+    protected function displayIdFromMap(string $node, string $prefix, string $firebaseId, array|object $record): string
+    {
+        return $this->displayIdMapFor($node, $prefix)[$firebaseId]
+            ?? $this->displayIdFor($prefix, $record, $firebaseId);
+    }
+
     protected function displayIdFor(string $prefix, array|object $record, string $firebaseId): string
     {
         $displayId = is_array($record)
@@ -141,9 +188,8 @@ abstract class Controller
             : ($record->created_at ?? null);
 
         $year = $createdAt ? Carbon::parse($createdAt)->format('Y') : now()->format('Y');
-        $shortId = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', $firebaseId), -6));
 
-        return sprintf('%s-%s-%s', $prefix, $year, $shortId ?: 'LEGACY');
+        return sprintf('%s-%s-001', $prefix, $year);
     }
 
     protected function logActivity(string $module, string $label, string $action, string $subject, array $meta = []): void

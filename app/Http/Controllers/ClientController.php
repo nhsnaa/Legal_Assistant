@@ -12,10 +12,12 @@ class ClientController extends Controller
     {
         $filter = $request->query('filter', 'all');
         
+        $clientDisplayIds = $this->displayIdMapFor('clients', 'CLIENT');
+
         $allClients = $this->workspaceCollection('clients')
-            ->map(function ($client, $id) {
+            ->map(function ($client, $id) use ($clientDisplayIds) {
                 $client['id'] = $id;
-                $client['display_id'] = $this->displayIdFor('CLIENT', $client, $id);
+                $client['display_id'] = $clientDisplayIds[$id] ?? $this->displayIdFor('CLIENT', $client, $id);
                 $client['created_at_label'] = !empty($client['created_at'])
                     ? Carbon::parse($client['created_at'])->format('d M Y, h:i A')
                     : null;
@@ -103,15 +105,17 @@ class ClientController extends Controller
         }
 
         $client = (object) array_merge($clientData, ['id' => $id]);
-        $client->display_id = $this->displayIdFor('CLIENT', $clientData, $id);
+        $client->display_id = $this->displayIdFromMap('clients', 'CLIENT', $id, $clientData);
         $client->created_at = !empty($clientData['created_at']) ? Carbon::parse($clientData['created_at']) : null;
         $client->updated_at = !empty($clientData['updated_at']) ? Carbon::parse($clientData['updated_at']) : null;
+        $caseDisplayIds = $this->displayIdMapFor('cases', 'CASE');
+        $documentDisplayIds = $this->displayIdMapFor('documents', 'DOC');
 
         $linkedCases = $this->workspaceCollection('cases')
             ->filter(fn ($case) => ($case['client_id'] ?? null) === $id)
-            ->map(function ($case, $caseId) {
+            ->map(function ($case, $caseId) use ($caseDisplayIds) {
                 $case['id'] = $caseId;
-                $case['display_id'] = $this->displayIdFor('CASE', $case, $caseId);
+                $case['display_id'] = $caseDisplayIds[$caseId] ?? $this->displayIdFor('CASE', $case, $caseId);
                 $case['created_at'] = !empty($case['created_at']) ? Carbon::parse($case['created_at']) : null;
                 $case['updated_at'] = !empty($case['updated_at']) ? Carbon::parse($case['updated_at']) : null;
                 return (object) $case;
@@ -128,9 +132,9 @@ class ClientController extends Controller
                 return (($scope === 'client') && (($document['client_id'] ?? null) === $id))
                     || (($scope === 'case') && $linkedCaseIds->contains($document['case_id'] ?? null));
             })
-            ->map(function ($document, $documentId) {
+            ->map(function ($document, $documentId) use ($documentDisplayIds) {
                 $document['id'] = $documentId;
-                $document['display_id'] = $this->displayIdFor('DOC', $document, $documentId);
+                $document['display_id'] = $documentDisplayIds[$documentId] ?? $this->displayIdFor('DOC', $document, $documentId);
                 $document['created_at'] = !empty($document['created_at']) ? Carbon::parse($document['created_at']) : null;
                 $document['updated_at'] = !empty($document['updated_at']) ? Carbon::parse($document['updated_at']) : null;
                 return (object) $document;
