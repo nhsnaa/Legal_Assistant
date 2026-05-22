@@ -9,6 +9,7 @@ use Kreait\Laravel\Firebase\Facades\Firebase;
 class CaseController extends Controller
 {
     private array $caseStatuses = [
+        'Registered',
         'Active',
         'Pending',
         'Pending Client',
@@ -55,15 +56,17 @@ class CaseController extends Controller
             'case_name' => ['required', 'string', 'max:255'],
             'case_type' => ['required', 'in:Criminal,Divorce,Family,Civil Litigation,Corporate,Employment,Property,Immigration,Other'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:' . implode(',', $this->caseStatuses)],
             'priority' => ['required', 'in:High,Medium,Low'],
-            'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
         $actor = $this->currentActorMetadata();
         $timestamp = now()->toIso8601String();
+        $registeredCase = array_merge($validated, [
+            'status' => 'Registered',
+            'progress' => 0,
+        ]);
 
-        $caseReference = Firebase::database()->getReference('cases')->push($this->workspacePayload(array_merge($validated, [
+        $caseReference = Firebase::database()->getReference('cases')->push($this->workspacePayload(array_merge($registeredCase, [
             'created_at' => $timestamp,
             'updated_at' => $timestamp,
             'created_by_id' => $actor['id'],
@@ -75,8 +78,8 @@ class CaseController extends Controller
         Firebase::database()->getReference('case_updates')->push($this->workspacePayload([
             'case_id' => $caseReference->getKey(),
             'note' => $validated['description'] ?: 'Case opened in the system.',
-            'status' => $validated['status'],
-            'progress' => $validated['progress'],
+            'status' => 'Registered',
+            'progress' => 0,
             'created_at' => $timestamp,
             'created_by_id' => $actor['id'],
             'created_by_name' => $actor['name'],
@@ -118,7 +121,10 @@ class CaseController extends Controller
             ->sortByDesc(fn ($update) => $update->created_at?->timestamp ?? 0)
             ->values();
 
-        $caseStatuses = $this->caseStatuses;
+        $caseStatuses = array_values(array_filter(
+            $this->caseStatuses,
+            fn ($status) => $status !== 'Registered'
+        ));
         $progressOptions = range(0, 100, 10);
 
         return view('modules.case-show', compact('case', 'caseUpdates', 'caseStatuses', 'progressOptions'));
@@ -137,9 +143,7 @@ class CaseController extends Controller
             'case_name' => ['required', 'string', 'max:255'],
             'case_type' => ['required', 'in:Criminal,Divorce,Family,Civil Litigation,Corporate,Employment,Property,Immigration,Other'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:' . implode(',', $this->caseStatuses)],
             'priority' => ['required', 'in:High,Medium,Low'],
-            'progress' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
         $actor = $this->currentActorMetadata();
@@ -149,9 +153,10 @@ class CaseController extends Controller
             'updated_by_id' => $actor['id'],
             'updated_by_name' => $actor['name'],
         ]));
-        $this->logActivity('case', 'Case', 'updated', $validated['case_name']);
 
-        return redirect()->route('cases.index')->with('success', 'Case updated successfully.');
+        $this->logActivity('case', 'Case', 'corrected registration for', $validated['case_name']);
+
+        return redirect()->route('cases.index')->with('success', 'Case registration updated successfully.');
     }
 
     public function storeUpdate(Request $request, $id)

@@ -1213,6 +1213,18 @@ body.profile-menu-open #sidebar {
     align-items: center;
 }
 
+.module-actions-compact {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+}
+
+.module-actions-compact .btn {
+    min-width: 58px;
+    padding-left: 0.7rem;
+    padding-right: 0.7rem;
+    white-space: nowrap;
+}
+
 .module-actions-inline form {
     margin: 0;
 }
@@ -3152,6 +3164,15 @@ canvas {
     .module-actions-inline {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .module-actions-compact {
+        flex-wrap: wrap;
+    }
+
+    .module-actions-compact .btn,
+    .module-actions-compact form {
+        width: 100%;
     }
 
     .client-overview-note-row {

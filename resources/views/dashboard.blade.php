@@ -431,28 +431,15 @@
                     <label class="font-weight-bold small">Detailed Description</label>
                     <textarea name="description" rows="3" class="form-control module-input"></textarea>
                 </div>
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label class="font-weight-bold small">Status</label>
-                        <select name="status" class="form-control module-input">
-                            <option value="Active">Active</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Closed">Closed</option>
-                        </select>
-                    </div>
-                    <div class="form-group col-md-6">
-                        <label class="font-weight-bold small">Priority</label>
-                        <select name="priority" class="form-control module-input">
-                            <option value="High">High</option>
-                            <option value="Medium" selected>Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                    </div>
-                </div>
                 <div class="form-group">
-                    <label class="font-weight-bold small">Initial Progress (%)</label>
-                    <input type="number" name="progress" min="0" max="100" class="form-control module-input" value="0">
+                    <label class="font-weight-bold small">Priority</label>
+                    <select name="priority" class="form-control module-input">
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
                 </div>
+                <p class="text-muted small mb-0">Status and progress will be recorded later through case updates.</p>
 
                 <div class="module-modal-actions">
                     <button type="button" class="btn btn-light px-4" onclick="closeDashboardModal('dashboardCaseModal')">Cancel</button>

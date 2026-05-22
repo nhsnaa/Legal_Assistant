@@ -59,7 +59,7 @@
                             <td>{{ $case->case_type ?? 'Other' }}</td>
                             <td>{{ $case->client->name ?? 'Unassigned client' }}</td>
                             <td>
-                                <span class="module-badge {{ $case->status === 'Active' ? 'module-badge-success' : ($case->status === 'Pending' ? 'module-badge-warning' : 'module-badge-muted') }}" data-case-status-badge>
+                                <span class="module-badge {{ in_array($case->status, ['Active', 'Completed'], true) ? 'module-badge-success' : (str_starts_with($case->status ?? '', 'Pending') ? 'module-badge-warning' : 'module-badge-muted') }}" data-case-status-badge>
                                     {{ $case->status }}
                                 </span>
                             </td>
@@ -69,7 +69,7 @@
                                 </span>
                             </td>
                             <td>
-                                <div class="module-actions-inline">
+                                <div class="module-actions-inline module-actions-compact">
                                     <a href="{{ route('cases.show', $case->id) }}" class="btn btn-sm btn-light">View</a>
                                     <button
                                         type="button"
@@ -80,9 +80,7 @@
                                             'case_name' => $case->case_name,
                                             'case_type' => $case->case_type ?? 'Other',
                                             'description' => $case->description,
-                                            'status' => $case->status,
                                             'priority' => $case->priority,
-                                            'progress' => $case->progress ?? 0,
                                         ]))">
                                         Edit
                                     </button>
@@ -151,32 +149,15 @@
                 <label class="font-weight-bold small">Detailed Description</label>
                 <textarea name="description" rows="3" class="form-control module-input">{{ old('description') }}</textarea>
             </div>
-            <div class="form-row">
-                <div class="form-group col-md-6">
-                    <label class="font-weight-bold small">Status</label>
-                    <select name="status" class="form-control module-input">
-                        @foreach ($caseStatuses as $status)
-                            <option value="{{ $status }}" {{ old('status', 'Active') === $status ? 'selected' : '' }}>{{ $status }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group col-md-6">
-                    <label class="font-weight-bold small">Priority</label>
-                    <select name="priority" class="form-control module-input">
-                        <option value="High" {{ old('priority') === 'High' ? 'selected' : '' }}>High</option>
-                        <option value="Medium" {{ old('priority', 'Medium') === 'Medium' ? 'selected' : '' }}>Medium</option>
-                        <option value="Low" {{ old('priority') === 'Low' ? 'selected' : '' }}>Low</option>
-                    </select>
-                </div>
-            </div>
             <div class="form-group">
-                <label class="font-weight-bold small">Initial Progress (%)</label>
-                <select name="progress" class="form-control module-input">
-                    @foreach (range(0, 100, 10) as $progress)
-                        <option value="{{ $progress }}" {{ (int) old('progress', 0) === $progress ? 'selected' : '' }}>{{ $progress }}%</option>
-                    @endforeach
+                <label class="font-weight-bold small">Priority</label>
+                <select name="priority" class="form-control module-input">
+                    <option value="High" {{ old('priority') === 'High' ? 'selected' : '' }}>High</option>
+                    <option value="Medium" {{ old('priority', 'Medium') === 'Medium' ? 'selected' : '' }}>Medium</option>
+                    <option value="Low" {{ old('priority') === 'Low' ? 'selected' : '' }}>Low</option>
                 </select>
             </div>
+            <p class="text-muted small mb-0">Status and progress will start from the case update timeline after registration.</p>
 
             <div class="module-modal-actions">
                 <button type="button" class="btn btn-light px-4" onclick="closeCaseModal()">Cancel</button>
@@ -189,7 +170,7 @@
 <div id="caseEditModal" class="module-modal-backdrop" aria-hidden="true">
     <div class="module-modal-card">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="font-weight-bold mb-0">Edit Case</h4>
+            <h4 class="font-weight-bold mb-0">Edit Case Registration</h4>
             <button type="button" class="module-modal-close" onclick="closeCaseEditModal()">&times;</button>
         </div>
 
@@ -221,36 +202,19 @@
                 <label class="font-weight-bold small">Detailed Description</label>
                 <textarea name="description" id="caseEditDescription" rows="3" class="form-control module-input"></textarea>
             </div>
-            <div class="form-row">
-                <div class="form-group col-md-6">
-                    <label class="font-weight-bold small">Status</label>
-                    <select name="status" id="caseEditStatus" class="form-control module-input">
-                        @foreach ($caseStatuses as $status)
-                            <option value="{{ $status }}">{{ $status }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group col-md-6">
-                    <label class="font-weight-bold small">Priority</label>
-                    <select name="priority" id="caseEditPriority" class="form-control module-input">
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-            </div>
             <div class="form-group">
-                <label class="font-weight-bold small">Progress (%)</label>
-                <select name="progress" id="caseEditProgress" class="form-control module-input">
-                    @foreach (range(0, 100, 10) as $progress)
-                        <option value="{{ $progress }}">{{ $progress }}%</option>
-                    @endforeach
+                <label class="font-weight-bold small">Priority</label>
+                <select name="priority" id="caseEditPriority" class="form-control module-input">
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
                 </select>
             </div>
+            <p class="text-muted small mb-0">Use this only to correct registration details. Status and progress should be recorded from the case detail timeline.</p>
 
             <div class="module-modal-actions">
                 <button type="button" class="btn btn-light px-4" onclick="closeCaseEditModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary px-4">Update Case</button>
+                <button type="submit" class="btn btn-primary px-4">Save Correction</button>
             </div>
         </form>
     </div>
@@ -280,9 +244,7 @@ function openCaseEditModal(caseItem) {
     document.getElementById('caseEditName').value = caseItem.case_name || '';
     document.getElementById('caseEditType').value = caseItem.case_type || 'Other';
     document.getElementById('caseEditDescription').value = caseItem.description || '';
-    document.getElementById('caseEditStatus').value = caseItem.status || 'Active';
     document.getElementById('caseEditPriority').value = caseItem.priority || 'Medium';
-    document.getElementById('caseEditProgress').value = caseItem.progress || 0;
     document.getElementById('caseEditModal').classList.add('show');
 }
 
@@ -305,8 +267,8 @@ function ensureCaseEmptyState() {
 }
 
 function caseBadgeClass(status) {
-    if (status === 'Active') return 'module-badge-success';
-    if (status === 'Pending') return 'module-badge-warning';
+    if (status === 'Active' || status === 'Completed') return 'module-badge-success';
+    if (status && status.startsWith('Pending')) return 'module-badge-warning';
     return 'module-badge-muted';
 }
 
