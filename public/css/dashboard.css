@@ -688,12 +688,52 @@ body.profile-menu-open #sidebar {
 
 .quick-create-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.55rem;
 }
 
 .quick-create-item {
     min-width: 0;
+}
+
+.quick-create-panel {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.9fr) minmax(0, 2fr);
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+}
+
+.dashboard-command-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.1rem 1.25rem;
+    border-color: rgba(219, 231, 240, 0.9);
+}
+
+.dashboard-command-copy {
+    min-width: 0;
+}
+
+.dashboard-command-copy h5 {
+    letter-spacing: -0.02em;
+}
+
+.dashboard-command-copy p {
+    max-width: 520px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.dashboard-command-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    flex-shrink: 0;
 }
 
 .module-filter-tabs {
@@ -1733,6 +1773,11 @@ body.profile-menu-open #sidebar {
     background: rgba(255, 255, 255, 0.08);
 }
 
+.summary-card-compact {
+    padding: 1.35rem;
+    border-radius: var(--radius-lg);
+}
+
 .ai-assistant-card {
     display: flex;
     flex-direction: column;
@@ -1793,10 +1838,9 @@ body.profile-menu-open #sidebar {
 .ai-brief-panel {
     position: relative;
     z-index: 1;
-    padding: 0.95rem 1rem;
-    border: 1px solid rgba(219, 231, 240, 0.9);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.78);
+    padding: 0 0 0 0.85rem;
+    border-left: 4px solid var(--accent);
+    background: transparent;
 }
 
 .ai-brief-panel span {
@@ -1881,10 +1925,13 @@ body.profile-menu-open #sidebar {
     display: flex;
     align-items: flex-start;
     gap: 0.55rem;
-    padding: 0.72rem 0.85rem;
-    border-radius: 14px;
-    background: rgba(236, 254, 255, 0.72);
-    border: 1px solid rgba(165, 243, 252, 0.85);
+    padding: 0.65rem 0;
+    border-top: 1px solid rgba(219, 231, 240, 0.72);
+    border-radius: 0;
+    background: transparent;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
     color: #155e75;
     font-size: 0.8rem;
     line-height: 1.55;
@@ -2026,20 +2073,19 @@ body.profile-menu-open #sidebar {
 
 .btn-action {
     width: 100%;
-    min-height: 112px;
-    padding: 1.1rem 0.9rem;
+    min-height: 46px;
+    padding: 0.55rem 0.7rem;
     border: 1px solid rgba(219, 231, 240, 0.95);
-    border-radius: 20px;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.9);
     color: var(--text);
     font-weight: 700;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    text-align: left;
-    gap: 0.65rem;
-    box-shadow: var(--shadow-sm);
+    text-align: center;
+    gap: 0.45rem;
+    box-shadow: none;
     transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
 }
 
@@ -2052,13 +2098,13 @@ body.profile-menu-open #sidebar {
 }
 
 .action-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem !important;
+    font-size: 0.92rem !important;
     background: var(--accent-soft);
     color: var(--accent);
     transition: inherit;
@@ -2067,6 +2113,15 @@ body.profile-menu-open #sidebar {
 .btn-action:hover .action-icon {
     background: rgba(255, 255, 255, 0.18);
     color: #ffffff;
+}
+
+.btn-action-compact {
+    width: auto;
+    min-width: 118px;
+    min-height: 42px;
+    padding: 0.5rem 0.75rem;
+    border-radius: 13px;
+    white-space: nowrap;
 }
 
 .user-avatar-link {
@@ -2986,8 +3041,28 @@ canvas {
         padding-top: 1.25rem;
     }
 
-    .btn-action {
-        min-height: 102px;
+    .dashboard-command-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .dashboard-command-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
+        width: 100%;
+    }
+
+    .btn-action-compact {
+        width: 100%;
+    }
+
+    .quick-create-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-create-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .module-hero {

@@ -4,60 +4,39 @@
 
 @section('content')
 <div>
-    <h6 class="font-weight-bold mb-4">Quick Create</h6>
-    <div class="quick-create-grid mb-5">
-        @php
-            $actions = [
-                ['bi bi-person-plus-fill', 'Client', 'modal', 'dashboardClientModal'],
-                ['bi bi-briefcase-fill', 'Case', 'modal', 'dashboardCaseModal'],
-                ['bi bi-stopwatch-fill', 'Time', 'modal', 'dashboardTimeModal'],
-                ['bi bi-calendar-plus-fill', 'Event', 'modal', 'dashboardEventModal'],
-                ['bi bi-folder2-open', 'Doc', 'modal', 'dashboardDocumentModal'],
-            ];
-        @endphp
+    <div class="dashboard-command-bar glass-card mb-4">
+        <div class="dashboard-command-copy">
+            <span class="module-kicker">Workspace Shortcuts</span>
+            <h5 class="font-weight-bold mb-1 mt-2">Quick Create</h5>
+            <p class="text-muted mb-0">Start common records quickly, then return to the dashboard overview.</p>
+        </div>
+        <div class="dashboard-command-actions">
+            @php
+                $actions = [
+                    ['bi bi-person-plus-fill', 'Client', 'dashboardClientModal'],
+                    ['bi bi-briefcase-fill', 'Case', 'dashboardCaseModal'],
+                    ['bi bi-stopwatch-fill', 'Time', 'dashboardTimeModal'],
+                    ['bi bi-calendar-plus-fill', 'Event', 'dashboardEventModal'],
+                    ['bi bi-folder2-open', 'Document', 'dashboardDocumentModal'],
+                ];
+            @endphp
 
-        @foreach ($actions as $action)
-            <div class="quick-create-item">
-                @if (($action[2] ?? null) === 'modal')
-                    <button type="button" class="btn btn-action w-100 py-4" onclick="openDashboardModal('{{ $action[3] }}')">
-                        <span class="action-icon"><i class="{{ $action[0] }}"></i></span>
-                        {{ $action[1] }}
-                    </button>
-                @else
-                    <a href="{{ $action[2] }}" class="btn btn-action w-100 py-4">
-                        <span class="action-icon"><i class="{{ $action[0] }}"></i></span>
-                        {{ $action[1] }}
-                    </a>
-                @endif
-            </div>
-        @endforeach
+            @foreach ($actions as $action)
+                <button type="button" class="btn btn-action btn-action-compact" onclick="openDashboardModal('{{ $action[2] }}')">
+                    <span class="action-icon"><i class="{{ $action[0] }}"></i></span>
+                    {{ $action[1] }}
+                </button>
+            @endforeach
+        </div>
     </div>
 
     <div class="row">
         <div class="col-xl-8 col-lg-7">
-            <div class="row mb-4">
-                <div class="col-md-6 mb-3 mb-md-0">
-                    <div class="summary-card h-100">
-                        <p class="mb-1 small opacity-75">Active Cases</p>
-                        <h1 class="display-4 font-weight-bold">{{ number_format($activeCases) }}</h1>
-                        <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.1);">
-                            <div class="progress-bar bg-white" style="width: {{ min(($activeCases / 50) * 100, 100) }}%"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="glass-card p-4 h-100">
-                        <h6 class="font-weight-bold text-muted small uppercase">Activity Trend</h6>
-                        <canvas id="activityChart" style="max-height: 120px;"></canvas>
-                    </div>
-                </div>
-            </div>
-
             <div class="glass-card ai-assistant-card mb-4">
                 <div class="ai-assistant-header">
                     <div class="ai-assistant-title">
                         <span class="module-kicker">AI Automated Scheduling</span>
-                        <h5 class="font-weight-bold mb-1 mt-3">Suggested schedule for today</h5>
+                        <h5 class="font-weight-bold mb-1 mt-3">Today's legal work focus</h5>
                     </div>
                     <div class="ai-assistant-actions">
                         <span class="ai-assistant-badge" id="aiAssistantBadge"><i class="bi bi-stars mr-2"></i>Prototype</span>
@@ -185,6 +164,24 @@
                             @endforelse
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6 mb-3 mb-md-0">
+                    <div class="summary-card summary-card-compact h-100">
+                        <p class="mb-1 small opacity-75">Active Cases</p>
+                        <h1 class="display-4 font-weight-bold">{{ number_format($activeCases) }}</h1>
+                        <div class="progress mt-3" style="height: 6px; background: rgba(255,255,255,0.1);">
+                            <div class="progress-bar bg-white" style="width: {{ min(($activeCases / 50) * 100, 100) }}%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="glass-card p-4 h-100">
+                        <h6 class="font-weight-bold text-muted small uppercase">Activity Trend</h6>
+                        <canvas id="activityChart" style="max-height: 120px;"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
