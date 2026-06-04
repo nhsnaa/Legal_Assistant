@@ -8,7 +8,7 @@
         <div>
             <span class="module-kicker">Matter Record</span>
             <h1 class="module-title">{{ $case->case_name }}</h1>
-            <p class="module-copy mb-0">Review the full case information exactly as it was saved into the system.</p>
+            <p class="module-copy mb-0">Keep the registered case details stable while each new progress update is recorded in the timeline.</p>
         </div>
         <div class="module-hero-icon">
             <i class="bi bi-journal-richtext"></i>
@@ -18,7 +18,7 @@
     <div class="module-toolbar">
         <div>
             <h5 class="font-weight-bold mb-1">Case Information</h5>
-            <p class="text-muted mb-0">This view helps users check the linked client, progress, priority, and case description later.</p>
+            <p class="text-muted mb-0">The case profile shows the original matter record; the update section shows what happened after registration.</p>
         </div>
         <a href="{{ route('cases.index') }}" class="btn btn-light px-4 py-2">Back to Cases</a>
     </div>
@@ -72,7 +72,7 @@
                         <strong>{{ $case->updated_by_name ?? 'Not recorded' }}</strong>
                     </div>
                     <div class="module-detail-item full">
-                        <label>Description</label>
+                        <label>Registration Summary</label>
                         <p class="mb-0">{{ $case->description ?: 'No case summary provided.' }}</p>
                     </div>
                 </div>
@@ -119,6 +119,7 @@
                                 <option value="{{ $status }}" {{ old('status', $case->status) === $status ? 'selected' : '' }}>{{ $status }}</option>
                             @endforeach
                         </select>
+                        <small class="text-muted d-block mt-2">Use pending statuses to show whether the matter is waiting on the client, firm, or a third party.</small>
                     </div>
                     <div class="form-group">
                         <label class="font-weight-bold small">Progress</label>
@@ -154,7 +155,7 @@
                                 </div>
                                 <p class="mb-3">{{ $update->note ?? 'No update note provided.' }}</p>
                                 <div class="case-timeline-tags">
-                                    <span class="module-badge module-badge-info">{{ $update->status ?? 'Active' }}</span>
+                                    <span class="module-badge {{ in_array($update->status ?? 'Active', ['Active', 'Completed'], true) ? 'module-badge-success' : (str_starts_with($update->status ?? '', 'Pending') ? 'module-badge-warning' : (($update->status ?? '') === 'Cancelled' ? 'module-badge-danger' : 'module-badge-info')) }}">{{ $update->status ?? 'Active' }}</span>
                                     <span class="module-badge module-badge-muted">{{ (int) ($update->progress ?? 0) }}% progress</span>
                                     @if (!empty($update->system_entry))
                                         <span class="module-badge module-badge-muted">System entry</span>

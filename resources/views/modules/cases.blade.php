@@ -53,13 +53,16 @@
                 </thead>
                 <tbody id="caseTableBody">
                     @forelse ($cases as $case)
+                        @php
+                            $isClosedCase = in_array($case->status ?? 'Registered', ['Closed', 'Completed', 'Cancelled'], true);
+                        @endphp
                         <tr data-case-row="{{ $case->id }}">
                             <td class="module-id">{{ $case->display_id }}</td>
                             <td class="font-weight-bold">{{ $case->case_name }}</td>
                             <td>{{ $case->case_type ?? 'Other' }}</td>
                             <td>{{ $case->client->name ?? 'Unassigned client' }}</td>
                             <td>
-                                <span class="module-badge {{ in_array($case->status, ['Active', 'Completed'], true) ? 'module-badge-success' : (str_starts_with($case->status ?? '', 'Pending') ? 'module-badge-warning' : 'module-badge-muted') }}" data-case-status-badge>
+                                <span class="module-badge {{ in_array($case->status, ['Active', 'Completed'], true) ? 'module-badge-success' : (str_starts_with($case->status ?? '', 'Pending') ? 'module-badge-warning' : (($case->status ?? '') === 'Cancelled' ? 'module-badge-danger' : 'module-badge-muted')) }}" data-case-status-badge>
                                     {{ $case->status }}
                                 </span>
                             </td>
@@ -84,11 +87,11 @@
                                         ]))">
                                         Edit
                                     </button>
-                                    <form action="{{ route('cases.archive', $case->id) }}" method="POST" data-async-case-action="archive" data-case-id="{{ $case->id }}" data-confirm="{{ $case->status === 'Closed' ? 'Restore this case?' : 'Archive this case?' }}">
+                                    <form action="{{ route('cases.archive', $case->id) }}" method="POST" data-async-case-action="archive" data-case-id="{{ $case->id }}" data-confirm="{{ $isClosedCase ? 'Restore this case?' : 'Archive this case?' }}">
                                         @csrf
                                         @method('PATCH')
                                         <button type="submit" class="btn btn-sm btn-light" data-case-archive-button>
-                                            {{ $case->status === 'Closed' ? 'Restore' : 'Archive' }}
+                                            {{ $isClosedCase ? 'Restore' : 'Archive' }}
                                         </button>
                                     </form>
                                     <form action="{{ route('cases.destroy', $case->id) }}" method="POST" data-async-case-action="delete" data-case-id="{{ $case->id }}" data-confirm="Delete this case?">
@@ -269,6 +272,7 @@ function ensureCaseEmptyState() {
 function caseBadgeClass(status) {
     if (status === 'Active' || status === 'Completed') return 'module-badge-success';
     if (status && status.startsWith('Pending')) return 'module-badge-warning';
+    if (status === 'Cancelled') return 'module-badge-danger';
     return 'module-badge-muted';
 }
 
@@ -326,12 +330,14 @@ async function handleCaseAction(form) {
                     badge.className = 'module-badge ' + caseBadgeClass(nextStatus);
                 }
 
+                const isClosedStatus = ['Closed', 'Completed', 'Cancelled'].includes(nextStatus);
+
                 if (archiveButton) {
-                    archiveButton.textContent = nextStatus === 'Closed' ? 'Restore' : 'Archive';
+                    archiveButton.textContent = isClosedStatus ? 'Restore' : 'Archive';
                 }
 
                 if (archiveForm) {
-                    archiveForm.dataset.confirm = nextStatus === 'Closed' ? 'Restore this case?' : 'Archive this case?';
+                    archiveForm.dataset.confirm = isClosedStatus ? 'Restore this case?' : 'Archive this case?';
                 }
             }
         }

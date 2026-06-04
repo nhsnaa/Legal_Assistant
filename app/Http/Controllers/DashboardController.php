@@ -28,7 +28,7 @@ class DashboardController extends Controller
 
         // 1. Fetch Cases & Count Active
         $casesRef = $this->workspaceCollection('cases')->all();
-        $activeCases = count(array_filter($casesRef, fn($c) => ($c['status'] ?? '') === 'Active'));
+        $activeCases = count(array_filter($casesRef, fn($c) => $this->isOpenCaseStatus($c['status'] ?? 'Registered')));
 
         // 2. Chart Logic (Last 7 Days)
         $startDate = now()->subDays(6)->startOfDay();
@@ -46,6 +46,13 @@ class DashboardController extends Controller
             }));
             $chartData[] = $count;
         }
+
+        $caseStatusCounts = collect($casesRef)
+            ->groupBy(fn ($case) => $case['status'] ?? 'Registered')
+            ->map(fn ($cases) => $cases->count())
+            ->sortKeys();
+        $caseStatusLabels = $caseStatusCounts->keys()->values()->all();
+        $caseStatusData = $caseStatusCounts->values()->all();
 
         // 3. Fetch Hearings (Limit 5) without requiring a Firebase index
         $hearingsRef = $this->workspaceCollection('hearings')->all();
@@ -119,7 +126,7 @@ class DashboardController extends Controller
         $recentActivityCount = $allRecentActivities->count();
 
         return view('dashboard', compact(
-            'greeting', 'activeCases', 'chartLabels', 'chartData', 
+            'greeting', 'activeCases', 'chartLabels', 'chartData', 'caseStatusLabels', 'caseStatusData',
             'hearings', 'recentDocuments', 'recentTimeEntryData', 
             'clients', 'clientsCount', 'documentsCount', 'caseOptions', 'documentRules', 'aiSuggestions', 'aiSummary', 'recentActivities', 'allRecentActivities', 'recentActivityCount',
             'allHearings', 'hearingCount', 'allRecentDocuments', 'allRecentTimeEntryData', 'recentTimeEntryCount'
@@ -134,7 +141,7 @@ class DashboardController extends Controller
             ->take(3)
             ->values();
 
-        $activeCases = $this->workspaceCollection('cases')->filter(fn ($case) => ($case['status'] ?? '') === 'Active')->count();
+        $activeCases = $this->workspaceCollection('cases')->filter(fn ($case) => $this->isOpenCaseStatus($case['status'] ?? 'Registered'))->count();
         $documentsCount = $this->workspaceCollection('documents')->count();
         $billableEntriesCount = $this->workspaceCollection('time_entries')
             ->filter(fn ($entry) => !empty($entry['billable']))
@@ -506,6 +513,11 @@ class DashboardController extends Controller
             'summary' => $summary,
             'suggestions' => collect($suggestions)->take(3)->values()->all(),
         ];
+    }
+
+    private function isOpenCaseStatus(string $status): bool
+    {
+        return !in_array($status, ['Closed', 'Completed', 'Cancelled'], true);
     }
 
     private function buildRecentActivityFeed()

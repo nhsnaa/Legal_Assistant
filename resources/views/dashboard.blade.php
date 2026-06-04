@@ -30,6 +30,47 @@
         </div>
     </div>
 
+    <div class="glass-card mb-4">
+        <div class="p-4 border-bottom d-flex justify-content-between">
+            <h6 class="font-weight-bold mb-0">Upcoming Court Hearings</h6>
+            <button type="button" class="btn btn-sm btn-link font-weight-bold p-0 {{ ($hearingCount ?? 0) > 3 ? '' : 'd-none' }}" onclick="openDashboardModal('dashboardHearingsModal')">View More</button>
+            <span class="text-muted tiny uppercase {{ ($hearingCount ?? 0) > 3 ? 'd-none' : '' }}">Latest 3</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="tiny uppercase font-weight-bold">
+                    <tr>
+                        <th class="border-0 px-4">Time</th>
+                        <th class="border-0">Case Name</th>
+                        <th class="border-0 text-right px-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($hearings as $id => $hearing)
+                        <tr>
+                            <td class="px-4 font-weight-bold">
+                                {{ isset($hearing['hearing_time']) ? \Carbon\Carbon::parse($hearing['hearing_time'])->format('h:i A') : 'N/A' }}
+                            </td>
+                            <td>{{ $hearing['case_name'] ?? 'Untitled Case' }}</td>
+                            <td class="text-right px-4">
+                                <span class="badge-status-{{ ($hearing['status'] ?? '') === 'Confirmed' ? 'green' : 'orange' }}">
+                                    {{ $hearing['status'] ?? 'Scheduled' }}
+                                </span>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="3" class="text-center py-5 text-muted">
+                                <div style="font-size: 2rem; opacity: 0.3;"><i class="bi bi-calendar2-event"></i></div>
+                                <p class="mb-0">No upcoming hearings scheduled.</p>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-xl-8 col-lg-7">
             <div class="glass-card ai-assistant-card mb-4">
@@ -126,47 +167,6 @@
                 </div>
             </div>
 
-            <div class="glass-card mb-4">
-                <div class="p-4 border-bottom d-flex justify-content-between">
-                    <h6 class="font-weight-bold mb-0">Upcoming Court Hearings</h6>
-                    <button type="button" class="btn btn-sm btn-link font-weight-bold p-0 {{ ($hearingCount ?? 0) > 3 ? '' : 'd-none' }}" onclick="openDashboardModal('dashboardHearingsModal')">View More</button>
-                    <span class="text-muted tiny uppercase {{ ($hearingCount ?? 0) > 3 ? 'd-none' : '' }}">Latest 3</span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="tiny uppercase font-weight-bold">
-                            <tr>
-                                <th class="border-0 px-4">Time</th>
-                                <th class="border-0">Case Name</th>
-                                <th class="border-0 text-right px-4">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($hearings as $id => $hearing)
-                                <tr>
-                                    <td class="px-4 font-weight-bold">
-                                        {{ isset($hearing['hearing_time']) ? \Carbon\Carbon::parse($hearing['hearing_time'])->format('h:i A') : 'N/A' }}
-                                    </td>
-                                    <td>{{ $hearing['case_name'] ?? 'Untitled Case' }}</td>
-                                    <td class="text-right px-4">
-                                        <span class="badge-status-{{ ($hearing['status'] ?? '') === 'Confirmed' ? 'green' : 'orange' }}">
-                                            {{ $hearing['status'] ?? 'Scheduled' }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="3" class="text-center py-5 text-muted">
-                                        <div style="font-size: 2rem; opacity: 0.3;"><i class="bi bi-folder2-open"></i></div>
-                                        <p class="mb-0">No upcoming hearings scheduled.</p>
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div class="row mb-4">
                 <div class="col-md-6 mb-3 mb-md-0">
                     <div class="summary-card summary-card-compact h-100">
@@ -179,8 +179,46 @@
                 </div>
                 <div class="col-md-6">
                     <div class="glass-card p-4 h-100">
-                        <h6 class="font-weight-bold text-muted small uppercase">Activity Trend</h6>
-                        <canvas id="activityChart" style="max-height: 120px;"></canvas>
+                        <h6 class="font-weight-bold text-muted small uppercase mb-3">System Snapshot</h6>
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="text-center py-2">
+                                    <div class="h4 font-weight-bold text-primary mb-1">{{ $clientsCount }}</div>
+                                    <small class="text-muted">Total Clients</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-center py-2">
+                                    <div class="h4 font-weight-bold mb-1">{{ $documentsCount }}</div>
+                                    <small class="text-muted">Documents</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-lg-7 mb-3 mb-lg-0">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="font-weight-bold text-muted small uppercase mb-0">Activity Trend</h6>
+                            <span class="text-muted tiny uppercase">Last 7 Days</span>
+                        </div>
+                        <div style="height: 260px;">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="font-weight-bold text-muted small uppercase mb-0">Case Status Mix</h6>
+                            <span class="text-muted tiny uppercase">Workload</span>
+                        </div>
+                        <div style="height: 260px;">
+                            <canvas id="caseStatusChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -272,23 +310,6 @@
                 <div class="time-log-list" id="timeLogList"></div>
             </div>
 
-            <div class="glass-card p-4 mt-3">
-                <h6 class="font-weight-bold mb-3">System Snapshot</h6>
-                <div class="row">
-                    <div class="col-6">
-                        <div class="text-center py-3">
-                            <div class="h4 font-weight-bold text-primary mb-1">{{ $clientsCount }}</div>
-                            <small class="text-muted">Total Clients</small>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-center py-3">
-                            <div class="h5 font-weight-bold mb-1">{{ $documentsCount }}</div>
-                            <small class="text-muted">Documents Stored</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -963,6 +984,8 @@ function buildAiConflictHtml(conflicts, message) {
 
 const chartLabels = @json($chartLabels ?? []);
 const chartData = @json($chartData ?? []);
+const caseStatusLabels = @json($caseStatusLabels ?? []);
+const caseStatusData = @json($caseStatusData ?? []);
 const recentTimeEntries = @json($allRecentTimeEntryData ?? []);
 
 const ctx = document.getElementById('activityChart')?.getContext('2d');
@@ -982,7 +1005,88 @@ if (ctx) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            },
             plugins: { legend: { display: false } }
+        }
+    });
+}
+
+const caseStatusCtx = document.getElementById('caseStatusChart')?.getContext('2d');
+if (caseStatusCtx) {
+    const hasCaseStatusData = Array.isArray(caseStatusData) && caseStatusData.some(function (value) {
+        return Number(value) > 0;
+    });
+    const caseStatusPalette = {
+        'Registered': '#7dd3fc',
+        'Active': '#0891b2',
+        'Pending': '#f59e0b',
+        'Pending Client': '#fbbf24',
+        'Pending Firm': '#d97706',
+        'Pending Third Party': '#f97316',
+        'Completed': '#10b981',
+        'Cancelled': '#ef4444',
+        'Closed': '#64748b'
+    };
+    const caseStatusFallbackColors = ['#0891b2', '#0e7490', '#14b8a6', '#f59e0b', '#64748b'];
+    const caseStatusColors = hasCaseStatusData
+        ? caseStatusLabels.map(function (label, index) {
+            return caseStatusPalette[label] || caseStatusFallbackColors[index % caseStatusFallbackColors.length];
+        })
+        : ['#e2e8f0'];
+
+    new Chart(caseStatusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: hasCaseStatusData ? caseStatusLabels : ['No cases yet'],
+            datasets: [{
+                data: hasCaseStatusData ? caseStatusData : [1],
+                backgroundColor: caseStatusColors,
+                hoverBackgroundColor: caseStatusColors,
+                borderColor: 'rgba(255, 255, 255, 0.92)',
+                borderWidth: 4,
+                hoverOffset: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '62%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 14,
+                        color: '#64748b',
+                        font: {
+                            size: 11,
+                            weight: '600'
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#0f172a',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(8, 145, 178, 0.28)',
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function (context) {
+                            return context.label + ': ' + context.parsed + ' case' + (context.parsed === 1 ? '' : 's');
+                        }
+                    }
+                }
+            }
         }
     });
 }

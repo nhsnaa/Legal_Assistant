@@ -126,7 +126,7 @@
                                         </td>
                                         <td>{{ $case->case_type ?? 'Other' }}</td>
                                         <td>
-                                            <span class="module-badge {{ ($case->status ?? 'Active') === 'Active' ? 'module-badge-success' : (($case->status ?? '') === 'Pending' ? 'module-badge-warning' : 'module-badge-muted') }}">
+                                            <span class="module-badge {{ in_array($case->status ?? 'Registered', ['Active', 'Completed'], true) ? 'module-badge-success' : (str_starts_with($case->status ?? '', 'Pending') ? 'module-badge-warning' : (($case->status ?? '') === 'Cancelled' ? 'module-badge-danger' : 'module-badge-muted')) }}">
                                                 {{ $case->status ?? 'Active' }}
                                             </span>
                                         </td>
